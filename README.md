@@ -22,12 +22,7 @@ A Python tool designed to automate the creation of table tennis highlight videos
     cd tt-match-highlights
     ```
 
-2.  **Install FFmpeg:**
-    *   **macOS:** `brew install ffmpeg`
-    *   **Windows:** Download from [ffmpeg.org](https://ffmpeg.org/download.html) or use `winget install ffmpeg`.
-    *   **Linux:** `sudo apt install ffmpeg`
-
-3.  **Install Python Dependencies:**
+2.  **Install Dependencies:**
     This tool requires Python 3.8+ and `ffmpeg` installed on your system path.
     ```bash
     pip install opencv-python pillow numpy scipy
