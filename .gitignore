@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Mac
+.DS_Store
+
+# Video Files (too large for git usually)
+*.MOV
+*.mp4
+*.mkv
+*.avi
+
+# Temp files from our script
+temp_audio.wav
+temp_overlays/
+concat_list.txt
