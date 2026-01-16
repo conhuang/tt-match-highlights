@@ -35,11 +35,22 @@ def run_manual_mode(args):
                 
             # Add overlay text
             current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
-            status_text = f"Time: {current_time:.1f}s | Events: {len(events)}"
-            if current_start_time is not None:
-                status_text += f" | CLIP STARTED: {current_start_time:.1f}s"
             
-            cv2.putText(frame, status_text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            # Draw semi-transparent background box (50% of previous 670x80 -> ~335x40)
+            overlay = frame.copy()
+            box_x1, box_y1 = 30, 20
+            box_x2, box_y2 = 380, 75
+            cv2.rectangle(overlay, (box_x1, box_y1), (box_x2, box_y2), (0, 0, 0), -1)
+            alpha = 0.6
+            cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+            
+            status_line1 = f"Time: {current_time:.1f}s | Events: {len(events)}"
+            status_line2 = "CLIP: " + (f"{current_start_time:.1f}s" if current_start_time is not None else "OFF")
+            
+            # Use smaller scales to fit the compact box
+            cv2.putText(frame, status_line1, (box_x1 + 10, box_y1 + 22), cv2.FONT_HERSHEY_SIMPLEX, .9, (255, 255, 255), 1)
+            cv2.putText(frame, status_line2, (box_x1 + 10, box_y1 + 45), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 255), 1)
+            
             cv2.imshow('Table Tennis Automator', frame)
         
         key = cv2.waitKey(delay if not paused else 100) & 0xFF
@@ -58,15 +69,19 @@ def run_manual_mode(args):
             # Force update visual
             ret, frame = cap.read()
             if ret:
-                # Resize/Overlay logic duplicated for immediate feedback
-                height, width = frame.shape[:2]
-                if width > 1920:
-                    frame = cv2.resize(frame, (1920, int(1920 * height / width)))
-                current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
-                status_text = f"Time: {current_time:.1f}s | Events: {len(events)} (SEEK)"
-                if current_start_time is not None:
-                    status_text += f" | CLIP STARTED: {current_start_time:.1f}s"
-                cv2.putText(frame, status_text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                # Draw semi-transparent background box (Compact)
+                overlay = frame.copy()
+                box_x1, box_y1 = 30, 20
+                box_x2, box_y2 = 380, 75
+                cv2.rectangle(overlay, (box_x1, box_y1), (box_x2, box_y2), (0, 0, 0), -1)
+                alpha = 0.6
+                cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+                
+                status_line1 = f"Time: {current_time:.1f}s | Events: {len(events)} (SEEK)"
+                status_line2 = "CLIP: " + (f"{current_start_time:.1f}s" if current_start_time is not None else "OFF")
+                
+                cv2.putText(frame, status_line1, (box_x1 + 10, box_y1 + 22), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+                cv2.putText(frame, status_line2, (box_x1 + 10, box_y1 + 45), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 200, 0), 1)
                 cv2.imshow('Table Tennis Automator', frame)
 
         elif key in [83, 3, ord('.')]: # Right Arrow (83/3) or '.'
@@ -77,14 +92,19 @@ def run_manual_mode(args):
              # Force update visual
              ret, frame = cap.read()
              if ret:
-                 height, width = frame.shape[:2]
-                 if width > 1920:
-                     frame = cv2.resize(frame, (1920, int(1920 * height / width)))
-                 current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
-                 status_text = f"Time: {current_time:.1f}s | Events: {len(events)} (SEEK)"
-                 if current_start_time is not None:
-                     status_text += f" | CLIP STARTED: {current_start_time:.1f}s"
-                 cv2.putText(frame, status_text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                 # Draw semi-transparent background box (Compact)
+                 overlay = frame.copy()
+                 box_x1, box_y1 = 30, 20
+                 box_x2, box_y2 = 380, 75
+                 cv2.rectangle(overlay, (box_x1, box_y1), (box_x2, box_y2), (0, 0, 0), -1)
+                 alpha = 0.6
+                 cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+                 
+                 status_line1 = f"Time: {current_time:.1f}s | Events: {len(events)} (SEEK)"
+                 status_line2 = "CLIP: " + (f"{current_start_time:.1f}s" if current_start_time is not None else "OFF")
+                 
+                 cv2.putText(frame, status_line1, (box_x1 + 10, box_y1 + 22), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+                 cv2.putText(frame, status_line2, (box_x1 + 10, box_y1 + 45), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 200, 0), 1)
                  cv2.imshow('Table Tennis Automator', frame)
         
         # Debug: Print key code if not recognized/handled above for debugging

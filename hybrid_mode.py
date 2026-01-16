@@ -128,8 +128,17 @@ def run_hybrid_mode(args):
                 if width > 1920:
                     frame = cv2.resize(frame, (1920, int(1920 * height / width)))
                     
-                msg = f"Candidate {i+1}/{len(rallies)} | A/S=Win, X=Skip"
-                cv2.putText(frame, msg, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+                msg = f"Can {i+1}/{len(rallies)} | A/S=Win, X=Skip"
+                
+                # Draw semi-transparent background box (50% size: ~375x25)
+                overlay = frame.copy()
+                box_x1, box_y1 = 30, 15
+                box_x2, box_y2 = 400, 50
+                cv2.rectangle(overlay, (box_x1, box_y1), (box_x2, box_y2), (0, 0, 0), -1)
+                alpha = 0.6
+                cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+                
+                cv2.putText(frame, msg, (box_x1 + 10, box_y1 + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
                 cv2.imshow('Table Tennis Automator', frame)
                 
                 key = cv2.waitKey(int(1000/fps)) & 0xFF

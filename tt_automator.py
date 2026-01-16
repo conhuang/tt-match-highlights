@@ -39,58 +39,9 @@ def get_video_properties(input_file):
 from manual_mode import run_manual_mode
 from hybrid_mode import run_hybrid_mode
 
+from scoreboard_generator import ScoreboardGenerator
 from PIL import Image, ImageDraw, ImageFont
 
-class ScoreboardGenerator:
-    def __init__(self, p1_name, p2_name, width=1920, height=1080):
-        self.p1_name = p1_name
-        self.p2_name = p2_name
-        self.width = width
-        self.height = height
-        # Load fonts (Mac default location)
-        try:
-            self.font_large = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 80)
-            self.font_small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 40)
-            self.font_game = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 150)
-        except:
-             # Fallback
-            self.font_large = ImageFont.load_default()
-            self.font_small = ImageFont.load_default()
-            self.font_game = ImageFont.load_default()
-
-    def create_scoreboard_image(self, p1_score, p2_score, p1_sets, p2_sets, output_path):
-        # Create transparent image
-        img = Image.new('RGBA', (self.width, self.height), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(img)
-        
-        # Draw Scoreboard Box (Bottom Center)
-        box_w, box_h = 600, 150
-        box_x = (self.width - box_w) // 2
-        box_y = self.height - box_h - 50
-        
-        # Background
-        draw.rectangle([box_x, box_y, box_x + box_w, box_y + box_h], fill=(0, 0, 0, 180))
-        
-        # Player Names
-        draw.text((box_x + 20, box_y + 10), self.p1_name, font=self.font_small, fill="white")
-        draw.text((box_x + box_w - 20, box_y + 10), self.p2_name, font=self.font_small, fill="white", anchor="ra")
-        
-        # Scores
-        draw.text((box_x + 80, box_y + 60), str(p1_score), font=self.font_large, fill="yellow" if p1_score > p2_score else "white")
-        draw.text((box_x + box_w - 80, box_y + 60), str(p2_score), font=self.font_large, fill="yellow" if p2_score > p1_score else "white", anchor="ra")
-        
-        # Sets
-        draw.text((box_x + box_w // 2, box_y + 110), f"Sets: {p1_sets} - {p2_sets}", font=self.font_small, fill="gray", anchor="ma")
-        
-        img.save(output_path)
-
-    def create_game_card(self, game_num, output_path):
-        img = Image.new('RGB', (self.width, self.height), (0, 0, 0))
-        draw = ImageDraw.Draw(img)
-        text = f"GAME {game_num}"
-        bbox = draw.textbbox((0, 0), text, font=self.font_game)
-        draw.text(((self.width - bbox[2])/2, (self.height - bbox[3])/2), text, font=self.font_game, fill="white")
-        img.save(output_path)
 
 def process_video(events, args):
     if not events:
@@ -118,7 +69,7 @@ def process_video(events, args):
     # Always start with Game 1 Card
     game_card_path = os.path.join(temp_dir, "game_1.png")
     gen.create_game_card(1, game_card_path)
-    processed_segments.append({"type": "card", "path": game_card_path, "duration": 3})
+    processed_segments.append({"type": "card", "path": game_card_path, "duration": 2.0})
     
     for i, event in enumerate(events):
         # 1. State BEFORE the point (for display)
@@ -157,7 +108,7 @@ def process_video(events, args):
             if p1_sets < 3 and p2_sets < 3 and i < len(events) - 1:
                 card_path = os.path.join(temp_dir, f"game_{game_num}.png")
                 gen.create_game_card(game_num, card_path)
-                processed_segments.append({"type": "card", "path": card_path, "duration": 3})
+                processed_segments.append({"type": "card", "path": card_path, "duration": 2.0})
 
     print(f"Generated {len(processed_segments)} segments. Rendering with FFmpeg...")
     
@@ -180,7 +131,7 @@ def process_video(events, args):
                     "-loop", "1", "-i", seg['path'],
                     "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
                     "-t", str(seg['duration']),
-                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "30",
+                    "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-r", "30",
                     "-c:a", "aac", "-shortest",
                     seg_output
                 ]
@@ -197,7 +148,7 @@ def process_video(events, args):
                     "-i", seg['overlay'],
                     "-filter_complex", "[0:v][1:v]overlay=0:0[outv]",
                     "-map", "[outv]", "-map", "0:a", # Keep audio
-                    "-c:v", "libx264", "-c:a", "aac", "-pix_fmt", "yuv420p", "-r", "30",
+                    "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", "-pix_fmt", "yuv420p", "-r", "30",
                     seg_output
                 ]
                 subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
