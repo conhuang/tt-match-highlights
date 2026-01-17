@@ -18,6 +18,7 @@ def parse_args():
     parser.add_argument("--mode", choices=["manual", "hybrid"], default="manual", help="Operation mode")
     parser.add_argument("--explicit-start", action="store_true", help="Require 'S' key to mark start of point in manual mode")
     parser.add_argument("--names", default="Player 1,Player 2", help="Comma-separated player names")
+    parser.add_argument("--load-events", help="Path to a JSON file of events to skip logging and go straight to video processing")
     return parser.parse_args()
 
 def get_video_properties(input_file):
@@ -58,7 +59,7 @@ def get_video_properties(input_file):
 
 def process_video(events, args):
     from PIL import Image, ImageDraw, ImageFont
-    from scoreboard.scoreboard_generator import ScoreboardGenerator
+    from main.scoreboard.scoreboard_generator import ScoreboardGenerator
     
     if not events:
          return
@@ -130,8 +131,8 @@ def process_video(events, args):
                 processed_segments.append({"type": "card", "path": card_path, "duration": 2.0})
 
         # 3. Timeout Check (at the end of the clip)
-        if event.get('timeout_winner'):
-            tw = event['timeout_winner']
+        if event.get('timeout_player'):
+            tw = event['timeout_player']
             if tw == p1_name: p1_timeout_taken = True
             else: p2_timeout_taken = True
             # Note: No popup segment added per user request, 
@@ -202,21 +203,38 @@ def process_video(events, args):
 
 def main():
     args = parse_args()
+    from main.event_manager import load_events, save_events, get_default_event_path
+    
     fps, duration = get_video_properties(args.input_file)
     print(f"Video detected: {duration:.2f}s @ {fps} fps")
     
     events = []
-    if args.mode == "manual":
-        from main.manual_mode import run_manual_mode
-        events = run_manual_mode(args)
-    elif args.mode == "hybrid":
-        from main.hybrid_mode import run_hybrid_mode
-        events = run_hybrid_mode(args)
-        
+    
+    # 1. Loading Phase
+    if args.load_events:
+        events = load_events(args.load_events)
+        if not events:
+            print(f"FAILED: Could not load events from {args.load_events}. Exiting.")
+            sys.exit(1)
+    else:
+        # 2. Logging Phase
+        if args.mode == "manual":
+            from main.manual_mode import run_manual_mode
+            events = run_manual_mode(args)
+        elif args.mode == "hybrid":
+            from main.hybrid_mode import run_hybrid_mode
+            events = run_hybrid_mode(args)
+            
+        # 3. Persistence Phase (Auto-save)
+        if events:
+            default_path = get_default_event_path(args.input_file)
+            save_events(events, default_path)
+            
+    # 4. Processing Phase
     if events:
         process_video(events, args)
     else:
-        print("No events recorded. Exiting.")
+        print("No events recorded or loaded. Exiting.")
 
 if __name__ == "__main__":
     main()

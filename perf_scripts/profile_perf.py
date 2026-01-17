@@ -1,4 +1,9 @@
 import time
+import sys
+import os
+
+# Add main directory to sys.path to allow imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'main')))
 
 start = time.time()
 print("Starting profile...")
@@ -12,7 +17,8 @@ from PIL import Image, ImageFont, ImageDraw
 print(f"Importing PIL took: {time.time() - t0:.4f}s")
 
 t0 = time.time()
-gen = tt_automator.ScoreboardGenerator("P1", "P2")
+from scoreboard.scoreboard_generator import ScoreboardGenerator
+gen = ScoreboardGenerator("P1", "P2")
 print(f"Initializing ScoreboardGenerator (font loading) took: {time.time() - t0:.4f}s")
 
 t0 = time.time()

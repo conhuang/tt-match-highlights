@@ -2,8 +2,14 @@ import unittest
 import sys
 import os
 
-# Add current directory to path
-sys.path.append(os.getcwd())
+# Add project root to sys.path
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if ROOT_DIR not in sys.path:
+    sys.path.append(ROOT_DIR)
+# Also add main for direct imports in some tests
+MAIN_DIR = os.path.join(ROOT_DIR, 'main')
+if MAIN_DIR not in sys.path:
+    sys.path.append(MAIN_DIR)
 
 class TestTableTennisRefactor(unittest.TestCase):
     
@@ -26,10 +32,9 @@ class TestTableTennisRefactor(unittest.TestCase):
             self.fail(f"Failed to import hybrid_mode: {e}")
 
     def test_tt_automator_import(self):
-        """Verify tt_automator imports correctly and retains shared logic"""
+        """Verify tt_automator imports correctly"""
         try:
             import tt_automator
-            self.assertTrue(hasattr(tt_automator, "ScoreboardGenerator"), "tt_automator missing ScoreboardGenerator class")
             self.assertTrue(hasattr(tt_automator, "process_video"), "tt_automator missing process_video function")
         except ImportError as e:
             self.fail(f"Failed to import tt_automator: {e}")

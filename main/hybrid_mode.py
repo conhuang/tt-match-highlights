@@ -131,7 +131,7 @@ def run_hybrid_mode(args):
                     
                 msg = f"Can {i+1}/{len(rallies)} | A/S=Win, X=Skip"
                 
-                from .ui_utils import draw_status_overlay
+                from main.ui_utils import draw_status_overlay
                 draw_status_overlay(frame, [msg], font_scale=1.5)
                 
                 cv2.imshow('Table Tennis Automator', frame)

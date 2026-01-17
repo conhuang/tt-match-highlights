@@ -2,6 +2,9 @@ import time
 import sys
 import os
 
+# Add main directory to sys.path to allow imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'main')))
+
 def profile_startup(input_file):
     print(f"Profiling startup for: {input_file}")
     t_start = time.time()

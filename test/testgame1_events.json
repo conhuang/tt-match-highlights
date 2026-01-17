@@ -1,0 +1,110 @@
+[
+    {
+        "start": 16.668333333333333,
+        "end": 20.468333333333334,
+        "winner": "Jonathan",
+        "timeout_player": null
+    },
+    {
+        "start": 27.603333333333335,
+        "end": 34.77,
+        "winner": "Jonathan",
+        "timeout_player": null
+    },
+    {
+        "start": 46.47166666666667,
+        "end": 51.33833333333334,
+        "winner": "Viet Dude",
+        "timeout_player": null
+    },
+    {
+        "start": 62.973333333333336,
+        "end": 66.50666666666667,
+        "winner": "Jonathan",
+        "timeout_player": null
+    },
+    {
+        "start": 73.24000000000001,
+        "end": 79.54166666666667,
+        "winner": "Jonathan",
+        "timeout_player": "Jonathan"
+    },
+    {
+        "start": 88.24166666666667,
+        "end": 94.21000000000001,
+        "winner": "Jonathan",
+        "timeout_player": null
+    },
+    {
+        "start": 110.71166666666667,
+        "end": 118.01166666666667,
+        "winner": "Viet Dude",
+        "timeout_player": null
+    },
+    {
+        "start": 125.94666666666667,
+        "end": 130.61333333333334,
+        "winner": "Viet Dude",
+        "timeout_player": null
+    },
+    {
+        "start": 140.91500000000002,
+        "end": 150.215,
+        "winner": "Viet Dude",
+        "timeout_player": null
+    },
+    {
+        "start": 162.91666666666669,
+        "end": 169.18333333333334,
+        "winner": "Viet Dude",
+        "timeout_player": null
+    },
+    {
+        "start": 183.61833333333334,
+        "end": 193.2866666666667,
+        "winner": "Viet Dude",
+        "timeout_player": null
+    },
+    {
+        "start": 207.92166666666668,
+        "end": 214.48833333333334,
+        "winner": "Jonathan",
+        "timeout_player": null
+    },
+    {
+        "start": 234.89000000000004,
+        "end": 243.09166666666667,
+        "winner": "Jonathan",
+        "timeout_player": null
+    },
+    {
+        "start": 249.45833333333334,
+        "end": 257.79333333333335,
+        "winner": "Viet Dude",
+        "timeout_player": null
+    },
+    {
+        "start": 275.795,
+        "end": 282.3616666666667,
+        "winner": "Viet Dude",
+        "timeout_player": null
+    },
+    {
+        "start": 294.13,
+        "end": 300.63,
+        "winner": "Viet Dude",
+        "timeout_player": null
+    },
+    {
+        "start": 308.09833333333336,
+        "end": 315.09833333333336,
+        "winner": "Viet Dude",
+        "timeout_player": null
+    },
+    {
+        "start": 318.09833333333336,
+        "end": 323.5,
+        "winner": "Viet Dude",
+        "timeout_player": null
+    }
+]

@@ -2,6 +2,9 @@ import time
 import sys
 import os
 
+# Add main directory to sys.path to allow imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'main')))
+
 def profile_imports():
     modules_to_test = [
         ('cv2', 'import cv2'),
@@ -12,7 +15,7 @@ def profile_imports():
         ('argparse', 'import argparse'),
         ('manual_mode', 'import manual_mode'),
         ('hybrid_mode', 'import hybrid_mode'),
-        ('scoreboard_generator', 'import scoreboard_generator')
+        ('scoreboard_generator', 'from scoreboard.scoreboard_generator import ScoreboardGenerator')
     ]
 
     print(f"{'Module':<25} | {'Time (s)':<10}")
@@ -40,7 +43,7 @@ if __name__ == "__main__":
     profile_imports()
     
     t0 = time.time()
-    from scoreboard_generator import ScoreboardGenerator
+    from scoreboard.scoreboard_generator import ScoreboardGenerator
     gen = ScoreboardGenerator("P1", "P2")
     print(f"{'Font Loading':<25} | {time.time() - t0:.4f}s")
     

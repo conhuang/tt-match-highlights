@@ -80,7 +80,7 @@ def run_manual_mode(args):
              # Force update visual
              ret, frame = cap.read()
              if ret:
-                 from .ui_utils import draw_status_overlay
+                 from main.ui_utils import draw_status_overlay
                  lines = [
                      (f"Time: {current_time:.1f}s | Events: {len(events)} (SEEK)", (255, 255, 255)),
                      ("CLIP: " + (f"{current_start_time:.1f}s" if current_start_time is not None else "OFF"), (0, 255, 255))
@@ -131,7 +131,7 @@ def run_manual_mode(args):
                 "start": start_time,
                 "end": end_time,
                 "winner": winner,
-                "timeout_winner": None # New field
+                "timeout_player": None # New field
             })
             print(f"EVENT RECORDED: {winner} won ({start_time:.1f}-{end_time:.1f})")
             
@@ -144,7 +144,7 @@ def run_manual_mode(args):
             else:
                 timeout_for = p1_name if key == ord('A') else p2_name
                 # Attach to the LAST event
-                events[-1]["timeout_winner"] = timeout_for
+                events[-1]["timeout_player"] = timeout_for
                 print(f"TIMEOUT RECORDED: {timeout_for} took a timeout after the last point.")
             
     cap.release()
