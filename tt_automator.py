@@ -3,6 +3,7 @@ import sys
 import os
 import subprocess
 import json
+import shutil
 from datetime import timedelta
 import logging
 
@@ -57,7 +58,7 @@ def get_video_properties(input_file):
 
 def process_video(events, args):
     from PIL import Image, ImageDraw, ImageFont
-    from scoreboard_generator import ScoreboardGenerator
+    from scoreboard.scoreboard_generator import ScoreboardGenerator
     
     if not events:
          return
@@ -193,9 +194,11 @@ def process_video(events, args):
     
     print(f"Done! Saved to {args.output_file}")
     
-    # Cleanup (Optional)
-    # shutil.rmtree(temp_dir)
-    # os.remove(concat_list_path)
+    # Cleanup 
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+    if os.path.exists(concat_list_path):
+        os.remove(concat_list_path)
 
 def main():
     args = parse_args()
@@ -204,10 +207,10 @@ def main():
     
     events = []
     if args.mode == "manual":
-        from manual_mode import run_manual_mode
+        from main.manual_mode import run_manual_mode
         events = run_manual_mode(args)
     elif args.mode == "hybrid":
-        from hybrid_mode import run_hybrid_mode
+        from main.hybrid_mode import run_hybrid_mode
         events = run_hybrid_mode(args)
         
     if events:

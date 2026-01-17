@@ -1,4 +1,4 @@
-from scoreboard_generator import ScoreboardGenerator
+from main.scoreboard.scoreboard_generator import ScoreboardGenerator
 from PIL import Image
 import os
 

@@ -38,19 +38,12 @@ def run_manual_mode(args):
             # Add overlay text
             current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
             
-            # Draw semi-transparent background box (Expanded for 3x larger text)
-            overlay = frame.copy()
-            box_x1, box_y1 = 30, 20
-            box_x2, box_y2 = 700, 160
-            cv2.rectangle(overlay, (box_x1, box_y1), (box_x2, box_y2), (0, 0, 0), -1)
-            alpha = 0.6
-            cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
-            
-            status_line1 = f"Time: {current_time:.1f}s | Events: {len(events)}"
-            status_line2 = "CLIP: " + (f"{current_start_time:.1f}s" if current_start_time is not None else "OFF")
-            
-            cv2.putText(frame, status_line1, (box_x1 + 15, box_y1 + 55), cv2.FONT_HERSHEY_SIMPLEX, 1.35, (255, 255, 255), 2)
-            cv2.putText(frame, status_line2, (box_x1 + 15, box_y1 + 115), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 2)
+            from .ui_utils import draw_status_overlay
+            lines = [
+                (f"Time: {current_time:.1f}s | Events: {len(events)}", (255, 255, 255)),
+                ("CLIP: " + (f"{current_start_time:.1f}s" if current_start_time is not None else "OFF"), (0, 255, 255))
+            ]
+            draw_status_overlay(frame, lines, font_scale=1.3)
             
             cv2.imshow('Table Tennis Automator', frame)
         
@@ -70,19 +63,12 @@ def run_manual_mode(args):
             # Force update visual
             ret, frame = cap.read()
             if ret:
-                # Draw semi-transparent background box (Compact)
-                overlay = frame.copy()
-                box_x1, box_y1 = 30, 20
-                box_x2, box_y2 = 380, 75
-                cv2.rectangle(overlay, (box_x1, box_y1), (box_x2, box_y2), (0, 0, 0), -1)
-                alpha = 0.6
-                cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
-                
-                status_line1 = f"Time: {current_time:.1f}s | Events: {len(events)} (SEEK)"
-                status_line2 = "CLIP: " + (f"{current_start_time:.1f}s" if current_start_time is not None else "OFF")
-                
-                cv2.putText(frame, status_line1, (box_x1 + 15, box_y1 + 55), cv2.FONT_HERSHEY_SIMPLEX, 1.35, (255, 255, 255), 2)
-                cv2.putText(frame, status_line2, (box_x1 + 15, box_y1 + 115), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 2)
+                from .ui_utils import draw_status_overlay
+                lines = [
+                    (f"Time: {current_time:.1f}s | Events: {len(events)} (SEEK)", (255, 255, 255)),
+                    ("CLIP: " + (f"{current_start_time:.1f}s" if current_start_time is not None else "OFF"), (0, 255, 255))
+                ]
+                draw_status_overlay(frame, lines, font_scale=1.3)
             
             cv2.imshow('Table Tennis Automator', frame)
 
@@ -94,19 +80,12 @@ def run_manual_mode(args):
              # Force update visual
              ret, frame = cap.read()
              if ret:
-                 # Draw semi-transparent background box (Compact)
-                 overlay = frame.copy()
-                 box_x1, box_y1 = 30, 20
-                 box_x2, box_y2 = 380, 75
-                 cv2.rectangle(overlay, (box_x1, box_y1), (box_x2, box_y2), (0, 0, 0), -1)
-                 alpha = 0.6
-                 cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
-                 
-                 status_line1 = f"Time: {current_time:.1f}s | Events: {len(events)} (SEEK)"
-                 status_line2 = "CLIP: " + (f"{current_start_time:.1f}s" if current_start_time is not None else "OFF")
-                 
-                 cv2.putText(frame, status_line1, (box_x1 + 10, box_y1 + 22), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
-                 cv2.putText(frame, status_line2, (box_x1 + 10, box_y1 + 45), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 200, 0), 1)
+                 from .ui_utils import draw_status_overlay
+                 lines = [
+                     (f"Time: {current_time:.1f}s | Events: {len(events)} (SEEK)", (255, 255, 255)),
+                     ("CLIP: " + (f"{current_start_time:.1f}s" if current_start_time is not None else "OFF"), (0, 255, 255))
+                 ]
+                 draw_status_overlay(frame, lines, font_scale=1.3)
                  cv2.imshow('Table Tennis Automator', frame)
         
         # Debug: Print key code if not recognized/handled above for debugging
@@ -128,7 +107,8 @@ def run_manual_mode(args):
                 current_start_time = None
             elif events:
                 removed = events.pop()
-                print(f"UNDO: Removed last event ({removed['winner']} won {removed['start']:.1f}-{removed['end']:.1f})")
+                current_start_time = removed['start']
+                print(f"UNDO: Removed last event. Restored start time to {current_start_time:.1f}s")
             else:
                 print("UNDO: No events to remove.")
                 

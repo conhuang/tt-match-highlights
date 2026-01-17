@@ -7,7 +7,7 @@ class ScoreboardGenerator:
         self.width = width
         self.height = height
         try:
-            main_path = "/System/Library/Fonts/MarkerFelt.ttc"
+            main_path = "/System/Library/Fonts/Menlo.ttc"
             # index 1 is Bold, index 0 is Regular
             self.font_bold = ImageFont.truetype(main_path, 48, index=1)
             self.font_main = ImageFont.truetype(main_path, 40, index=0)
