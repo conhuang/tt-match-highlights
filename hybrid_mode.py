@@ -1,8 +1,5 @@
 import os
-import cv2
-import numpy as np
 import subprocess
-from scipy.io import wavfile
 
 def extract_audio(video_path):
     audio_path = "temp_audio.wav"
@@ -16,6 +13,8 @@ def extract_audio(video_path):
     return audio_path
 
 def detect_rallies(audio_path, threshold_ratio=0.25, window_size=1600):
+    from scipy.io import wavfile
+    import numpy as np
     # Read audio
     rate, data = wavfile.read(audio_path)
     
@@ -64,6 +63,8 @@ def detect_rallies(audio_path, threshold_ratio=0.25, window_size=1600):
     return rallies
 
 def run_hybrid_mode(args):
+    import cv2
+    import numpy as np
     print("Extracting audio...")
     audio_path = extract_audio(args.input_file)
     
@@ -130,15 +131,16 @@ def run_hybrid_mode(args):
                     
                 msg = f"Can {i+1}/{len(rallies)} | A/S=Win, X=Skip"
                 
-                # Draw semi-transparent background box (50% size: ~375x25)
+                # Draw semi-transparent background box (Expanded for 3x larger text)
                 overlay = frame.copy()
-                box_x1, box_y1 = 30, 15
-                box_x2, box_y2 = 400, 50
+                box_x1, box_y1 = 30, 20
+                box_x2, box_y2 = 850, 90
                 cv2.rectangle(overlay, (box_x1, box_y1), (box_x2, box_y2), (0, 0, 0), -1)
                 alpha = 0.6
                 cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
                 
-                cv2.putText(frame, msg, (box_x1 + 10, box_y1 + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                # 3x larger scale
+                cv2.putText(frame, msg, (box_x1 + 15, box_y1 + 50), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 2)
                 cv2.imshow('Table Tennis Automator', frame)
                 
                 key = cv2.waitKey(int(1000/fps)) & 0xFF

@@ -1,6 +1,6 @@
-import cv2
-
 def run_manual_mode(args):
+    import cv2
+    import numpy as np
     print(f"Starting Manual Mode for {args.input_file}...")
     print("Controls:")
     print("  SPACE: Pause/Play")
@@ -8,6 +8,8 @@ def run_manual_mode(args):
     print("  LEFT/RIGHT or ,/.: Seek -/+ 1 second")
     print("  A: Point for Player 1 (ends clip)")
     print("  S: Point for Player 2 (ends clip)")
+    print("  Shift+A: Timeout for Player 1 (after clip)")
+    print("  Shift+S: Timeout for Player 2 (after clip)")
     print("  Z: UNDO last event")
     print("  Q: Quit")
     
@@ -36,10 +38,10 @@ def run_manual_mode(args):
             # Add overlay text
             current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
             
-            # Draw semi-transparent background box (50% of previous 670x80 -> ~335x40)
+            # Draw semi-transparent background box (Expanded for 3x larger text)
             overlay = frame.copy()
             box_x1, box_y1 = 30, 20
-            box_x2, box_y2 = 380, 75
+            box_x2, box_y2 = 700, 160
             cv2.rectangle(overlay, (box_x1, box_y1), (box_x2, box_y2), (0, 0, 0), -1)
             alpha = 0.6
             cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
@@ -47,9 +49,8 @@ def run_manual_mode(args):
             status_line1 = f"Time: {current_time:.1f}s | Events: {len(events)}"
             status_line2 = "CLIP: " + (f"{current_start_time:.1f}s" if current_start_time is not None else "OFF")
             
-            # Use smaller scales to fit the compact box
-            cv2.putText(frame, status_line1, (box_x1 + 10, box_y1 + 22), cv2.FONT_HERSHEY_SIMPLEX, .9, (255, 255, 255), 1)
-            cv2.putText(frame, status_line2, (box_x1 + 10, box_y1 + 45), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 255), 1)
+            cv2.putText(frame, status_line1, (box_x1 + 15, box_y1 + 55), cv2.FONT_HERSHEY_SIMPLEX, 1.35, (255, 255, 255), 2)
+            cv2.putText(frame, status_line2, (box_x1 + 15, box_y1 + 115), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 2)
             
             cv2.imshow('Table Tennis Automator', frame)
         
@@ -80,9 +81,10 @@ def run_manual_mode(args):
                 status_line1 = f"Time: {current_time:.1f}s | Events: {len(events)} (SEEK)"
                 status_line2 = "CLIP: " + (f"{current_start_time:.1f}s" if current_start_time is not None else "OFF")
                 
-                cv2.putText(frame, status_line1, (box_x1 + 10, box_y1 + 22), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
-                cv2.putText(frame, status_line2, (box_x1 + 10, box_y1 + 45), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 200, 0), 1)
-                cv2.imshow('Table Tennis Automator', frame)
+                cv2.putText(frame, status_line1, (box_x1 + 15, box_y1 + 55), cv2.FONT_HERSHEY_SIMPLEX, 1.35, (255, 255, 255), 2)
+                cv2.putText(frame, status_line2, (box_x1 + 15, box_y1 + 115), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 2)
+            
+            cv2.imshow('Table Tennis Automator', frame)
 
         elif key in [83, 3, ord('.')]: # Right Arrow (83/3) or '.'
              cur_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
@@ -137,8 +139,8 @@ def run_manual_mode(args):
             start_time = 0
             if args.explicit_start:
                 if current_start_time is None:
-                    print("WARNING: Point recorded but no Start Time set! Using (End - 5s).")
-                    start_time = max(0, end_time - 5)
+                    print("SKIPPED: Point NOT recorded because no Start Time (D) was set.")
+                    continue
                 else:
                     start_time = current_start_time
             else:
@@ -148,12 +150,22 @@ def run_manual_mode(args):
             events.append({
                 "start": start_time,
                 "end": end_time,
-                "winner": winner
+                "winner": winner,
+                "timeout_winner": None # New field
             })
             print(f"EVENT RECORDED: {winner} won ({start_time:.1f}-{end_time:.1f})")
             
             # Reset start time
             current_start_time = None
+            
+        elif key in [ord('A'), ord('S')]: # Shift + A or Shift + S
+            if not events:
+                print("WARNING: Cannot call timeout before any points are recorded.")
+            else:
+                timeout_for = p1_name if key == ord('A') else p2_name
+                # Attach to the LAST event
+                events[-1]["timeout_winner"] = timeout_for
+                print(f"TIMEOUT RECORDED: {timeout_for} took a timeout after the last point.")
             
     cap.release()
     cv2.destroyAllWindows()

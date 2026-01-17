@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
 import argparse
 import sys
 import os
-import cv2
 import subprocess
+import json
 from datetime import timedelta
 import logging
 
@@ -21,29 +20,45 @@ def parse_args():
     return parser.parse_args()
 
 def get_video_properties(input_file):
+    """Use ffprobe to get FPS and duration quickly."""
     if not os.path.exists(input_file):
         logger.error(f"Input file not found: {input_file}")
         sys.exit(1)
         
-    cap = cv2.VideoCapture(input_file)
-    if not cap.isOpened():
-        logger.error(f"Could not open video file: {input_file}")
-        sys.exit(1)
+    try:
+        cmd = [
+            "ffprobe", "-v", "error", "-select_streams", "v:0",
+            "-show_entries", "stream=r_frame_rate,duration,nb_frames",
+            "-of", "json", input_file
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        data = json.loads(result.stdout)
         
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    duration = frame_count / fps if fps > 0 else 0
-    cap.release()
-    return fps, duration
-
-from manual_mode import run_manual_mode
-from hybrid_mode import run_hybrid_mode
-
-from scoreboard_generator import ScoreboardGenerator
-from PIL import Image, ImageDraw, ImageFont
+        stream = data['streams'][0]
+        # FPS is usually "30000/1001" or "30/1"
+        num, den = map(float, stream['r_frame_rate'].split('/'))
+        fps = num / den if den != 0 else 0
+        
+        duration = float(stream.get('duration', 0))
+        if duration == 0 and 'nb_frames' in stream:
+            duration = int(stream['nb_frames']) / fps
+            
+        return fps, duration
+    except Exception as e:
+        logger.warning(f"ffprobe failed, falling back to cv2: {e}")
+        import cv2
+        cap = cv2.VideoCapture(input_file)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        duration = frame_count / fps if fps > 0 else 0
+        cap.release()
+        return fps, duration
 
 
 def process_video(events, args):
+    from PIL import Image, ImageDraw, ImageFont
+    from scoreboard_generator import ScoreboardGenerator
+    
     if not events:
          return
 
@@ -55,6 +70,8 @@ def process_video(events, args):
     p2_score = 0
     p1_sets = 0
     p2_sets = 0
+    p1_timeout_taken = False
+    p2_timeout_taken = False
     
     # Ensure temp dir exists
     temp_dir = "temp_overlays"
@@ -74,7 +91,8 @@ def process_video(events, args):
     for i, event in enumerate(events):
         # 1. State BEFORE the point (for display)
         overlay_path = os.path.join(temp_dir, f"score_{i}.png")
-        gen.create_scoreboard_image(p1_score, p2_score, p1_sets, p2_sets, overlay_path)
+        gen.create_scoreboard_image(p1_score, p2_score, p1_sets, p2_sets, overlay_path, 
+                                     p1_timeout=p1_timeout_taken, p2_timeout=p2_timeout_taken)
         
         processed_segments.append({
             "type": "clip",
@@ -109,6 +127,14 @@ def process_video(events, args):
                 card_path = os.path.join(temp_dir, f"game_{game_num}.png")
                 gen.create_game_card(game_num, card_path)
                 processed_segments.append({"type": "card", "path": card_path, "duration": 2.0})
+
+        # 3. Timeout Check (at the end of the clip)
+        if event.get('timeout_winner'):
+            tw = event['timeout_winner']
+            if tw == p1_name: p1_timeout_taken = True
+            else: p2_timeout_taken = True
+            # Note: No popup segment added per user request, 
+            # only the "T" indicator on the scoreboard will appear from next clip.
 
     print(f"Generated {len(processed_segments)} segments. Rendering with FFmpeg...")
     
@@ -178,8 +204,10 @@ def main():
     
     events = []
     if args.mode == "manual":
+        from manual_mode import run_manual_mode
         events = run_manual_mode(args)
     elif args.mode == "hybrid":
+        from hybrid_mode import run_hybrid_mode
         events = run_hybrid_mode(args)
         
     if events:

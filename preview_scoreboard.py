@@ -15,8 +15,8 @@ def create_preview():
     # Initialize Generator
     gen = ScoreboardGenerator(p1_name, p2_name)
     
-    # 1. Create the transparent scoreboard image
-    gen.create_scoreboard_image(p1_score, p2_score, p1_sets, p2_sets, temp_path)
+    # 1. Create the transparent scoreboard image (with P1 timeout indicator)
+    gen.create_scoreboard_image(p1_score, p2_score, p1_sets, p2_sets, temp_path, p1_timeout=True)
     
     # 2. Composite onto a white background (as requested)
     overlay = Image.open(temp_path).convert("RGBA")
