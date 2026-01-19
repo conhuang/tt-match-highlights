@@ -3,23 +3,20 @@ import os
 import json
 import sys
 
-# Add project root to sys.path
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if ROOT_DIR not in sys.path:
-    sys.path.append(ROOT_DIR)
-# Also add main directory for direct event_manager import
-MAIN_DIR = os.path.join(ROOT_DIR, 'main')
-if MAIN_DIR not in sys.path:
-    sys.path.append(MAIN_DIR)
+# Add src to sys.path to find the package
+SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+if SRC_DIR not in sys.path:
+    sys.path.append(SRC_DIR)
 
-from event_manager import save_events, load_events, get_default_event_path
+from tt_video_editor.event_manager import save_events, load_events, get_default_event_path
+
 
 class TestEventManager(unittest.TestCase):
     def setUp(self):
         self.test_file = "test_events_persistence.json"
         self.sample_events = [
             {"start": 1.0, "end": 3.0, "winner": "Player A", "timeout_player": None},
-            {"start": 5.5, "end": 8.2, "winner": "Player B", "timeout_player": "Player A"}
+            {"start": 5.5, "end": 8.2, "winner": "Player B", "timeout_player": "Player A"},
         ]
 
     def tearDown(self):
@@ -45,5 +42,6 @@ class TestEventManager(unittest.TestCase):
         path = get_default_event_path("videos/my_video.mp4")
         self.assertEqual(path, "videos/my_video_events.json")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

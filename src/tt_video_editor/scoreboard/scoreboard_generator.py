@@ -56,13 +56,13 @@ class ScoreboardGenerator:
             
             set_box_x = box_x + col_widths[0]
             draw.text((set_box_x + col_widths[1]/2, y_offset + 12), str(sets), 
-                      font=self.font_bold, fill=(220, 220, 220), anchor="ma")
+                      font=self.font_main, fill=(220, 220, 220), anchor="ma")
             
             point_box_x = set_box_x + col_widths[1]
             is_leading = (i == 0 and p1_score > p2_score) or (i == 1 and p2_score > p1_score)
             fill_color = (255, 215, 0) if is_leading else "white"
             draw.text((point_box_x + col_widths[2]/2, y_offset + 12), str(points), 
-                      font=self.font_bold, fill=fill_color, anchor="ma")
+                      font=self.font_main, fill=fill_color, anchor="ma")
             
             # Timeout Indicator "T"
             has_timeout = p1_timeout if i == 0 else p2_timeout

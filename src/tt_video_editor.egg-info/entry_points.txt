@@ -1,0 +1,3 @@
+[console_scripts]
+preview-scoreboard = tt_video_editor.scoreboard.preview_scoreboard:create_preview
+tt-automator = tt_video_editor.core:main

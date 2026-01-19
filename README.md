@@ -1,71 +1,61 @@
 # Table Tennis Highlights Automator
 
-A Python tool designed to automate the creation of table tennis highlight videos. It takes raw match footage and generates a polished highlight reel with scoreboards, game transitions, and cut-out dead time.
+A professional Python tool for automating table tennis highlight creation.
 
-## Features
+## 📁 Project Structure
+Following the standard `src/` layout for maintainability:
+- `src/tt_video_editor/`: Core package logic.
+- `tests/`: Unit and integration tests.
+- `scripts/`: Internal script entry points.
+- `perf_scripts/`: Performance profiling tools.
+- `pyproject.toml`: Project metadata and tool configuration.
 
-- **Two Operation Modes:**
-  - **Manual Mode:** Watch the video and log points with key presses.
-  - **Hybrid Mode:** (Experimental) Automatically detects rallies using audio analysis, then prompts for quick review.
-- **Automatic Editing:**
-  - Removes dead time between points.
-  - Generates a dynamic scoreboard overlay (Score, Sets).
-  - Inserts "Game X" transition cards.
-  - Concatenates everything into a final MP4.
-- **Customizable:** Change player names, scoring logic handles standard ITTF rules (11 points, win by 2, Best of 5).
+## 🚀 Quick Start
 
-## Installation
-
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/conhuang/tt-match-highlights.git
-    cd tt-match-highlights
-    ```
-
-2.  **Install Dependencies:**
-    This tool requires Python 3.8+ and `ffmpeg` installed on your system path.
-    ```bash
-    pip install opencv-python pillow numpy scipy
-    ```
-    *Note: Ensure `ffmpeg` is accessible in your terminal.*
-
-## Usage
-
-### Basic Command
+### 1. Installation
+Requires Python 3.8+ and `ffmpeg`.
 ```bash
-python tt_automator.py input.mp4 output.mp4 --names "Player1,Player2"
+pip install -e .
+# Or manual: pip install opencv-python pillow numpy scipy
 ```
 
-### Manual Mode (Default)
-Watch the video and manually mark the winner of each point.
+### 2. Run the Automator
 ```bash
-python tt_automator.py input.mp4 output.mp4 --mode manual --explicit-start --names "Alice,Bob"
+# Main Entry Point
+python tt_automator.py <input> <output> --names "Player1,Player2"
 ```
-**Controls:**
+
+### 3. Usage Modes
+- **Manual Mode (Default)**: Mark points with key presses.
+  ```bash
+  python tt_automator.py input.mp4 output.mp4 --mode manual --explicit-start
+  ```
+- **Hybrid Mode**: Audio-based rally detection with review.
+  ```bash
+  python tt_automator.py input.mp4 output.mp4 --mode hybrid
+  ```
+- **Event Persistence**: Load previous logs to re-render instantly.
+  ```bash
+  python tt_automator.py input.mp4 output.mp4 --load-events events.json
+  ```
+
+## ⌨️ Controls (Manual Mode)
 - `SPACE`: Pause/Play
-- `D`: Mark **START** of point (recommended with `--explicit-start`)
-- `A`: Point for **Player 1** (ends clip)
-- `S`: Point for **Player 2** (ends clip)
-- `Z`: **Undo** last event
+- `D`: Mark **START** of point (requires `--explicit-start`)
+- `A` / `S`: Point for **P1** / **P2** (ends clip)
+- `Shift+A` / `Shift+S`: Record **Timeout**
+- `Z`: **Undo** last action
 - `Left/Right` or `,/.`: Seek +/- 1 second
-- `Q`: Quit
+- `Q`: Quit & Save Events
 
-### Hybrid Mode
-Analyzes audio peaks (ball hits) to suggest potential rallies.
+## 🧪 Testing & Profiling
 ```bash
-python tt_automator.py input.mp4 output.mp4 --mode hybrid --names "Alice,Bob"
-```
-The tool will present candidate clips for review.
-**Review Controls:**
-- `A`: Player 1 Won (Keep clip)
-- `S`: Player 2 Won (Keep clip)
-- `X`: Reject/Skip clip
-- `SPACE`: Replay clip
-- `Q`: Quit
+# Run Unit Tests
+python -m unittest discover tests
 
-## Calibration (Advanced)
-If Hybrid Mode misses rallies, run the calibration script with ground truth timestamps to find the best audio threshold.
-```bash
-python calibrate.py
+# Run Profiling
+python perf_scripts/profile_startup.py tests/testgame1.MOV
 ```
-*(Requires editing `calibrate.py` with your specific video path and timestamps)*
+
+## 🛠️ Configuration
+Linting and project settings are managed in `pyproject.toml`.

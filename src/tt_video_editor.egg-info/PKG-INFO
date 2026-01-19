@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: tt_video_editor
+Version: 0.1.0
+Summary: Table Tennis Highlights Automator
+Author: Connie Huang
+Requires-Dist: opencv-python
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: Pillow

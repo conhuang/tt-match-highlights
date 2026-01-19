@@ -2,22 +2,25 @@ import time
 import sys
 import os
 
-# Add main directory to sys.path to allow imports
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'main')))
+# Add src to sys.path to find the package
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
 start = time.time()
 print("Starting profile...")
 
 t0 = time.time()
-import tt_automator
-print(f"Importing tt_automator took: {time.time() - t0:.4f}s")
+import tt_video_editor.core
+
+print(f"Importing core took: {time.time() - t0:.4f}s")
 
 t0 = time.time()
 from PIL import Image, ImageFont, ImageDraw
+
 print(f"Importing PIL took: {time.time() - t0:.4f}s")
 
 t0 = time.time()
-from scoreboard.scoreboard_generator import ScoreboardGenerator
+from tt_video_editor.scoreboard.scoreboard_generator import ScoreboardGenerator
+
 gen = ScoreboardGenerator("P1", "P2")
 print(f"Initializing ScoreboardGenerator (font loading) took: {time.time() - t0:.4f}s")
 
