@@ -2,10 +2,13 @@ README.md
 pyproject.toml
 src/tt_video_editor/__init__.py
 src/tt_video_editor/calibrate.py
+src/tt_video_editor/capture.py
 src/tt_video_editor/core.py
 src/tt_video_editor/event_manager.py
 src/tt_video_editor/hybrid_mode.py
 src/tt_video_editor/manual_mode.py
+src/tt_video_editor/proxy.py
+src/tt_video_editor/render.py
 src/tt_video_editor/ui_utils.py
 src/tt_video_editor.egg-info/PKG-INFO
 src/tt_video_editor.egg-info/SOURCES.txt

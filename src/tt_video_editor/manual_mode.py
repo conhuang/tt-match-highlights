@@ -8,6 +8,7 @@ def run_manual_mode(args):
     print("  LEFT/RIGHT or ,/.: Seek -/+ 1 second")
     print("  A: Point for Player 1 (ends clip)")
     print("  S: Point for Player 2 (ends clip)")
+    print("  H: Mark current/last clip as HIGHLIGHT")
     print("  Shift+A: Timeout for Player 1")
     print("  Shift+S: Timeout for Player 2")
     print("  Z: UNDO last event")
@@ -20,15 +21,20 @@ def run_manual_mode(args):
     cap.set(cv2.CAP_PROP_HW_ACCELERATION, cv2.VIDEO_ACCELERATION_ANY)
     cap.set(cv2.CAP_PROP_HW_DEVICE, 0)  # Use first available HW device
 
-    fps = cap.get(cv2.CAP_PROP_FPS)
+    # Seek to start time if provided
+    start_time = getattr(args, "start_time", 0)
+    if start_time > 0:
+        cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000)
+        print(f"Starting at {start_time:.1f}s")
 
     # Performance settings for 4K 60fps - more aggressive for smoother playback
     PREVIEW_WIDTH = 640  # Smaller preview = faster resize
-    FRAME_SKIP = 4  # Show every 3rd frame = 20fps effective for 60fps source
+    FRAME_SKIP = 4  # Show every 4th frame = 15fps effective for 60fps source
     SEEK_SECONDS = 2
 
     events = []
     current_start_time = None
+    pending_highlight = False  # Mark next clip as highlight
     paused = False
 
     p1_name, p2_name = args.names.split(",")
@@ -55,13 +61,16 @@ def run_manual_mode(args):
 
             from .ui_utils import draw_status_overlay
 
+            # Build status display
+            clip_status = "OFF"
+            if current_start_time is not None:
+                clip_status = f"{current_start_time:.1f}s"
+                if pending_highlight:
+                    clip_status += " ⭐"
+
             lines = [
                 (f"Time: {current_time:.1f}s | Events: {len(events)}", (255, 255, 255)),
-                (
-                    "CLIP: "
-                    + (f"{current_start_time:.1f}s" if current_start_time is not None else "OFF"),
-                    (0, 255, 255),
-                ),
+                (f"CLIP: {clip_status}", (0, 255, 255)),
             ]
             draw_status_overlay(frame, lines, font_scale=0.8)
 
@@ -90,7 +99,7 @@ def run_manual_mode(args):
             cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
         # Debug
         elif key != 255:
-            if key not in [ord("a"), ord("s"), ord("d"), ord("z")]:
+            if key not in [ord("a"), ord("s"), ord("d"), ord("z"), ord("h")]:
                 print(f"DEBUG: Key Pressed: {key}")
 
         # Logic keys
@@ -128,10 +137,13 @@ def run_manual_mode(args):
                     "end": end_time,
                     "winner": winner,
                     "timeout_player": None,
+                    "isHighlight": pending_highlight,
                 }
             )
-            print(f"EVENT RECORDED: {winner} won ({start_time:.1f}-{end_time:.1f})")
+            highlight_str = " ⭐ HIGHLIGHT" if pending_highlight else ""
+            print(f"EVENT RECORDED: {winner} won ({start_time:.1f}-{end_time:.1f}){highlight_str}")
             current_start_time = None
+            pending_highlight = False  # Reset after recording
 
         elif key in [ord("A"), ord("S")]:
             if not events:
@@ -140,6 +152,23 @@ def run_manual_mode(args):
                 timeout_for = p1_name if key == ord("A") else p2_name
                 events[-1]["timeout_player"] = timeout_for
                 print(f"TIMEOUT RECORDED: {timeout_for} took a timeout after the last point.")
+
+        # H key - toggle highlight
+        elif key == ord("h"):
+            if current_start_time is not None:
+                # Currently in a clip - toggle pending highlight
+                pending_highlight = not pending_highlight
+                status = "ON ⭐" if pending_highlight else "OFF"
+                print(f"HIGHLIGHT {status} for current clip")
+            elif events:
+                # Not in a clip - toggle highlight on last recorded event
+                events[-1]["isHighlight"] = not events[-1].get("isHighlight", False)
+                status = "ON ⭐" if events[-1]["isHighlight"] else "OFF"
+                print(
+                    f"HIGHLIGHT {status} for last event ({events[-1]['start']:.1f}-{events[-1]['end']:.1f})"
+                )
+            else:
+                print("No clip to highlight.")
 
     cap.release()
     cv2.destroyAllWindows()
