@@ -4,13 +4,14 @@ def run_manual_mode(args):
     print(f"Starting Manual Mode for {args.input_file}...")
     print("Controls:")
     print("  SPACE: Pause/Play")
-    print("  D: Mark START of point")
-    print("  LEFT/RIGHT or ,/.: Seek -/+ 1 second")
-    print("  A: Point for Player 1 (ends clip)")
-    print("  S: Point for Player 2 (ends clip)")
+    print("  R: Mark START of point")
+    print("  LEFT/RIGHT or ,/.: Seek -/+ 2 seconds")
+    print("  [/]: Seek -/+ 1 minute")
+    print("  1: Point for Player 1 (ends clip)")
+    print("  2: Point for Player 2 (ends clip)")
     print("  H: Mark current/last clip as HIGHLIGHT")
-    print("  Shift+A: Timeout for Player 1")
-    print("  Shift+S: Timeout for Player 2")
+    print("  Shift+1 (!): Timeout for Player 1")
+    print("  Shift+2 (@): Timeout for Player 2")
     print("  Z: UNDO last event")
     print("  Q: Quit")
 
@@ -27,9 +28,23 @@ def run_manual_mode(args):
         cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000)
         print(f"Starting at {start_time:.1f}s")
 
-    # Performance settings for 4K 60fps - more aggressive for smoother playback
-    PREVIEW_WIDTH = 640  # Smaller preview = faster resize
-    FRAME_SKIP = 4  # Show every 4th frame = 15fps effective for 60fps source
+    # Performance settings for preview window
+    # PREVIEW_WIDTH: Width of preview window in pixels. Options:
+    #   480  = Very small, fastest playback
+    #   640  = Small, fast playback
+    #   854  = 480p standard
+    #   960  = Medium (current)
+    #   1280 = 720p, slower on 4K source
+    #   1920 = 1080p, slowest
+    PREVIEW_WIDTH = 960
+
+    # FRAME_SKIP: Show every Nth frame (higher = faster, choppier)
+    #   2 = 30fps effective from 60fps source
+    #   3 = 20fps effective
+    #   4 = 15fps effective (current)
+    FRAME_SKIP = 4
+
+    # SEEK_SECONDS: How many seconds to jump per arrow key press
     SEEK_SECONDS = 2
 
     events = []
@@ -72,10 +87,10 @@ def run_manual_mode(args):
                 (f"Time: {current_time:.1f}s | Events: {len(events)}", (255, 255, 255)),
                 (f"CLIP: {clip_status}", (0, 255, 255)),
             ]
-            draw_status_overlay(frame, lines, font_scale=0.8)
+            # EDIT font scale here to adjust size of overlay
+            draw_status_overlay(frame, lines, font_scale=0.5)
 
             cv2.imshow("Table Tennis Automator", frame)
-            last_frame = frame
 
         key = cv2.waitKey(1 if not paused else 100) & 0xFF
 
@@ -97,15 +112,34 @@ def run_manual_mode(args):
             target_frame = current_frame + (SEEK_SECONDS * KEYFRAME_INTERVAL)
             target_frame = int(target_frame / KEYFRAME_INTERVAL + 1) * KEYFRAME_INTERVAL
             cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+        # 1-minute jump controls
+        elif key == ord("["):  # Jump back 1 minute
+            current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+            target_frame = max(0, current_frame - (60 * KEYFRAME_INTERVAL))
+            cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+        elif key == ord("]"):  # Jump forward 1 minute
+            current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+            target_frame = current_frame + (60 * KEYFRAME_INTERVAL)
+            cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
         # Debug
         elif key != 255:
-            if key not in [ord("a"), ord("s"), ord("d"), ord("z"), ord("h")]:
+            if key not in [
+                ord("1"),
+                ord("2"),
+                ord("r"),
+                ord("z"),
+                ord("h"),
+                ord("["),
+                ord("]"),
+                ord("!"),
+                ord("@"),
+            ]:
                 print(f"DEBUG: Key Pressed: {key}")
 
         # Logic keys
         current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
 
-        if key == ord("d"):
+        if key == ord("r"):
             current_start_time = current_time
             print(f"Clip Start set to: {current_start_time:.2f}")
 
@@ -120,13 +154,13 @@ def run_manual_mode(args):
             else:
                 print("UNDO: No events to remove.")
 
-        elif key in [ord("a"), ord("s")]:
-            winner = p1_name if key == ord("a") else p2_name
+        elif key in [ord("1"), ord("2")]:
+            winner = p1_name if key == ord("1") else p2_name
             end_time = current_time
 
             start_time = 0
             if current_start_time is None:
-                print("SKIPPED: Point NOT recorded because no Start Time (D) was set.")
+                print("SKIPPED: Point NOT recorded because no Start Time (R) was set.")
                 continue
             else:
                 start_time = current_start_time
@@ -145,11 +179,12 @@ def run_manual_mode(args):
             current_start_time = None
             pending_highlight = False  # Reset after recording
 
-        elif key in [ord("A"), ord("S")]:
+        # Shift+1 (!) and Shift+2 (@) for timeouts
+        elif key in [ord("!"), ord("@")]:
             if not events:
                 print("WARNING: Cannot call timeout before any points are recorded.")
             else:
-                timeout_for = p1_name if key == ord("A") else p2_name
+                timeout_for = p1_name if key == ord("!") else p2_name
                 events[-1]["timeout_player"] = timeout_for
                 print(f"TIMEOUT RECORDED: {timeout_for} took a timeout after the last point.")
 

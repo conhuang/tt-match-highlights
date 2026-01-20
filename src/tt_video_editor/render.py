@@ -19,6 +19,11 @@ def parse_args():
         help="Export only highlighted clips (maintains accurate scoreboard)",
     )
     parser.add_argument(
+        "--include-highlights",
+        action="store_true",
+        help="Render both full match AND highlights reel (2 output videos)",
+    )
+    parser.add_argument(
         "--clean",
         action="store_true",
         help="Force fresh render (delete any existing temp files)",
@@ -302,8 +307,36 @@ def main():
 
     print(f"Loaded {len(events)} events from {args.events}")
 
+    # Check for highlights
+    highlight_count = sum(1 for e in events if e.get("isHighlight", False))
+
     # Process and render
-    process_video(events, args, highlights_only=args.highlights_only)
+    if args.include_highlights:
+        # Render both full match and highlights
+        print("\n=== Rendering Full Match ===")
+        process_video(events, args, highlights_only=False)
+
+        if highlight_count > 0:
+            # Create highlights output path
+            base, ext = os.path.splitext(args.output_file)
+            highlights_output = f"{base}_highlights{ext}"
+
+            # Temporarily swap output path for highlights
+            original_output = args.output_file
+            args.output_file = highlights_output
+
+            print(f"\n=== Rendering Highlights Reel ({highlight_count} clips) ===")
+            process_video(events, args, highlights_only=True)
+
+            # Restore original
+            args.output_file = original_output
+            print(f"\nBoth videos complete!")
+            print(f"  Full match:  {original_output}")
+            print(f"  Highlights:  {highlights_output}")
+        else:
+            print("\nNo highlights marked - skipping highlights reel.")
+    else:
+        process_video(events, args, highlights_only=args.highlights_only)
 
 
 if __name__ == "__main__":
