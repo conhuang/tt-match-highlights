@@ -18,6 +18,11 @@ def parse_args():
         action="store_true",
         help="Export only highlighted clips (maintains accurate scoreboard)",
     )
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Force fresh render (delete any existing temp files)",
+    )
     return parser.parse_args()
 
 
@@ -151,11 +156,25 @@ def process_video(events, args, highlights_only=False):
 
     print(f"Generated {len(processed_segments)} segments. Rendering with FFmpeg...")
 
-    # Render segments
+    # Clean temp dir if requested
+    clean = getattr(args, "clean", False)
+    if clean and os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+        os.makedirs(temp_dir)
+        print("Cleaned temp directory for fresh render.")
+
+    # Render segments (with checkpoint support)
     concat_list_path = "concat_list.txt"
+    skipped = 0
     with open(concat_list_path, "w") as f:
         for idx, seg in enumerate(processed_segments):
             seg_output = os.path.join(temp_dir, f"seg_{idx}.mp4")
+
+            # Checkpoint: skip if already rendered
+            if os.path.exists(seg_output) and os.path.getsize(seg_output) > 0:
+                f.write(f"file '{os.path.abspath(seg_output)}'\n")
+                skipped += 1
+                continue
 
             if seg["type"] == "card":
                 cmd = [
@@ -230,6 +249,9 @@ def process_video(events, args, highlights_only=False):
 
             f.write(f"file '{os.path.abspath(seg_output)}'\n")
             print(f"Rendered segment {idx + 1}/{len(processed_segments)}")
+
+    if skipped > 0:
+        print(f"Skipped {skipped} already-rendered segments (use --clean to re-render all)")
 
     # Concatenate
     print("Concatenating segments...")
