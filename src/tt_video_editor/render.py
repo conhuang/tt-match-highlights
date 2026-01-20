@@ -32,8 +32,35 @@ def process_video(events, args, highlights_only=False):
 
     # Get input video properties
     input_fps, _ = get_video_properties(args.input_file)
+    output_fps = str(int(input_fps)) if input_fps > 0 else "60"
 
-    print(f"Rendering video... (highlights_only={highlights_only})")
+    # Get input resolution
+    import subprocess as sp
+
+    try:
+        result = sp.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=width,height",
+                "-of",
+                "csv=p=0",
+                args.input_file,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        width, height = map(int, result.stdout.strip().split(","))
+    except Exception:
+        width, height = 1920, 1080  # fallback
+
+    print(
+        f"Rendering video at {width}x{height} @ {output_fps}fps (highlights_only={highlights_only})"
+    )
 
     # Count highlights
     if highlights_only:
@@ -145,17 +172,17 @@ def process_video(events, args, highlights_only=False):
                     "-t",
                     str(seg["duration"]),
                     "-vf",
-                    "scale=1920:1080",
+                    f"scale={width}:{height}",
                     "-c:v",
                     "libx264",
                     "-preset",
-                    "ultrafast",
+                    "medium",
                     "-crf",
-                    "23",
+                    "18",
                     "-pix_fmt",
                     "yuv420p",
                     "-r",
-                    "30",
+                    output_fps,
                     "-c:a",
                     "aac",
                     "-b:a",
@@ -178,7 +205,7 @@ def process_video(events, args, highlights_only=False):
                     "-i",
                     seg["overlay"],
                     "-filter_complex",
-                    "[0:v]scale=1920:1080[scaled];[scaled][1:v]overlay=0:0[outv]",
+                    "[0:v][1:v]overlay=0:0[outv]",
                     "-map",
                     "[outv]",
                     "-map",
@@ -186,9 +213,9 @@ def process_video(events, args, highlights_only=False):
                     "-c:v",
                     "libx264",
                     "-preset",
-                    "ultrafast",
+                    "medium",
                     "-crf",
-                    "23",
+                    "18",
                     "-c:a",
                     "aac",
                     "-b:a",
@@ -196,7 +223,7 @@ def process_video(events, args, highlights_only=False):
                     "-pix_fmt",
                     "yuv420p",
                     "-r",
-                    "30",
+                    output_fps,
                     seg_output,
                 ]
                 subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
