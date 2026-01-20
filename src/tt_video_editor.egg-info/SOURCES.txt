@@ -10,6 +10,7 @@ src/tt_video_editor/manual_mode.py
 src/tt_video_editor/proxy.py
 src/tt_video_editor/render.py
 src/tt_video_editor/ui_utils.py
+src/tt_video_editor/validate_matches.py
 src/tt_video_editor.egg-info/PKG-INFO
 src/tt_video_editor.egg-info/SOURCES.txt
 src/tt_video_editor.egg-info/dependency_links.txt

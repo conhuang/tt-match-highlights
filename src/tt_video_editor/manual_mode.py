@@ -4,7 +4,7 @@ def run_manual_mode(args):
     print(f"Starting Manual Mode for {args.input_file}...")
     print("Controls:")
     print("  SPACE: Pause/Play")
-    print("  R: Mark START of point")
+    print("  E: Mark START of point")
     print("  LEFT/RIGHT or ,/.: Seek -/+ 2 seconds")
     print("  [/]: Seek -/+ 1 minute")
     print("  1: Point for Player 1 (ends clip)")
@@ -54,6 +54,30 @@ def run_manual_mode(args):
 
     p1_name, p2_name = args.names.split(",")
 
+    # Score tracking
+    def compute_score(events_list):
+        """Compute current score and game from events."""
+        p1_score, p2_score = 0, 0
+        p1_games, p2_games = 0, 0
+        game_num = 1
+
+        for e in events_list:
+            if e["winner"] == p1_name:
+                p1_score += 1
+            else:
+                p2_score += 1
+
+            # Check game end
+            if (p1_score >= 11 or p2_score >= 11) and abs(p1_score - p2_score) >= 2:
+                if p1_score > p2_score:
+                    p1_games += 1
+                else:
+                    p2_games += 1
+                p1_score, p2_score = 0, 0
+                game_num += 1
+
+        return p1_score, p2_score, p1_games, p2_games, game_num
+
     while cap.isOpened():
         if not paused:
             # Skip frames for speed
@@ -76,16 +100,24 @@ def run_manual_mode(args):
 
             from .ui_utils import draw_status_overlay
 
+            # Compute current score
+            p1_score, p2_score, p1_games, p2_games, game_num = compute_score(events)
+
             # Build status display
-            clip_status = "OFF"
             if current_start_time is not None:
-                clip_status = f"{current_start_time:.1f}s"
+                clip_status = f"REC from {current_start_time:.1f}s"
                 if pending_highlight:
                     clip_status += " ⭐"
+            elif events:
+                # Show where last point ended so user knows where to seek
+                last_end = events[-1]["end"]
+                clip_status = f"Last: {last_end:.1f}s"
+            else:
+                clip_status = "No events"
 
             lines = [
-                (f"Time: {current_time:.1f}s | Events: {len(events)}", (255, 255, 255)),
-                (f"CLIP: {clip_status}", (0, 255, 255)),
+                (f"G{game_num}: {p1_score}-{p2_score} ({p1_games}-{p2_games})", (0, 255, 0)),
+                (f"Time: {current_time:.1f}s | {clip_status}", (255, 255, 255)),
             ]
             # EDIT font scale here to adjust size of overlay
             draw_status_overlay(frame, lines, font_scale=0.5)
@@ -121,12 +153,11 @@ def run_manual_mode(args):
             current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
             target_frame = current_frame + (60 * KEYFRAME_INTERVAL)
             cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
-        # Debug
         elif key != 255:
             if key not in [
                 ord("1"),
                 ord("2"),
-                ord("r"),
+                ord("e"),
                 ord("z"),
                 ord("h"),
                 ord("["),
@@ -139,7 +170,7 @@ def run_manual_mode(args):
         # Logic keys
         current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
 
-        if key == ord("r"):
+        if key == ord("e"):
             current_start_time = current_time
             print(f"Clip Start set to: {current_start_time:.2f}")
 
@@ -150,7 +181,13 @@ def run_manual_mode(args):
             elif events:
                 removed = events.pop()
                 current_start_time = removed["start"]
-                print(f"UNDO: Removed last event. Restored start time to {current_start_time:.1f}s")
+                # Rewind to where last event ended (or start of removed if no more events)
+                if events:
+                    rewind_to = events[-1]["end"]
+                else:
+                    rewind_to = removed["start"]
+                cap.set(cv2.CAP_PROP_POS_MSEC, rewind_to * 1000)
+                print(f"UNDO: Removed last event. Rewound to {rewind_to:.1f}s")
             else:
                 print("UNDO: No events to remove.")
 
@@ -160,10 +197,13 @@ def run_manual_mode(args):
 
             start_time = 0
             if current_start_time is None:
-                print("SKIPPED: Point NOT recorded because no Start Time (R) was set.")
+                print("SKIPPED: Point NOT recorded because no Start Time (E) was set.")
                 continue
             else:
                 start_time = current_start_time
+
+            # Compute score BEFORE this point (for display in render)
+            p1_score, p2_score, p1_games, p2_games, game_num = compute_score(events)
 
             events.append(
                 {
@@ -172,10 +212,16 @@ def run_manual_mode(args):
                     "winner": winner,
                     "timeout_player": None,
                     "isHighlight": pending_highlight,
+                    "game": game_num,
+                    "score_before": f"{p1_score}-{p2_score}",
                 }
             )
-            highlight_str = " ⭐ HIGHLIGHT" if pending_highlight else ""
-            print(f"EVENT RECORDED: {winner} won ({start_time:.1f}-{end_time:.1f}){highlight_str}")
+
+            # Compute score AFTER for display
+            new_p1 = p1_score + 1 if winner == p1_name else p1_score
+            new_p2 = p2_score + 1 if winner == p2_name else p2_score
+            highlight_str = " ⭐" if pending_highlight else ""
+            print(f"G{game_num}: {new_p1}-{new_p2} | {winner} won{highlight_str}")
             current_start_time = None
             pending_highlight = False  # Reset after recording
 

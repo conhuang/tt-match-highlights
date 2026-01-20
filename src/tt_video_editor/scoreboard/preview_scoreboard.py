@@ -5,8 +5,8 @@ import os
 
 def create_preview():
     # Sample Data
-    p1_name = "Jonathan"
-    p2_name = "Viet Dude"
+    p1_name = "Jonathan Li"
+    p2_name = "Simeon Martin"
     p1_sets, p2_sets = 2, 0
     p1_score, p2_score = 11, 9
 

@@ -28,13 +28,23 @@ def parse_args():
         action="store_true",
         help="Force fresh render (delete any existing temp files)",
     )
+    parser.add_argument(
+        "--cpu",
+        action="store_true",
+        help="Use CPU encoding (libx264) instead of hardware (VideoToolbox)",
+    )
+    parser.add_argument(
+        "--bitrate",
+        default=None,
+        help="Video bitrate for hardware encoding (default: 80M for 4K, 30M for 1080p)",
+    )
     return parser.parse_args()
 
 
-def process_video(events, args, highlights_only=False):
+def process_video(events, args, highlights_only=False, keep_temp=False):
     """Process events and render video with scoreboard overlays."""
-    from tt_video_editor.scoreboard.scoreboard_generator import ScoreboardGenerator
     from tt_video_editor.core import get_video_properties
+    from tt_video_editor.scoreboard.scoreboard_generator import ScoreboardGenerator
 
     if not events:
         print("No events to process.")
@@ -64,13 +74,31 @@ def process_video(events, args, highlights_only=False):
             capture_output=True,
             text=True,
         )
-        width, height = map(int, result.stdout.strip().split(","))
+        # Filter out empty strings from trailing comma
+        parts = [p for p in result.stdout.strip().split(",") if p]
+        width, height = int(parts[0]), int(parts[1])
     except Exception:
         width, height = 1920, 1080  # fallback
 
     print(
         f"Rendering video at {width}x{height} @ {output_fps}fps (highlights_only={highlights_only})"
     )
+
+    # Encoder selection
+    use_cpu = getattr(args, "cpu", False)
+    if use_cpu:
+        encoder = "libx264"
+        encoder_opts = ["-preset", "medium", "-crf", "18"]
+        print("Using CPU encoder (libx264, CRF 18)")
+    else:
+        encoder = "h264_videotoolbox"
+        # VideoToolbox uses bitrate. 80M for 4K sports, 30M for 1080p
+        if args.bitrate:
+            bitrate = args.bitrate
+        else:
+            bitrate = "80M" if width > 1920 else "30M"
+        encoder_opts = ["-b:v", bitrate]
+        print(f"Using hardware encoder (VideoToolbox, {bitrate})")
 
     # Count highlights
     if highlights_only:
@@ -90,11 +118,16 @@ def process_video(events, args, highlights_only=False):
     p2_timeout_taken = False
 
     temp_dir = "temp_overlays"
+    clean = getattr(args, "clean", False)
+    if clean and os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+        print("Cleaned temp directory for fresh render.")
+
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
 
     p1_name, p2_name = args.names.split(",")
-    gen = ScoreboardGenerator(p1_name, p2_name)
+    gen = ScoreboardGenerator(p1_name, p2_name, width=width, height=height)
 
     processed_segments = []
 
@@ -102,7 +135,14 @@ def process_video(events, args, highlights_only=False):
     if not highlights_only:
         game_card_path = os.path.join(temp_dir, "game_1.png")
         gen.create_game_card(1, game_card_path)
-        processed_segments.append({"type": "card", "path": game_card_path, "duration": 2.0})
+        processed_segments.append(
+            {
+                "type": "card",
+                "path": game_card_path,
+                "duration": 2.0,
+                "filename": "card_game_1.mp4",
+            }
+        )
 
     for i, event in enumerate(events):
         # Create overlay with CURRENT score (before this point)
@@ -125,6 +165,7 @@ def process_video(events, args, highlights_only=False):
                     "start": event["start"],
                     "end": event["end"],
                     "overlay": overlay_path,
+                    "filename": f"clip_event_{i}.mp4",
                 }
             )
 
@@ -149,7 +190,14 @@ def process_video(events, args, highlights_only=False):
             if not highlights_only and p1_sets < 3 and p2_sets < 3 and i < len(events) - 1:
                 card_path = os.path.join(temp_dir, f"game_{game_num}.png")
                 gen.create_game_card(game_num, card_path)
-                processed_segments.append({"type": "card", "path": card_path, "duration": 2.0})
+                processed_segments.append(
+                    {
+                        "type": "card",
+                        "path": card_path,
+                        "duration": 2.0,
+                        "filename": f"card_game_{game_num}.mp4",
+                    }
+                )
 
         # Track timeouts
         if event.get("timeout_player"):
@@ -161,19 +209,13 @@ def process_video(events, args, highlights_only=False):
 
     print(f"Generated {len(processed_segments)} segments. Rendering with FFmpeg...")
 
-    # Clean temp dir if requested
-    clean = getattr(args, "clean", False)
-    if clean and os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
-        os.makedirs(temp_dir)
-        print("Cleaned temp directory for fresh render.")
-
     # Render segments (with checkpoint support)
     concat_list_path = "concat_list.txt"
     skipped = 0
     with open(concat_list_path, "w") as f:
         for idx, seg in enumerate(processed_segments):
-            seg_output = os.path.join(temp_dir, f"seg_{idx}.mp4")
+            seg_output = os.path.join(temp_dir, seg["filename"])
+            # Fallback for old style segments if not found? No, we enforce new naming.
 
             # Checkpoint: skip if already rendered
             if os.path.exists(seg_output) and os.path.getsize(seg_output) > 0:
@@ -182,75 +224,84 @@ def process_video(events, args, highlights_only=False):
                 continue
 
             if seg["type"] == "card":
-                cmd = [
-                    "ffmpeg",
-                    "-y",
-                    "-loop",
-                    "1",
-                    "-i",
-                    seg["path"],
-                    "-f",
-                    "lavfi",
-                    "-i",
-                    "anullsrc=channel_layout=stereo:sample_rate=48000",
-                    "-t",
-                    str(seg["duration"]),
-                    "-vf",
-                    f"scale={width}:{height}",
-                    "-c:v",
-                    "libx264",
-                    "-preset",
-                    "medium",
-                    "-crf",
-                    "18",
-                    "-pix_fmt",
-                    "yuv420p",
-                    "-r",
-                    output_fps,
-                    "-c:a",
-                    "aac",
-                    "-b:a",
-                    "192k",
-                    "-shortest",
-                    seg_output,
-                ]
-                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                cmd = (
+                    [
+                        "ffmpeg",
+                        "-y",
+                        "-loop",
+                        "1",
+                        "-i",
+                        seg["path"],
+                        "-f",
+                        "lavfi",
+                        "-i",
+                        "anullsrc=channel_layout=stereo:sample_rate=48000",
+                        "-t",
+                        str(seg["duration"]),
+                        "-vf",
+                        f"scale={width}:{height}",
+                        "-c:v",
+                        encoder,
+                    ]
+                    + encoder_opts
+                    + [
+                        "-pix_fmt",
+                        "yuv420p",
+                        "-r",
+                        output_fps,
+                        "-c:a",
+                        "aac",
+                        "-b:a",
+                        "192k",
+                        "-shortest",
+                        seg_output,
+                    ]
+                )
+                print(f"  Rendering card {idx + 1}...")
+                result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                if result.returncode != 0:
+                    print(f"  Error: {result.stderr.decode()[:100]}")
 
             elif seg["type"] == "clip":
-                cmd = [
-                    "ffmpeg",
-                    "-y",
-                    "-ss",
-                    str(seg["start"]),
-                    "-to",
-                    str(seg["end"]),
-                    "-i",
-                    args.input_file,
-                    "-i",
-                    seg["overlay"],
-                    "-filter_complex",
-                    "[0:v][1:v]overlay=0:0[outv]",
-                    "-map",
-                    "[outv]",
-                    "-map",
-                    "0:a",
-                    "-c:v",
-                    "libx264",
-                    "-preset",
-                    "medium",
-                    "-crf",
-                    "18",
-                    "-c:a",
-                    "aac",
-                    "-b:a",
-                    "192k",
-                    "-pix_fmt",
-                    "yuv420p",
-                    "-r",
-                    output_fps,
-                    seg_output,
-                ]
-                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                cmd = (
+                    [
+                        "ffmpeg",
+                        "-y",
+                        "-ss",
+                        str(seg["start"]),
+                        "-to",
+                        str(seg["end"]),
+                        "-i",
+                        args.input_file,
+                        "-i",
+                        seg["overlay"],
+                        "-filter_complex",
+                        "[0:v][1:v]overlay=0:0[outv]",
+                        "-map",
+                        "[outv]",
+                        "-map",
+                        "0:a",
+                        "-c:v",
+                        encoder,
+                    ]
+                    + encoder_opts
+                    + [
+                        "-c:a",
+                        "aac",
+                        "-b:a",
+                        "192k",
+                        "-pix_fmt",
+                        "yuv420p",
+                        "-r",
+                        output_fps,
+                        seg_output,
+                    ]
+                )
+                duration = seg["end"] - seg["start"]
+                print(f"  Rendering clip {idx + 1} ({duration:.1f}s)...")
+                result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                if result.returncode != 0:
+                    print(f"  Error: {result.stderr.decode()[:100]}")
 
             f.write(f"file '{os.path.abspath(seg_output)}'\n")
             print(f"Rendered segment {idx + 1}/{len(processed_segments)}")
@@ -279,10 +330,15 @@ def process_video(events, args, highlights_only=False):
     print(f"Done! Saved to {args.output_file}")
 
     # Cleanup
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
-    if os.path.exists(concat_list_path):
-        os.remove(concat_list_path)
+    # Cleanup
+    if not keep_temp:
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+        if os.path.exists(concat_list_path):
+            os.remove(concat_list_path)
+        print("Cleaned up temporary files.")
+    else:
+        print(f"Temporary files kept in {temp_dir} for reuse.")
 
 
 def main():
@@ -314,7 +370,8 @@ def main():
     if args.include_highlights:
         # Render both full match and highlights
         print("\n=== Rendering Full Match ===")
-        process_video(events, args, highlights_only=False)
+        # Keep temp for highlights pass
+        process_video(events, args, highlights_only=False, keep_temp=True)
 
         if highlight_count > 0:
             # Create highlights output path
@@ -326,7 +383,12 @@ def main():
             args.output_file = highlights_output
 
             print(f"\n=== Rendering Highlights Reel ({highlight_count} clips) ===")
-            process_video(events, args, highlights_only=True)
+            # Pass args.clean=False implicitly by not setting it (it's in args)
+            # But we must ensure the function doesn't wipe it.
+            # We already modified logic: clean happens if args.clean is set.
+            # We should probably force disable clean for second pass.
+            args.clean = False
+            process_video(events, args, highlights_only=True, keep_temp=False)
 
             # Restore original
             args.output_file = original_output
