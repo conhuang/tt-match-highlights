@@ -38,6 +38,11 @@ def parse_args():
         default=None,
         help="Video bitrate for hardware encoding (default: 100M for 4K, 30M for 1080p)",
     )
+    parser.add_argument(
+        "--no-game-cards",
+        action="store_true",
+        help="Do not insert 'Game X' cards between games",
+    )
     return parser.parse_args()
 
 
@@ -146,7 +151,8 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
     processed_segments = []
 
     # Only add game card if not highlights-only mode
-    if not highlights_only:
+    # Only add game card if not highlights-only mode and not disabled
+    if not highlights_only and not args.no_game_cards:
         game_card_path = os.path.join(temp_dir, "game_1.png")
         gen.create_game_card(1, game_card_path)
         processed_segments.append(
@@ -206,7 +212,14 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
             game_num += 1
 
             # Add game card only if not highlights-only
-            if not highlights_only and p1_sets < 3 and p2_sets < 3 and i < len(events) - 1:
+            # Add game card only if not highlights-only and not disabled
+            if (
+                not highlights_only
+                and not args.no_game_cards
+                and p1_sets < 3
+                and p2_sets < 3
+                and i < len(events) - 1
+            ):
                 card_path = os.path.join(temp_dir, f"game_{game_num}.png")
                 gen.create_game_card(game_num, card_path)
                 processed_segments.append(
