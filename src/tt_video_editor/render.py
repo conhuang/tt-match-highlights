@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument(
         "--bitrate",
         default=None,
-        help="Video bitrate for hardware encoding (default: 80M for 4K, 30M for 1080p)",
+        help="Video bitrate for hardware encoding (default: 100M for 4K, 30M for 1080p)",
     )
     return parser.parse_args()
 
@@ -74,11 +74,22 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
             capture_output=True,
             text=True,
         )
-        # Filter out empty strings from trailing comma
-        parts = [p for p in result.stdout.strip().split(",") if p]
-        width, height = int(parts[0]), int(parts[1])
-    except Exception:
-        width, height = 1920, 1080  # fallback
+        if result.returncode != 0:
+            print(f"Error checking resolution: {result.stderr}")
+            # Fallback only if really necessary, but better to fail if we want strict 4K
+            width, height = 1920, 1080
+            print("WARNING: Could not detect resolution, defaulting to 1080p")
+        else:
+            # Filter out empty strings from trailing comma
+            parts = [p for p in result.stdout.strip().split(",") if p]
+            if len(parts) >= 2:
+                width, height = int(parts[0]), int(parts[1])
+            else:
+                print(f"Error parsing resolution from: {result.stdout}")
+                width, height = 1920, 1080
+    except Exception as e:
+        print(f"Exception checking resolution: {e}")
+        width, height = 1920, 1080
 
     print(
         f"Rendering video at {width}x{height} @ {output_fps}fps (highlights_only={highlights_only})"
@@ -92,11 +103,11 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
         print("Using CPU encoder (libx264, CRF 18)")
     else:
         encoder = "h264_videotoolbox"
-        # VideoToolbox uses bitrate. 80M for 4K sports, 30M for 1080p
+        # VideoToolbox uses bitrate. 100M for 4K sports, 30M for 1080p
         if args.bitrate:
             bitrate = args.bitrate
         else:
-            bitrate = "80M" if width > 1920 else "30M"
+            bitrate = "100M" if width > 1920 else "30M"
         encoder_opts = ["-b:v", bitrate]
         print(f"Using hardware encoder (VideoToolbox, {bitrate})")
 
@@ -287,7 +298,7 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
                         "-i",
                         seg["overlay"],
                         "-filter_complex",
-                        "[0:v][1:v]overlay=0:0[outv]",
+                        f"[0:v][1:v]overlay=0:0,scale={width}:{height}[outv]",
                         "-map",
                         "[outv]",
                         "-map",
@@ -403,7 +414,7 @@ def main():
 
             # Restore original
             args.output_file = original_output
-            print(f"\nBoth videos complete!")
+            print("\nBoth videos complete!")
             print(f"  Full match:  {original_output}")
             print(f"  Highlights:  {highlights_output}")
         else:
