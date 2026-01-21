@@ -354,15 +354,15 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
     print(f"Done! Saved to {args.output_file}")
 
     # Cleanup
-    # Cleanup
-    if not keep_temp:
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
-        if os.path.exists(concat_list_path):
-            os.remove(concat_list_path)
-        print("Cleaned up temporary files.")
-    else:
-        print(f"Temporary files kept in {temp_dir} for reuse.")
+    # Cleanup disabled by user request
+    # if not keep_temp:
+    #     if os.path.exists(temp_dir):
+    #         shutil.rmtree(temp_dir)
+    #     if os.path.exists(concat_list_path):
+    #         os.remove(concat_list_path)
+    #     print("Cleaned up temporary files.")
+    # else:
+    print(f"Temporary files kept in {temp_dir} for reuse.")
 
 
 def main():
