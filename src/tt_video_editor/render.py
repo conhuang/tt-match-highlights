@@ -396,8 +396,6 @@ def main():
         print(f"Error: No events found in {args.events}")
         sys.exit(1)
 
-    print(f"Loaded {len(events)} events from {args.events}")
-
     # Check for highlights
     highlight_count = sum(1 for e in events if e.get("isHighlight", False))
 
