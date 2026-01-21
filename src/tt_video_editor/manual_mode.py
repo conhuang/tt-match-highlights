@@ -1,4 +1,4 @@
-def run_manual_mode(args):
+def run_manual_mode(args, existing_events=None):
     import cv2
 
     print(f"Starting Manual Mode for {args.input_file}...")
@@ -48,7 +48,7 @@ def run_manual_mode(args):
     # SEEK_SECONDS: How many seconds to jump per arrow key press
     SEEK_SECONDS = 2
 
-    events = []
+    events = list(existing_events) if existing_events else []
     current_start_time = None
     pending_highlight = False  # Mark next clip as highlight
     paused = False

@@ -74,14 +74,16 @@ def main():
     if args.mode == "manual":
         from tt_video_editor.manual_mode import run_manual_mode
 
-        new_events = run_manual_mode(args)
+        new_events = run_manual_mode(args, existing_events=existing_events)
     elif args.mode == "hybrid":
         from tt_video_editor.hybrid_mode import run_hybrid_mode
 
         new_events = run_hybrid_mode(args)
 
-    # Merge existing and new events
-    all_events = existing_events + new_events
+    # run_manual_mode now returns ALL events (existing + new)
+    # So we use new_events directly as all_events
+    all_events = new_events
+    new_count = len(all_events) - len(existing_events)
 
     # Save events
     if all_events:
@@ -89,7 +91,7 @@ def main():
 
         save_events(all_events, output_path)
         print(f"\nEvents saved to: {output_path}")
-        print(f"Total events: {len(all_events)} ({len(new_events)} new)")
+        print(f"Total events: {len(all_events)} ({new_count} new)")
         highlights = sum(1 for e in all_events if e.get("isHighlight", False))
         if highlights:
             print(f"Highlights: {highlights}")
