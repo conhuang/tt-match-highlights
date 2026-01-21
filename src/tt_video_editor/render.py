@@ -128,7 +128,9 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
     p1_timeout_taken = False
     p2_timeout_taken = False
 
-    temp_dir = "temp_overlays"
+    # Create unique temp_dir based on input filename to allow parallel renders
+    input_base = os.path.splitext(os.path.basename(args.input_file))[0]
+    temp_dir = f"temp_overlays_{input_base}"
     clean = getattr(args, "clean", False)
     if clean and os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
@@ -226,7 +228,7 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
     print(f"Generated {len(processed_segments)} segments. Rendering with FFmpeg...")
 
     # Render segments (with checkpoint support)
-    concat_list_path = "concat_list.txt"
+    concat_list_path = f"concat_list_{input_base}.txt"
     skipped = 0
     with open(concat_list_path, "w") as f:
         for idx, seg in enumerate(processed_segments):
