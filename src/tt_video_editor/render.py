@@ -45,6 +45,7 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
     """Process events and render video with scoreboard overlays."""
     from tt_video_editor.core import get_video_properties
     from tt_video_editor.scoreboard.scoreboard_generator import ScoreboardGenerator
+    import time
 
     if not events:
         print("No events to process.")
@@ -230,6 +231,8 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
     # Render segments (with checkpoint support)
     concat_list_path = f"concat_list_{input_base}.txt"
     skipped = 0
+    start_total = time.time()
+
     with open(concat_list_path, "w") as f:
         for idx, seg in enumerate(processed_segments):
             seg_output = os.path.join(temp_dir, seg["filename"])
@@ -281,8 +284,11 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
                         seg_output,
                     ]
                 )
-                print(f"  Rendering card {idx + 1}...")
+                print(f"  Rendering card {idx + 1}/{len(processed_segments)}...")
+                start_seg = time.time()
                 result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                elapsed = time.time() - start_seg
+                print(f"  Done in {elapsed:.1f}s")
                 if result.returncode != 0:
                     print(f"  Error: {result.stderr.decode()[:100]}")
 
@@ -322,13 +328,16 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
                     ]
                 )
                 duration = seg["end"] - seg["start"]
-                print(f"  Rendering clip {idx + 1} ({duration:.1f}s)...")
+                print(f"  Rendering clip {idx + 1}/{len(processed_segments)} ({duration:.1f}s)...")
+                start_seg = time.time()
                 result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                elapsed = time.time() - start_seg
+                print(f"  Done in {elapsed:.1f}s")
                 if result.returncode != 0:
                     print(f"  Error: {result.stderr.decode()[:100]}")
 
             f.write(f"file '{os.path.abspath(seg_output)}'\n")
-            print(f"Rendered segment {idx + 1}/{len(processed_segments)}")
+            # print(f"Rendered segment {idx + 1}/{len(processed_segments)}")
 
     if skipped > 0:
         print(f"Skipped {skipped} already-rendered segments (use --clean to re-render all)")
@@ -352,6 +361,8 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
     )
 
     print(f"Done! Saved to {args.output_file}")
+    total_time = time.time() - start_total
+    print(f"Total render time: {total_time:.1f}s")
 
     # Cleanup
     # Cleanup disabled by user request
