@@ -170,13 +170,18 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
             )
 
         # Update score (always, for accurate scoreboard in future clips)
-        if event["winner"] == p1_name:
+        # Update score (always, for accurate scoreboard in future clips)
+        winner = event.get("winner")
+        point_scored = False
+        if winner == p1_name:
             p1_score += 1
-        else:
+            point_scored = True
+        elif winner == p2_name:
             p2_score += 1
+            point_scored = True
 
         # Check for game end
-        if (p1_score >= 11 or p2_score >= 11) and abs(p1_score - p2_score) >= 2:
+        if point_scored and (p1_score >= 11 or p2_score >= 11) and abs(p1_score - p2_score) >= 2:
             if p1_score > p2_score:
                 p1_sets += 1
             else:
@@ -245,6 +250,12 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
                     ]
                     + encoder_opts
                     + [
+                        "-color_primaries",
+                        "bt2020",
+                        "-color_trc",
+                        "smpte2084",
+                        "-colorspace",
+                        "bt2020nc",
                         "-pix_fmt",
                         "yuv420p",
                         "-r",

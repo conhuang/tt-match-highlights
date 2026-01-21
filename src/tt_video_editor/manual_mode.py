@@ -9,6 +9,7 @@ def run_manual_mode(args):
     print("  [/]: Seek -/+ 1 minute")
     print("  1: Point for Player 1 (ends clip)")
     print("  2: Point for Player 2 (ends clip)")
+    print("  3: Record clip (NO SCORE CHANGE)")
     print("  H: Mark current/last clip as HIGHLIGHT")
     print("  Shift+1 (!): Timeout for Player 1")
     print("  Shift+2 (@): Timeout for Player 2")
@@ -62,6 +63,8 @@ def run_manual_mode(args):
         game_num = 1
 
         for e in events_list:
+            if e["winner"] is None:
+                continue
             if e["winner"] == p1_name:
                 p1_score += 1
             else:
@@ -157,6 +160,7 @@ def run_manual_mode(args):
             if key not in [
                 ord("1"),
                 ord("2"),
+                ord("3"),
                 ord("e"),
                 ord("z"),
                 ord("h"),
@@ -191,8 +195,11 @@ def run_manual_mode(args):
             else:
                 print("UNDO: No events to remove.")
 
-        elif key in [ord("1"), ord("2")]:
-            winner = p1_name if key == ord("1") else p2_name
+        elif key in [ord("1"), ord("2"), ord("3")]:
+            if key == ord("3"):
+                winner = None
+            else:
+                winner = p1_name if key == ord("1") else p2_name
             end_time = current_time
 
             start_time = 0
@@ -218,10 +225,15 @@ def run_manual_mode(args):
             )
 
             # Compute score AFTER for display
-            new_p1 = p1_score + 1 if winner == p1_name else p1_score
-            new_p2 = p2_score + 1 if winner == p2_name else p2_score
-            highlight_str = " ⭐" if pending_highlight else ""
-            print(f"G{game_num}: {new_p1}-{new_p2} | {winner} won{highlight_str}")
+            if winner:
+                new_p1 = p1_score + 1 if winner == p1_name else p1_score
+                new_p2 = p2_score + 1 if winner == p2_name else p2_score
+                highlight_str = " ⭐" if pending_highlight else ""
+                print(f"G{game_num}: {new_p1}-{new_p2} | {winner} won{highlight_str}")
+            else:
+                highlight_str = " ⭐" if pending_highlight else ""
+                print(f"Clip recorded (No Score Change){highlight_str}")
+
             current_start_time = None
             pending_highlight = False  # Reset after recording
 

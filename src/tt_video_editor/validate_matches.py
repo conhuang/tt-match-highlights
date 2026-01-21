@@ -40,7 +40,9 @@ def validate_match(events_path):
     game_history = []
 
     for i, event in enumerate(events):
-        winner = event["winner"]
+        winner = event.get("winner")
+        if winner is None:
+            continue
 
         # Add point
         if winner == p1:
