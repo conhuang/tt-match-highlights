@@ -7,3 +7,6 @@ Requires-Dist: opencv-python
 Requires-Dist: numpy
 Requires-Dist: scipy
 Requires-Dist: Pillow
+Provides-Extra: ml
+Requires-Dist: torch>=2.0; extra == "ml"
+Requires-Dist: torchvision; extra == "ml"

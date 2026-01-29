@@ -23,6 +23,8 @@ def parse_args():
         "--load-events",
         help="Path to a JSON file of events to skip logging and go straight to video processing",
     )
+    parser.add_argument("--detect-ml", action="store_true", help="Use ML model for event detection")
+    parser.add_argument("--model-path", help="Path to ML model weights")
     return parser.parse_args()
 
 

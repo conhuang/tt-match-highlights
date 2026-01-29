@@ -17,6 +17,10 @@ src/tt_video_editor.egg-info/dependency_links.txt
 src/tt_video_editor.egg-info/entry_points.txt
 src/tt_video_editor.egg-info/requires.txt
 src/tt_video_editor.egg-info/top_level.txt
+src/tt_video_editor/ml/__init__.py
+src/tt_video_editor/ml/point_detector.py
+src/tt_video_editor/ml/prepare_dataset.py
+src/tt_video_editor/ml/ttnet_model.py
 src/tt_video_editor/scoreboard/__init__.py
 src/tt_video_editor/scoreboard/preview_scoreboard.py
 src/tt_video_editor/scoreboard/scoreboard_generator.py

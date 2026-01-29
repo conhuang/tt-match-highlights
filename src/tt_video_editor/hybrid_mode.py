@@ -10,6 +10,31 @@ def extract_audio(video_path):
     return audio_path
 
 
+def detect_rallies_ml(video_path, model_path):
+    """
+    Detect rallies using trained TTNet model.
+
+    Args:
+        video_path: Path to video file
+        model_path: Path to trained model weights
+
+    Returns:
+        List of (start, end) tuples in seconds
+    """
+    try:
+        from tt_video_editor.ml.point_detector import PointDetector
+    except ImportError:
+        raise ImportError(
+            "ML detection requires PyTorch. Install with: pip install tt_video_editor[ml]"
+        )
+
+    detector = PointDetector(model_path)
+    events = detector.predict(video_path)
+
+    # Convert to (start, end) tuples
+    return [(e["start"], e["end"]) for e in events]
+
+
 def detect_rallies(audio_path, threshold_ratio=0.25, window_size=1600):
     from scipy.io import wavfile
     import numpy as np
@@ -71,9 +96,24 @@ def run_hybrid_mode(args):
     print("Extracting audio...")
     audio_path = extract_audio(args.input_file)
 
-    print("Analyzing audio for rallies...")
-    # Calibrated default: 0.25 (Found to be optimal for testgame1.MOV)
-    rallies = detect_rallies(audio_path, threshold_ratio=0.25)
+    if hasattr(args, "detect_ml") and args.detect_ml:
+        print("Using ML model for rally detection...")
+        model_path = args.model_path
+        if not model_path:
+            # Default to best model in standard location
+            model_path = os.path.expanduser("~/Desktop/tt_models/ttnet_best.pth")
+            if not os.path.exists(model_path):
+                print(f"Warning: Model not found at {model_path}. Falling back to audio detection.")
+                rallies = detect_rallies(audio_path, threshold_ratio=0.25)
+            else:
+                rallies = detect_rallies_ml(args.input_file, model_path)
+        else:
+            rallies = detect_rallies_ml(args.input_file, model_path)
+    else:
+        print("Analyzing audio for rallies...")
+        # Calibrated default: 0.25 (Found to be optimal for testgame1.MOV)
+        rallies = detect_rallies(audio_path, threshold_ratio=0.25)
+
     print(f"Found {len(rallies)} potential rallies.")
 
     events = []

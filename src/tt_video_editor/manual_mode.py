@@ -1,7 +1,13 @@
 def run_manual_mode(args, existing_events=None):
     import cv2
 
+    # Get video FPS for adaptive playback settings
+    from .core import get_video_properties
+
+    fps, duration = get_video_properties(args.input_file)
+
     print(f"Starting Manual Mode for {args.input_file}...")
+    print(f"Video: {fps:.1f} fps, {duration:.1f}s duration")
     print("Controls:")
     print("  SPACE: Pause/Play")
     print("  E: Mark START of point")
@@ -39,11 +45,28 @@ def run_manual_mode(args, existing_events=None):
     #   1920 = 1080p, slowest
     PREVIEW_WIDTH = 960
 
-    # FRAME_SKIP: Show every Nth frame (higher = faster, choppier)
-    #   2 = 30fps effective from 60fps source
-    #   3 = 20fps effective
-    #   4 = 15fps effective (current)
-    FRAME_SKIP = 4
+    # FRAME_SKIP: Dynamically calculated to achieve ~1.5x playback speed
+    # Target: effective display rate = fps / FRAME_SKIP, played at real-time
+    # For 1.5x speed: FRAME_SKIP = fps / (fps * 1.5 / waitKey_rate)
+    # Since we use waitKey(1), effective rate is ~1000/frame but limited by decode speed
+    #
+    # Simplified approach: for 1.5x speed:
+    # - 60fps video: skip every 2nd frame -> 30fps @ realtime = 2x speed (close to 1.5x)
+    # - 30fps video: skip every other frame -> 15fps @ realtime = 2x (but decode is slower)
+    #
+    # Better approach: Calculate skip to achieve target effective FPS for smooth playback
+    TARGET_PLAYBACK_SPEED = 1.5
+    # For higher FPS videos, we need more frame skipping
+    # For 60fps: FRAME_SKIP=2 gives 30 displayed fps at ~1.5-2x speed (good)
+    # For 30fps: FRAME_SKIP=1 (no skip) gives 30 displayed fps at ~1-1.5x (good)
+    if fps >= 50:  # 60fps video (4K typically)
+        FRAME_SKIP = 3  # ~2x speed for faster review of 4K content
+    elif fps >= 25:  # 30fps video (1080p typically)
+        FRAME_SKIP = 1  # Show every frame, speed controlled by waitKey
+    else:
+        FRAME_SKIP = 1  # 24fps or lower
+
+    print(f"Playback settings: FRAME_SKIP={FRAME_SKIP} for ~{TARGET_PLAYBACK_SPEED}x speed")
 
     # SEEK_SECONDS: How many seconds to jump per arrow key press
     SEEK_SECONDS = 2
@@ -127,11 +150,18 @@ def run_manual_mode(args, existing_events=None):
 
             cv2.imshow("Table Tennis Automator", frame)
 
-        key = cv2.waitKey(1 if not paused else 100) & 0xFF
+        # Frame delay: use waitKey(1) of all videos - FRAME_SKIP controls playback speed
+        # Decode overhead naturally limits speed for 4K, lower res is faster
+        if not paused:
+            frame_delay_ms = 1
+        else:
+            frame_delay_ms = 100
+        key = cv2.waitKey(frame_delay_ms) & 0xFF
 
         # Keyframe-aligned seeking for faster response
-        # iPhone videos typically have keyframes every 60 frames (1 sec at 60fps)
-        KEYFRAME_INTERVAL = 60
+        # iPhone videos typically have keyframes every ~1 second
+        # Dynamically calculate based on detected FPS
+        KEYFRAME_INTERVAL = int(fps)  # ~1 second worth of frames
 
         if key == ord("q"):
             break

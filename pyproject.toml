@@ -12,6 +12,12 @@ dependencies = [
     "Pillow",
 ]
 
+[project.optional-dependencies]
+ml = [
+    "torch>=2.0",
+    "torchvision",
+]
+
 [project.scripts]
 tt-automator = "tt_video_editor.core:main"
 tt-capture = "tt_video_editor.capture:main"

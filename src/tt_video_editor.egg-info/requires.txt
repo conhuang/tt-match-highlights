@@ -2,3 +2,7 @@ opencv-python
 numpy
 scipy
 Pillow
+
+[ml]
+torch>=2.0
+torchvision
