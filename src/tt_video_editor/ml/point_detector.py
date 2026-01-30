@@ -87,7 +87,7 @@ class PointDetector:
 
         from .ttnet_model import TTNet
 
-        self.model = TTNet(dropout_p=0.5, tasks=["ball_detection", "event_spotting"])
+        self.model = TTNet(dropout_p=0.5, tasks=["event_spotting"])
 
         if "model_state_dict" in checkpoint:
             self.model.load_state_dict(checkpoint["model_state_dict"])
@@ -97,20 +97,24 @@ class PointDetector:
         self.model.to(self.device)
         self.model.eval()
 
-    def _preprocess_frames(self, frames: np.ndarray) -> "torch.Tensor":
-        """Preprocess frames for model input."""
+    def _preprocess_frames(self, batch_windows: List[List[np.ndarray]]) -> "torch.Tensor":
+        """Preprocess batch of windows."""
         import cv2
 
-        processed = []
-        for frame in frames:
-            frame = cv2.resize(frame, self.input_size)
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frame = frame.astype(np.float32) / 255.0
-            processed.append(frame)
+        processed_batch = []
+        for window in batch_windows:
+            processed_window = []
+            for frame in window:
+                frame = cv2.resize(frame, self.input_size)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame = frame.astype(np.float32) / 255.0
+                processed_window.append(np.transpose(frame, (2, 0, 1)))
 
-        batch = np.stack(processed)
-        batch = np.transpose(batch, (0, 3, 1, 2))
+            # Stack 3 frames along channel dimension -> (9, H, W)
+            stacked = np.concatenate(processed_window, axis=0)
+            processed_batch.append(stacked)
 
+        batch = np.stack(processed_batch)
         return torch.from_numpy(batch).to(self.device)
 
     def predict(self, video_path: str, batch_size: int = 16) -> List[Dict]:
@@ -125,13 +129,18 @@ class PointDetector:
             List of detected events with start/end times in seconds
         """
         import cv2
+        from collections import deque
 
         cap = cv2.VideoCapture(video_path)
         fps = cap.get(cv2.CAP_PROP_FPS)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
         frame_scores = []
-        frames_buffer = []
+
+        window_size = 3
+        window_buffer = deque(maxlen=window_size)
+        batch_samples = []
+
         frame_idx = 0
 
         while True:
@@ -139,31 +148,38 @@ class PointDetector:
             if not ret:
                 break
 
-            frames_buffer.append(frame)
+            window_buffer.append(frame)
 
-            if len(frames_buffer) >= batch_size:
-                scores = self._process_batch(frames_buffer)
-                frame_scores.extend(scores)
-                frames_buffer = []
+            if len(window_buffer) == window_size:
+                # Add copy of current window
+                batch_samples.append(list(window_buffer))
 
-                if frame_idx % (batch_size * 10) == 0:
-                    progress = frame_idx / total_frames * 100
-                    print(f"Processing: {progress:.1f}%")
+                if len(batch_samples) >= batch_size:
+                    scores = self._process_batch(batch_samples)
+                    frame_scores.extend(scores)
+                    batch_samples = []
+
+                    if frame_idx % (batch_size * 10) == 0:
+                        progress = frame_idx / total_frames * 100
+                        print(f"Processing: {progress:.1f}%", flush=True)
 
             frame_idx += 1
 
-        if frames_buffer:
-            scores = self._process_batch(frames_buffer)
+        if batch_samples:
+            scores = self._process_batch(batch_samples)
             frame_scores.extend(scores)
 
         cap.release()
 
+        # Pad initial frames that didn't form a full window
+        frame_scores = [0.0] * (window_size - 1) + frame_scores
+
         events = self._scores_to_events(frame_scores, fps)
         return events
 
-    def _process_batch(self, frames: List[np.ndarray]) -> List[float]:
-        """Process a batch of frames and return event scores."""
-        input_tensor = self._preprocess_frames(np.array(frames))
+    def _process_batch(self, batch_windows: List[List[np.ndarray]]) -> List[float]:
+        """Process a batch of windows and return event scores."""
+        input_tensor = self._preprocess_frames(batch_windows)
 
         with torch.no_grad():
             outputs = self.model(input_tensor)
