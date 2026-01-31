@@ -13,7 +13,7 @@ import os
 import sys
 from pathlib import Path
 
-import cv2
+from PIL import Image
 import numpy as np
 import torch
 import torch.nn as nn
@@ -29,10 +29,11 @@ TRAIN_PATH = "/Users/conniehuang/Desktop/tt_dataset_full"
 TEST_PATH = "/Users/conniehuang/Desktop/tt_dataset_test"
 OUTPUT_PATH = "/Users/conniehuang/Desktop/tt_models"
 
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 NUM_EPOCHS = 30
 LEARNING_RATE = 1e-4
-NUM_WORKERS = 4  # Set to 0 to avoid NumPy multiprocessing issues
+NUM_WORKERS = 2  # Moderate parallelism
+PERSISTENT_WORKERS = True  # Keep workers alive
 RESUME = True
 
 
@@ -42,6 +43,8 @@ class TTDataset(Dataset):
         ann_path = Path(path) / f"{split}_annotations.json"
         ann = json.load(open(ann_path))
         self.samples = []
+        self._cache = {}  # Dynamic cache
+        self._max_cache = 1000  # Enough to hold 10-20 overlapping windows
 
         for a in ann:
             fps = a["frame_paths"]
@@ -55,14 +58,32 @@ class TTDataset(Dataset):
     def __len__(self):
         return len(self.samples)
 
+    def _load_frame(self, fp):
+        if fp in self._cache:
+            return self._cache[fp]
+
+        try:
+            img = Image.open(fp).convert("RGB")
+            arr = np.array(img)  # Keep as uint8 for memory efficiency
+        except Exception:
+            arr = np.zeros((128, 320, 3), dtype=np.uint8)
+
+        # Manage cache size
+        if len(self._cache) > self._max_cache:
+            # Simple FIFO eviction - safer way to avoid "size changed during iteration"
+            keys_to_remove = list(self._cache.keys())[:100]
+            for k in keys_to_remove:
+                self._cache.pop(k, None)
+
+        self._cache[fp] = arr
+        return arr
+
     def __getitem__(self, idx):
         s = self.samples[idx]
         frames = []
         for fp in s["frames"]:
-            img = cv2.imread(fp)
-            if img is None:
-                img = np.zeros((128, 320, 3), dtype=np.uint8)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+            img_uint8 = self._load_frame(fp)
+            img = img_uint8.astype(np.float32) / 255.0
             frames.append(np.transpose(img, (2, 0, 1)))
         return torch.from_numpy(np.concatenate(frames)), s["label"]
 
@@ -90,9 +111,20 @@ def train():
     val_ds = TTDataset(TRAIN_PATH, "val")
 
     train_loader = DataLoader(
-        train_ds, BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True
+        train_ds,
+        BATCH_SIZE,
+        shuffle=True,
+        num_workers=NUM_WORKERS,
+        pin_memory=False,
+        persistent_workers=PERSISTENT_WORKERS,
     )
-    val_loader = DataLoader(val_ds, BATCH_SIZE, num_workers=NUM_WORKERS, pin_memory=True)
+    val_loader = DataLoader(
+        val_ds,
+        BATCH_SIZE,
+        num_workers=NUM_WORKERS,
+        pin_memory=False,
+        persistent_workers=PERSISTENT_WORKERS,
+    )
 
     # Model
     # Model - only use event_spotting to avoid MPS issues with BallDetectionHead
@@ -155,7 +187,7 @@ def train():
         history["loss"].append(avg_loss)
         history["acc"].append(val_acc)
 
-        print(f"Epoch {epoch + 1}: loss={avg_loss:.4f}, val_acc={val_acc:.4f}")
+        print(f"Epoch {epoch + 1}: loss={avg_loss:.4f}, val_acc={val_acc:.4f}", flush=True)
 
         # Save checkpoint
         torch.save(

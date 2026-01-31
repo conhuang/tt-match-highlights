@@ -93,8 +93,8 @@ def run_hybrid_mode(args):
     import cv2
     import numpy as np
 
-    print("Extracting audio...")
-    audio_path = extract_audio(args.input_file)
+    audio_path = None
+    rallies = []
 
     if hasattr(args, "detect_ml") and args.detect_ml:
         print("Using ML model for rally detection...")
@@ -102,15 +102,21 @@ def run_hybrid_mode(args):
         if not model_path:
             # Default to best model in standard location
             model_path = os.path.expanduser("~/Desktop/tt_models/ttnet_best.pth")
-            if not os.path.exists(model_path):
-                print(f"Warning: Model not found at {model_path}. Falling back to audio detection.")
-                rallies = detect_rallies(audio_path, threshold_ratio=0.25)
-            else:
+
+        if os.path.exists(model_path):
+            try:
                 rallies = detect_rallies_ml(args.input_file, model_path)
+            except Exception as e:
+                print(f"Error during ML detection: {e}. Falling back to audio.")
+                audio_path = extract_audio(args.input_file)
+                rallies = detect_rallies(audio_path, threshold_ratio=0.25)
         else:
-            rallies = detect_rallies_ml(args.input_file, model_path)
+            print(f"Warning: Model not found at {model_path}. Falling back to audio detection.")
+            audio_path = extract_audio(args.input_file)
+            rallies = detect_rallies(audio_path, threshold_ratio=0.25)
     else:
-        print("Analyzing audio for rallies...")
+        print("Extracting audio for rally detection...")
+        audio_path = extract_audio(args.input_file)
         # Calibrated default: 0.25 (Found to be optimal for testgame1.MOV)
         rallies = detect_rallies(audio_path, threshold_ratio=0.25)
 
@@ -184,7 +190,8 @@ def run_hybrid_mode(args):
                 if key == ord("q"):
                     cap.release()
                     cv2.destroyAllWindows()
-                    os.remove(audio_path)
+                    if audio_path and os.path.exists(audio_path):
+                        os.remove(audio_path)
                     return events
                 elif key == ord("a"):
                     events.append({"start": clip_start, "end": clip_end, "winner": p1_name})
@@ -228,7 +235,8 @@ def run_hybrid_mode(args):
                 key = cv2.waitKey(100) & 0xFF
                 if key == ord("q"):
                     cap.release()
-                    os.remove(audio_path)
+                    if audio_path and os.path.exists(audio_path):
+                        os.remove(audio_path)
                     cv2.destroyAllWindows()
                     return events
                 elif key == ord("x"):
@@ -237,5 +245,6 @@ def run_hybrid_mode(args):
 
     cap.release()
     cv2.destroyAllWindows()
-    os.remove(audio_path)
+    if audio_path and os.path.exists(audio_path):
+        os.remove(audio_path)
     return events
