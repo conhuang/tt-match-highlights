@@ -58,7 +58,7 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
 
     # Get input video properties
     input_fps, _ = get_video_properties(args.input_file)
-    output_fps = str(int(input_fps)) if input_fps > 0 else "60"
+    output_fps = str(input_fps) if input_fps > 0 else "60"
 
     # Get input resolution
     import subprocess as sp

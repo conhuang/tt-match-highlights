@@ -23,6 +23,10 @@ def parse_args():
         "--load-events",
         help="Path to a JSON file of events to skip logging and go straight to video processing",
     )
+    parser.add_argument(
+        "--resume-events",
+        help="Path to a JSON file of events to resume editing from where you left off",
+    )
     parser.add_argument("--detect-ml", action="store_true", help="Use ML model for event detection")
     parser.add_argument("--model-path", help="Path to ML model weights")
     return parser.parse_args()
@@ -79,7 +83,7 @@ def process_video(events, args):
 
     # Get input video properties
     input_fps, _ = get_video_properties(args.input_file)
-    output_fps = str(int(input_fps)) if input_fps > 0 else "30"
+    output_fps = str(input_fps) if input_fps > 0 else "30"
 
     # Get resolution from input
     import subprocess as sp
@@ -101,11 +105,37 @@ def process_video(events, args):
             capture_output=True,
             text=True,
         )
-        width, height = map(int, result.stdout.strip().split(","))
+        width, height = map(int, result.stdout.strip().rstrip(",").split(","))
     except:
         width, height = 1920, 1080  # fallback
 
-    print(f"Generating overlays... (output: {width}x{height} @ {output_fps}fps)")
+    # Detect color space from source video
+    try:
+        result = sp.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=color_space,color_transfer,color_primaries",
+                "-of",
+                "csv=p=0",
+                args.input_file,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        parts = result.stdout.strip().rstrip(",").split(",")
+        if len(parts) == 3 and parts[0] != "unknown":
+            color_space, color_trc, color_primaries = parts
+        else:
+            color_space, color_trc, color_primaries = "bt709", "bt709", "bt709"
+    except:
+        color_space, color_trc, color_primaries = "bt709", "bt709", "bt709"
+
+    print(f"Generating overlays... (output: {width}x{height} @ {output_fps}fps, color: {color_space})")
 
     # Init Logic
     game_num = 1
@@ -121,7 +151,7 @@ def process_video(events, args):
         os.makedirs(temp_dir)
 
     p1_name, p2_name = args.names.split(",")
-    gen = ScoreboardGenerator(p1_name, p2_name)
+    gen = ScoreboardGenerator(p1_name, p2_name, width=width, height=height)
 
     processed_segments = []
 
@@ -180,6 +210,7 @@ def process_video(events, args):
     print(f"Generated {len(processed_segments)} segments. Rendering with FFmpeg...")
 
     concat_list_path = "concat_list.txt"
+    failed_segments = 0
     with open(concat_list_path, "w") as f:
         for idx, seg in enumerate(processed_segments):
             seg_output = os.path.join(temp_dir, f"seg_{idx}.mp4")
@@ -217,7 +248,7 @@ def process_video(events, args):
                     "-shortest",
                     seg_output,
                 ]
-                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
 
             elif seg["type"] == "clip":
                 # Downscale to 1080p and overlay scoreboard for faster encoding
@@ -233,11 +264,11 @@ def process_video(events, args):
                     "-i",
                     seg["overlay"],
                     "-filter_complex",
-                    "[0:v]scale=1920:1080[scaled];[scaled][1:v]overlay=0:0[outv]",
+                    f"[0:v]scale={width}:{height}[scaled];[scaled][1:v]overlay=0:0[outv]",
                     "-map",
                     "[outv]",
                     "-map",
-                    "0:a",
+                    "0:a:0",
                     "-c:v",
                     "libx264",
                     "-preset",
@@ -250,14 +281,32 @@ def process_video(events, args):
                     "192k",
                     "-pix_fmt",
                     "yuv420p",
+                    "-color_primaries",
+                    color_primaries,
+                    "-color_trc",
+                    color_trc,
+                    "-colorspace",
+                    color_space,
                     "-r",
-                    "30",  # Output at 30fps for faster encoding
+                    output_fps,
                     seg_output,
                 ]
-                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
 
-            f.write(f"file '{os.path.abspath(seg_output)}'\n")
-            print(f"Rendered segment {idx + 1}/{len(processed_segments)}")
+            if result.returncode != 0 or not os.path.exists(seg_output):
+                failed_segments += 1
+                print(f"FAILED segment {idx + 1}/{len(processed_segments)} (type={seg['type']})")
+                # Print last few lines of ffmpeg error for diagnosis
+                if result.stderr:
+                    err_lines = result.stderr.strip().split("\n")
+                    for line in err_lines[-5:]:
+                        print(f"  ffmpeg: {line}")
+            else:
+                f.write(f"file '{os.path.abspath(seg_output)}'\n")
+                print(f"Rendered segment {idx + 1}/{len(processed_segments)}")
+
+    if failed_segments > 0:
+        print(f"WARNING: {failed_segments}/{len(processed_segments)} segments failed to render.")
 
     print("Concatenating segments...")
     subprocess.run(
@@ -272,16 +321,22 @@ def process_video(events, args):
             concat_list_path,
             "-c",
             "copy",
+            "-color_primaries",
+            color_primaries,
+            "-color_trc",
+            color_trc,
+            "-colorspace",
+            color_space,
             args.output_file,
         ]
     )
 
     print(f"Done! Saved to {args.output_file}")
 
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
-    if os.path.exists(concat_list_path):
-        os.remove(concat_list_path)
+    # if os.path.exists(temp_dir):
+    #     shutil.rmtree(temp_dir)
+    # if os.path.exists(concat_list_path):
+    #     os.remove(concat_list_path)
 
 
 def create_proxy_file(input_file, proxy_path=None):
@@ -383,14 +438,22 @@ def main():
         #     edit_args.input_file = proxy_file
         #     print(f"Using proxy for editing: {proxy_file}")
 
+        existing_events = []
+        if hasattr(args, "resume_events") and args.resume_events:
+            existing_events = load_events(args.resume_events) or []
+            if existing_events:
+                last_end = max([e["end"] for e in existing_events])
+                edit_args.start_time = last_end
+                print(f"Resuming from {last_end:.1f}s with {len(existing_events)} existing events.")
+
         if args.mode == "manual":
             from tt_video_editor.manual_mode import run_manual_mode
 
-            events = run_manual_mode(edit_args)
+            events = run_manual_mode(edit_args, existing_events=existing_events)
         elif args.mode == "hybrid":
             from tt_video_editor.hybrid_mode import run_hybrid_mode
 
-            events = run_hybrid_mode(edit_args)
+            events = run_hybrid_mode(edit_args, existing_events=existing_events)
 
         if events:
             default_path = get_default_event_path(args.input_file)
