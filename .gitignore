@@ -15,4 +15,6 @@ __pycache__/
 # Temp files from our script
 temp_audio.wav
 temp_overlays/
+temp_overlays*/
 concat_list.txt
+concat_list*.txt

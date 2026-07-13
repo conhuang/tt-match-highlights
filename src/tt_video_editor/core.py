@@ -29,6 +29,11 @@ def parse_args():
     )
     parser.add_argument("--detect-ml", action="store_true", help="Use ML model for event detection")
     parser.add_argument("--model-path", help="Path to ML model weights")
+    parser.add_argument(
+        "--no-game-cards",
+        action="store_true",
+        help="Do not insert 'Game X' cards between games",
+    )
     return parser.parse_args()
 
 
@@ -155,9 +160,10 @@ def process_video(events, args):
 
     processed_segments = []
 
-    game_card_path = os.path.join(temp_dir, "game_1.png")
-    gen.create_game_card(1, game_card_path)
-    processed_segments.append({"type": "card", "path": game_card_path, "duration": 2.0})
+    if not getattr(args, 'no_game_cards', False):
+        game_card_path = os.path.join(temp_dir, "game_1.png")
+        gen.create_game_card(1, game_card_path)
+        processed_segments.append({"type": "card", "path": game_card_path, "duration": 2.0})
 
     for i, event in enumerate(events):
         overlay_path = os.path.join(temp_dir, f"score_{i}.png")
@@ -195,7 +201,7 @@ def process_video(events, args):
             p2_score = 0
             game_num += 1
 
-            if p1_sets < 3 and p2_sets < 3 and i < len(events) - 1:
+            if not getattr(args, 'no_game_cards', False) and p1_sets < 3 and p2_sets < 3 and i < len(events) - 1:
                 card_path = os.path.join(temp_dir, f"game_{game_num}.png")
                 gen.create_game_card(game_num, card_path)
                 processed_segments.append({"type": "card", "path": card_path, "duration": 2.0})

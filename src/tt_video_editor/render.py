@@ -48,8 +48,8 @@ def parse_args():
 
 def process_video(events, args, highlights_only=False, keep_temp=False):
     """Process events and render video with scoreboard overlays."""
-    from tt_video_editor.core import get_video_properties
-    from tt_video_editor.scoreboard.scoreboard_generator import ScoreboardGenerator
+    from core import get_video_properties
+    from scoreboard.scoreboard_generator import ScoreboardGenerator
     import time
 
     if not events:
@@ -97,8 +97,34 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
         print(f"Exception checking resolution: {e}")
         width, height = 1920, 1080
 
+    # Detect color space from source video
+    try:
+        result = sp.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=color_space,color_transfer,color_primaries",
+                "-of",
+                "csv=p=0",
+                args.input_file,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        parts = [p for p in result.stdout.strip().split(",") if p]
+        if len(parts) == 3 and parts[0] != "unknown":
+            color_space, color_trc, color_primaries = parts
+        else:
+            color_space, color_trc, color_primaries = "bt709", "bt709", "bt709"
+    except:
+        color_space, color_trc, color_primaries = "bt709", "bt709", "bt709"
+
     print(
-        f"Rendering video at {width}x{height} @ {output_fps}fps (highlights_only={highlights_only})"
+        f"Rendering video at {width}x{height} @ {output_fps}fps, color: {color_space} (highlights_only={highlights_only})"
     )
 
     # Encoder selection
@@ -150,7 +176,6 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
 
     processed_segments = []
 
-    # Only add game card if not highlights-only mode
     # Only add game card if not highlights-only mode and not disabled
     if not highlights_only and not args.no_game_cards:
         game_card_path = os.path.join(temp_dir, "game_1.png")
@@ -167,15 +192,16 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
     for i, event in enumerate(events):
         # Create overlay with CURRENT score (before this point)
         overlay_path = os.path.join(temp_dir, f"score_{i}.png")
-        gen.create_scoreboard_image(
-            p1_score,
-            p2_score,
-            p1_sets,
-            p2_sets,
-            overlay_path,
-            p1_timeout=p1_timeout_taken,
-            p2_timeout=p2_timeout_taken,
-        )
+        if not highlights_only:
+            gen.create_scoreboard_image(
+                p1_score,
+                p2_score,
+                p1_sets,
+                p2_sets,
+                overlay_path,
+                p1_timeout=p1_timeout_taken,
+                p2_timeout=p2_timeout_taken,
+            )
 
         # Only add to segments if not highlights-only OR this is a highlight
         if not highlights_only or event.get("isHighlight", False):
@@ -189,7 +215,6 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
                 }
             )
 
-        # Update score (always, for accurate scoreboard in future clips)
         # Update score (always, for accurate scoreboard in future clips)
         winner = event.get("winner")
         point_scored = False
@@ -211,7 +236,6 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
             p2_score = 0
             game_num += 1
 
-            # Add game card only if not highlights-only
             # Add game card only if not highlights-only and not disabled
             if (
                 not highlights_only
@@ -280,11 +304,11 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
                     + encoder_opts
                     + [
                         "-color_primaries",
-                        "bt2020",
+                        color_primaries,
                         "-color_trc",
-                        "smpte2084",
+                        color_trc,
                         "-colorspace",
-                        "bt2020nc",
+                        color_space,
                         "-pix_fmt",
                         "yuv420p",
                         "-r",
@@ -306,6 +330,18 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
                     print(f"  Error: {result.stderr.decode()[:100]}")
 
             elif seg["type"] == "clip":
+                overlay = [
+                        "-i",
+                        seg["overlay"],
+                        "-filter_complex",
+                        f"[0:v][1:v]overlay=0:0,scale={width}:{height}[outv]",
+                        "-map",
+                        "[outv]",
+                        "-map",
+                        "0:a:0",
+                        "-c:v",
+                        encoder,
+                    ] if not highlights_only else [] 
                 cmd = (
                     [
                         "ffmpeg",
@@ -315,18 +351,8 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
                         "-to",
                         str(seg["end"]),
                         "-i",
-                        args.input_file,
-                        "-i",
-                        seg["overlay"],
-                        "-filter_complex",
-                        f"[0:v][1:v]overlay=0:0,scale={width}:{height}[outv]",
-                        "-map",
-                        "[outv]",
-                        "-map",
-                        "0:a",
-                        "-c:v",
-                        encoder,
-                    ]
+                        args.input_file
+                    ] + overlay
                     + encoder_opts
                     + [
                         "-c:a",
@@ -369,6 +395,12 @@ def process_video(events, args, highlights_only=False, keep_temp=False):
             concat_list_path,
             "-c",
             "copy",
+            "-color_primaries",
+            color_primaries,
+            "-color_trc",
+            color_trc,
+            "-colorspace",
+            color_space,
             args.output_file,
         ]
     )
@@ -401,7 +433,7 @@ def main():
         sys.exit(1)
 
     # Load events
-    from tt_video_editor.event_manager import load_events
+    from event_manager import load_events
 
     events = load_events(args.events)
 

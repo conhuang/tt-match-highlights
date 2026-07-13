@@ -89,7 +89,7 @@ def detect_rallies(audio_path, threshold_ratio=0.25, window_size=1600):
     return rallies
 
 
-def run_hybrid_mode(args):
+def run_hybrid_mode(args, existing_events=None):
     import cv2
     import numpy as np
 
@@ -122,7 +122,15 @@ def run_hybrid_mode(args):
 
     print(f"Found {len(rallies)} potential rallies.")
 
-    events = []
+    events = list(existing_events) if existing_events else []
+
+    if events:
+        last_end = max([e["end"] for e in events])
+        # Filter out rallies that occur before or overlapping with our last end time
+        original_count = len(rallies)
+        rallies = [r for r in rallies if r[0] > last_end]
+        if len(rallies) < original_count:
+            print(f"Skipped {original_count - len(rallies)} rallies already covered by existing events.")
 
     p1_name, p2_name = args.names.split(",")
 

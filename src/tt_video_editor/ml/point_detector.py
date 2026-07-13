@@ -43,7 +43,7 @@ class PointDetector:
         self,
         model_path: str,
         device: Optional[str] = None,
-        confidence_threshold: float = 0.5,
+        confidence_threshold: float = 0.65,  # Higher threshold since model has high baseline
         min_rally_duration: float = 1.0,
         max_gap_to_merge: float = 0.5,
     ):
@@ -96,6 +96,7 @@ class PointDetector:
 
         self.model.to(self.device)
         self.model.eval()
+        print(f"Model loaded on {self.device}", flush=True)
 
     def _preprocess_frames(self, batch_windows: List[List[np.ndarray]]) -> "torch.Tensor":
         """Preprocess batch of windows."""
@@ -117,13 +118,14 @@ class PointDetector:
         batch = np.stack(processed_batch)
         return torch.from_numpy(batch).to(self.device)
 
-    def predict(self, video_path: str, batch_size: int = 16) -> List[Dict]:
+    def predict(self, video_path: str, batch_size: int = 32, frame_skip: int = 2) -> List[Dict]:
         """
         Detect point boundaries in a video.
 
         Args:
             video_path: Path to video file
             batch_size: Number of frames to process at once
+            frame_skip: Process every Nth frame (1=all, 2=half, 3=third)
 
         Returns:
             List of detected events with start/end times in seconds
@@ -135,6 +137,12 @@ class PointDetector:
         fps = cap.get(cv2.CAP_PROP_FPS)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
+        effective_frames = total_frames // frame_skip
+        print(
+            f"Analyzing {effective_frames} frames ({total_frames / fps:.1f}s video, skip={frame_skip})...",
+            flush=True,
+        )
+
         frame_scores = []
 
         window_size = 3
@@ -142,11 +150,18 @@ class PointDetector:
         batch_samples = []
 
         frame_idx = 0
+        last_progress = -1
 
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
+
+            frame_idx += 1
+
+            # Skip frames for speed
+            if frame_idx % frame_skip != 0:
+                continue
 
             window_buffer.append(frame)
 
@@ -159,11 +174,11 @@ class PointDetector:
                     frame_scores.extend(scores)
                     batch_samples = []
 
-                    if frame_idx % (batch_size * 10) == 0:
-                        progress = frame_idx / total_frames * 100
-                        print(f"Processing: {progress:.1f}%", flush=True)
-
-            frame_idx += 1
+                    # Print progress every 10%
+                    progress = int(frame_idx / total_frames * 100)
+                    if progress // 10 > last_progress // 10:
+                        print(f"Processing: {progress}%", flush=True)
+                        last_progress = progress
 
         if batch_samples:
             scores = self._process_batch(batch_samples)
@@ -174,7 +189,23 @@ class PointDetector:
         # Pad initial frames that didn't form a full window
         frame_scores = [0.0] * (window_size - 1) + frame_scores
 
-        events = self._scores_to_events(frame_scores, fps)
+        # Adjust for frame skipping - effective fps is lower
+        effective_fps = fps / frame_skip
+        events = self._scores_to_events(frame_scores, effective_fps)
+
+        # Debug: show score statistics
+        import numpy as np
+
+        scores_arr = np.array(frame_scores)
+        print(
+            f"Score stats: min={scores_arr.min():.3f}, max={scores_arr.max():.3f}, mean={scores_arr.mean():.3f}",
+            flush=True,
+        )
+        print(
+            f"Frames above threshold ({self.confidence_threshold}): {(scores_arr > self.confidence_threshold).sum()} / {len(scores_arr)}",
+            flush=True,
+        )
+
         return events
 
     def _process_batch(self, batch_windows: List[List[np.ndarray]]) -> List[float]:
@@ -189,10 +220,12 @@ class PointDetector:
             else:
                 event_scores = outputs[-1] if isinstance(outputs, (list, tuple)) else outputs
 
-            if event_scores.min() < 0 or event_scores.max() > 1:
-                event_scores = torch.sigmoid(event_scores)
+            # Model outputs logits for 2 classes: [no_rally, rally]
+            # Apply softmax and take probability of class 0 (no-rally)
+            probs = torch.softmax(event_scores, dim=1)
+            no_rally_probs = probs[:, 0]  # Take class 0 probability
 
-            scores = event_scores.cpu().numpy().flatten().tolist()
+            scores = no_rally_probs.cpu().numpy().tolist()
 
         return scores
 
