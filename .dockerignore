@@ -1,0 +1,35 @@
+# Git and OS metadata
+.git
+.gitignore
+.DS_Store
+
+# Temporary overlays and render directories
+temp_overlays/
+temp_overlays_*
+
+# Video files and lists
+*.mp4
+*.MOV
+*.mov
+*.avi
+*.txt
+concat_list*
+
+# Python caches and local environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+venv/
+env/
+.pytest_cache/
+
+# Development & Documentation
+docs/
+notebooks/
+tests/
+perf_scripts/
+deploy_to_ecr.sh
+.github/

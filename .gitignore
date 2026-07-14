@@ -18,3 +18,9 @@ temp_overlays/
 temp_overlays*/
 concat_list.txt
 concat_list*.txt
+
+# Installer and package files
+*.pkg
+*.zip
+*.tar.gz
+
