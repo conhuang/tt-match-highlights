@@ -15,10 +15,10 @@ jobs:
     
     # Define these env variables or replace them with your actual resource names
     env:
-      AWS_REGION: us-east-2                 # e.g., us-east-1
-      ECR_REPOSITORY: tt_video_editor   # Your ECR repo name
-      ECS_CLUSTER: default                      # Your ECS cluster name
-      ECS_SERVICE: tt_video_editor-1390   # Your ECS service name
+      AWS_REGION: us-east-2                  # e.g., us-east-1
+      ECR_REPOSITORY: tt_video_editor        # Your ECR repo name
+      ECS_CLUSTER: default                   # Your ECS cluster name
+      ECS_SERVICE: tt_video_editor-8212      # Your ECS service name
 
     steps:
       - name: Checkout Code
