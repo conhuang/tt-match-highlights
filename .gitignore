@@ -24,3 +24,12 @@ concat_list*.txt
 *.zip
 *.tar.gz
 
+# Local Environments & Secrets
+.venv/
+venv/
+env/
+.env
+metadata.db
+storage/
+
+
