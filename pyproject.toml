@@ -21,11 +21,9 @@ ml = [
 
 [project.scripts]
 tt-automator = "tt_video_editor.core:main"
-tt-capture = "tt_video_editor.capture:main"
 tt-render = "tt_video_editor.render:main"
-validate-matches = "tt_video_editor.validate_matches:main"
 preview-scoreboard = "tt_video_editor.scoreboard.preview_scoreboard:create_preview"
-create-proxy = "tt_video_editor.proxy:main"
+
 
 [tool.ruff]
 line-length = 100
