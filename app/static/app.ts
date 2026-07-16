@@ -161,6 +161,13 @@ async function uploadVideoMultipart(matchId: string, file: File): Promise<void> 
 
     const { upload_id, parts, original_filename }: InitializeResponse = await initResponse.json();
     
+    console.log("Multipart upload initialized successfully!");
+    console.log("  Upload ID:", upload_id);
+    console.log("  Total chunks to upload:", parts.length);
+    if (parts.length > 0) {
+        console.log("  First chunk pre-signed upload URL:", parts[0].UploadUrl);
+    }
+
     const completedParts: { PartNumber: number; ETag: string }[] = [];
     let uploadedBytesTotal = 0;
     const partProgress: { [key: number]: number } = {};
@@ -183,15 +190,13 @@ async function uploadVideoMultipart(matchId: string, file: File): Promise<void> 
             const end = Math.min(start + CHUNK_SIZE, file.size);
             const blob = file.slice(start, end);
 
+            console.log(`Starting upload of Part #${part.PartNumber}/${parts.length} (size: ${(blob.size / (1024 * 1024)).toFixed(1)}MB)...`);
+
             const xhr = new XMLHttpRequest();
             
             // Check if uploading to local mock endpoint or direct to S3
-            // In local dev, we use PUT, in S3 we use PUT as well
             const method = part.UploadUrl.startsWith("/") ? "PUT" : "PUT";
             xhr.open(method, part.UploadUrl);
-
-            // Do not send Content-Type header when uploading direct to S3 (let it default)
-            // But if it's the local mock uploader, we don't need boundary formatting either.
 
             xhr.upload.addEventListener("progress", (e: ProgressEvent) => {
                 if (e.lengthComputable) {
@@ -214,6 +219,7 @@ async function uploadVideoMultipart(matchId: string, file: File): Promise<void> 
                     }
                     
                     if (etag) {
+                        console.log(`Successfully uploaded Part #${part.PartNumber}. ETag: ${etag}`);
                         // S3 ETags usually contain quotes, e.g. '"a5be..."', keep them
                         completedParts.push({
                             PartNumber: part.PartNumber,
@@ -246,6 +252,7 @@ async function uploadVideoMultipart(matchId: string, file: File): Promise<void> 
                 try {
                     await uploadChunk(part);
                 } catch (err) {
+                    console.error(`Error uploading Part #${part.PartNumber}. Aborting upload session...`, err);
                     // Abort upload on S3 if any part fails
                     await fetch(`/api/matches/${matchId}/upload/abort?upload_id=${upload_id}&original_filename=${encodeURIComponent(original_filename)}`, {
                         method: "POST"
@@ -265,6 +272,7 @@ async function uploadVideoMultipart(matchId: string, file: File): Promise<void> 
     await Promise.all(workers);
 
     // 3. Finalize upload (Complete Multipart Upload)
+    console.log("All chunks successfully uploaded. Finalizing complete request to assemble video...");
     progressLabel.textContent = "Finalizing upload (assembling video)...";
     
     const completeResponse = await fetch(`/api/matches/${matchId}/upload/complete`, {
@@ -281,6 +289,7 @@ async function uploadVideoMultipart(matchId: string, file: File): Promise<void> 
         throw new Error("Failed to assemble the video on S3.");
     }
 
+    console.log("Video assembled and upload workflow completed successfully!");
     resetForm();
     loadMatches();
 }

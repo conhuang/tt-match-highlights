@@ -136,6 +136,13 @@ async function uploadVideoMultipart(matchId, file) {
 
     const { upload_id, parts, original_filename } = await initResponse.json();
     
+    console.log("Multipart upload initialized successfully!");
+    console.log("  Upload ID:", upload_id);
+    console.log("  Total chunks to upload:", parts.length);
+    if (parts.length > 0) {
+        console.log("  First chunk pre-signed upload URL:", parts[0].UploadUrl);
+    }
+
     const completedParts = [];
     const partProgress = {};
 
@@ -156,6 +163,8 @@ async function uploadVideoMultipart(matchId, file) {
             const start = (part.PartNumber - 1) * CHUNK_SIZE;
             const end = Math.min(start + CHUNK_SIZE, file.size);
             const blob = file.slice(start, end);
+
+            console.log(`Starting upload of Part #${part.PartNumber}/${parts.length} (size: ${(blob.size / (1024 * 1024)).toFixed(1)}MB)...`);
 
             const xhr = new XMLHttpRequest();
             const method = part.UploadUrl.startsWith("/") ? "PUT" : "PUT";
@@ -180,6 +189,7 @@ async function uploadVideoMultipart(matchId, file) {
                     }
                     
                     if (etag) {
+                        console.log(`Successfully uploaded Part #${part.PartNumber}. ETag: ${etag}`);
                         completedParts.push({
                             PartNumber: part.PartNumber,
                             ETag: etag
@@ -211,6 +221,7 @@ async function uploadVideoMultipart(matchId, file) {
                 try {
                     await uploadChunk(part);
                 } catch (err) {
+                    console.error(`Error uploading Part #${part.PartNumber}. Aborting upload session...`, err);
                     await fetch(`/api/matches/${matchId}/upload/abort?upload_id=${upload_id}&original_filename=${encodeURIComponent(original_filename)}`, {
                         method: "POST"
                     });
@@ -227,6 +238,7 @@ async function uploadVideoMultipart(matchId, file) {
     await Promise.all(workers);
 
     // 3. Finalize upload (Complete Multipart Upload)
+    console.log("All chunks successfully uploaded. Finalizing complete request to assemble video...");
     progressLabel.textContent = "Finalizing upload (assembling video)...";
     
     const completeResponse = await fetch(`/api/matches/${matchId}/upload/complete`, {
@@ -243,6 +255,7 @@ async function uploadVideoMultipart(matchId, file) {
         throw new Error("Failed to assemble the video on S3.");
     }
 
+    console.log("Video assembled and upload workflow completed successfully!");
     resetForm();
     loadMatches();
 }
