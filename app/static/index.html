@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matches</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <main class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>Matches</h1>
+        </header>
+
+        <!-- New Match / Upload Form -->
+        <section class="card">
+            <form id="match-form">
+                <div class="form-row">
+                    <input type="text" id="match-name" placeholder="Match Name" required autocomplete="off">
+                </div>
+                <div class="form-grid">
+                    <input type="text" id="player1" placeholder="Player 1" required autocomplete="off">
+                    <input type="text" id="player2" placeholder="Player 2" required autocomplete="off">
+                </div>
+                
+                <!-- Drag & Drop Upload Zone -->
+                <div id="drop-zone" class="drop-zone">
+                    <p class="drop-text">Drag video file here or click to select</p>
+                    <input type="file" id="file-input" accept="video/mp4,video/quicktime" style="display: none;">
+                    
+                    <!-- Upload Progress -->
+                    <div id="progress-container" class="progress-container" style="display: none;">
+                        <div class="progress-bar">
+                            <div id="progress-fill" class="progress-fill"></div>
+                        </div>
+                        <span id="progress-label" class="progress-label">0%</span>
+                    </div>
+                </div>
+
+                <button type="submit" id="submit-btn" disabled>Create Match</button>
+            </form>
+        </section>
+
+        <!-- Dashboard / List -->
+        <section class="matches-section">
+            <h2>All Matches</h2>
+            <div id="matches-list" class="matches-list">
+                <!-- Loaded dynamically -->
+                <p class="empty-state">No matches uploaded yet.</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

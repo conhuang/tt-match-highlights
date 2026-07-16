@@ -101,14 +101,13 @@ We will work very iteratively as requested, starting with Phase 1:
       "name": "Jonsen vs. Ryan Lin",
       "player1": "Jonsen",
       "player2": "Ryan Lin",
-      "scoreboard_style": "default_dark",
       "created_at": "2026-07-12T13:05:13",
       "video_filename": "uuid-v4.mp4",
       "events": []
     }
     ```
 - **Frontend UI**:
-  - Beautiful Match Creation form: input Player 1, Player 2, Match Name, Scoreboard Style selection (e.g., Classic Dark, Neon Blue, Vintage).
+  - Match Creation form: input Player 1, Player 2, Match Name
   - Drag-and-drop file upload with a real-time progress bar.
   - Match dashboard displaying all created/uploaded matches.
 
@@ -134,6 +133,11 @@ We will work very iteratively as requested, starting with Phase 1:
 ### 4. Phase 4: Video Download
 - Serve the rendered outputs for download via the UI.
 - Cleanup temporary overlay segments to conserve server disk space.
+
+### 5. Phase 5: Multi-Tenancy & User-Level Partitioning
+- **Database Schema**: Add `owner_username` to the Match model. Set up DynamoDB with a composite key (Partition Key: `owner_username`, Sort Key: `id`) and add corresponding SQLite index.
+- **Storage Partitioning**: Route raw uploads and rendered highlights to user-specific folders (e.g., `s3://<bucket>/<username>/uploads/`).
+- **API Security**: Secure routes to filter data based on the authenticated user's credentials.
 
 ---
 
