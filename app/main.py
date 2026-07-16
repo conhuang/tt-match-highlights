@@ -1,7 +1,9 @@
 import os
-from fastapi import FastAPI, UploadFile, File, HTTPException, status
+from io import BytesIO
+from fastapi import FastAPI, UploadFile, File, HTTPException, status, Request
 from fastapi.staticfiles import StaticFiles
-from typing import List
+from pydantic import BaseModel
+from typing import List, Optional
 
 from app.models import Match, MatchCreate, MatchUpdate
 from app.database import get_db_repository
@@ -24,6 +26,20 @@ if os.path.exists(local_storage_dir):
 @app.get("/")
 def read_root():
     return {"message": "Hello World from FastAPI Backend!"}
+
+# --- Schemas for Multipart Upload ---
+class MultipartInit(BaseModel):
+    filename: str
+    file_size: int
+
+class MultipartPart(BaseModel):
+    PartNumber: int
+    ETag: str
+
+class MultipartComplete(BaseModel):
+    upload_id: str
+    parts: List[MultipartPart]
+    original_filename: str
 
 # --- Matches API Endpoints ---
 
@@ -92,21 +108,19 @@ def update_match(match_id: str, match_update: MatchUpdate):
     updated = db.create_match(match.model_dump())
     return Match.model_validate(updated)
 
-@app.post("/api/matches/{match_id}/upload")
-async def upload_video(match_id: str, file: UploadFile = File(...)):
-    """Streams and uploads a raw video file, then updates match metadata."""
+# --- S3 Direct Multipart Upload Endpoints ---
+
+@app.post("/api/matches/{match_id}/upload/initialize")
+def initialize_multipart(match_id: str, init_data: MultipartInit):
+    """Initiates a multipart upload and generates pre-signed URLs for each chunk."""
     record = db.get_match(match_id)
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Match with ID {match_id} not found."
         )
-    
-    match = Match.model_validate(record)
-    
-    # Extract and validate file extension
-    orig_filename = file.filename or "video.mp4"
-    ext = os.path.splitext(orig_filename)[1].lower() or ".mp4"
+        
+    ext = os.path.splitext(init_data.filename)[1].lower() or ".mp4"
     if ext not in [".mp4", ".mov", ".mkv", ".avi"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -116,15 +130,75 @@ async def upload_video(match_id: str, file: UploadFile = File(...)):
     unique_storage_name = f"{match_id}{ext}"
     remote_path = f"uploads/{unique_storage_name}"
     
-    # Stream upload direct to storage (preventing server memory footprint bloat)
-    success = storage.upload_fileobj(file.file, remote_path)
+    try:
+        # 1. Start the upload session on S3 or local mock
+        upload_id = storage.initiate_multipart_upload(remote_path)
+        
+        # 2. Determine chunk size (default: 50MB per chunk)
+        chunk_size = 50 * 1024 * 1024
+        file_size = init_data.file_size
+        num_parts = (file_size + chunk_size - 1) // chunk_size
+        if num_parts == 0:
+            num_parts = 1
+            
+        # 3. Generate pre-signed part upload URLs
+        parts = []
+        for part_num in range(1, num_parts + 1):
+            url = storage.generate_presigned_upload_part_url(
+                remote_name=remote_path,
+                upload_id=upload_id,
+                part_number=part_num
+            )
+            parts.append({
+                "PartNumber": part_num,
+                "UploadUrl": url
+            })
+            
+        return {
+            "upload_id": upload_id,
+            "parts": parts,
+            "unique_filename": unique_storage_name,
+            "original_filename": init_data.filename
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to initialize upload: {str(e)}"
+        )
+
+@app.post("/api/matches/{match_id}/upload/complete")
+def complete_multipart(match_id: str, complete_data: MultipartComplete):
+    """Completes the multipart upload by assembling the chunks."""
+    record = db.get_match(match_id)
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Match with ID {match_id} not found."
+        )
+        
+    match = Match.model_validate(record)
+    
+    orig_filename = complete_data.original_filename
+    ext = os.path.splitext(orig_filename)[1].lower() or ".mp4"
+    unique_storage_name = f"{match_id}{ext}"
+    remote_path = f"uploads/{unique_storage_name}"
+    
+    # Convert Pydantic parts to raw dict list for boto3/local uploader
+    parts_list = [p.model_dump() for p in complete_data.parts]
+    
+    success = storage.complete_multipart_upload(
+        remote_name=remote_path,
+        upload_id=complete_data.upload_id,
+        parts=parts_list
+    )
+    
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to save video to storage."
+            detail="Failed to finalize video upload."
         )
         
-    # Update match records
+    # Update match database metadata
     match.video_filename = unique_storage_name
     match.original_filename = orig_filename
     db.create_match(match.model_dump())
@@ -135,6 +209,41 @@ async def upload_video(match_id: str, file: UploadFile = File(...)):
         "original_filename": orig_filename,
         "status": "upload_successful"
     }
+
+@app.post("/api/matches/{match_id}/upload/abort")
+def abort_multipart(match_id: str, upload_id: str, original_filename: str):
+    """Aborts a multipart upload and deletes all uploaded temporary chunks."""
+    ext = os.path.splitext(original_filename)[1].lower() or ".mp4"
+    unique_storage_name = f"{match_id}{ext}"
+    remote_path = f"uploads/{unique_storage_name}"
+    
+    success = storage.abort_multipart_upload(
+        remote_name=remote_path,
+        upload_id=upload_id
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to abort multipart upload."
+        )
+    return {"status": "success", "message": "Multipart upload aborted."}
+
+# --- Local Storage Part Upload Uploader (Mock API) ---
+@app.put("/api/matches/upload/part")
+async def upload_local_part(upload_id: str, part_number: int, request: Request):
+    """Endpoint used ONLY by local storage provider to write temporary chunks."""
+    body = await request.body()
+    success = storage.save_upload_part(
+        upload_id=upload_id,
+        part_number=part_number,
+        file_obj=BytesIO(body)
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to save part data."
+        )
+    return {"status": "success", "PartNumber": part_number, "ETag": f"local-etag-{part_number}"}
 
 @app.delete("/api/matches/{match_id}")
 def delete_match(match_id: str):

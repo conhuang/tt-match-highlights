@@ -1,7 +1,8 @@
 import os
 import shutil
+import uuid
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, List, Dict
 
 class StorageProvider(ABC):
     """
@@ -30,6 +31,32 @@ class StorageProvider(ABC):
     def delete_file(self, remote_name: str) -> bool:
         pass
 
+    # --- Multipart Upload Methods ---
+    @abstractmethod
+    def initiate_multipart_upload(self, remote_name: str) -> str:
+        """Starts a multipart upload and returns the upload ID."""
+        pass
+
+    @abstractmethod
+    def generate_presigned_upload_part_url(self, remote_name: str, upload_id: str, part_number: int) -> str:
+        """Generates the URL where the browser can upload a specific chunk."""
+        pass
+
+    @abstractmethod
+    def complete_multipart_upload(self, remote_name: str, upload_id: str, parts: List[Dict]) -> bool:
+        """Combines all uploaded parts into the final file."""
+        pass
+
+    @abstractmethod
+    def abort_multipart_upload(self, remote_name: str, upload_id: str) -> bool:
+        """Cancels the upload and deletes all uploaded temporary chunks."""
+        pass
+
+    @abstractmethod
+    def save_upload_part(self, upload_id: str, part_number: int, file_obj) -> bool:
+        """Saves a chunk to temporary storage (Only used in local development mode)."""
+        pass
+
 
 class LocalStorageProvider(StorageProvider):
     """
@@ -37,10 +64,11 @@ class LocalStorageProvider(StorageProvider):
     """
     def __init__(self, base_dir: str = "storage"):
         self.base_dir = base_dir
+        self.temp_dir = os.path.join(base_dir, "temp_uploads")
         os.makedirs(base_dir, exist_ok=True)
-        # Create separate uploads and renders folders inside storage
         os.makedirs(os.path.join(base_dir, "uploads"), exist_ok=True)
         os.makedirs(os.path.join(base_dir, "renders"), exist_ok=True)
+        os.makedirs(self.temp_dir, exist_ok=True)
 
     def _get_local_path(self, remote_name: str) -> str:
         return os.path.join(self.base_dir, remote_name)
@@ -66,14 +94,70 @@ class LocalStorageProvider(StorageProvider):
         return False
 
     def get_download_url(self, remote_name: str, expiration: int = 3600) -> str:
-        # For local dev, route files through a static FastAPI mount
-        # e.g., /static/videos/uploads/vytxeJKJygguct7vC6Lxw.mp4
         return f"/static/videos/{remote_name}"
 
     def delete_file(self, remote_name: str) -> bool:
         path = self._get_local_path(remote_name)
         if os.path.exists(path):
             os.remove(path)
+            return True
+        return False
+
+    # --- Multipart Local Mock ---
+    def initiate_multipart_upload(self, remote_name: str) -> str:
+        upload_id = str(uuid.uuid4())
+        upload_dir = os.path.join(self.temp_dir, upload_id)
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Save a reference mapping of remote name to file path in the temp folder
+        with open(os.path.join(upload_dir, "remote_name.txt"), "w") as f:
+            f.write(remote_name)
+            
+        return upload_id
+
+    def generate_presigned_upload_part_url(self, remote_name: str, upload_id: str, part_number: int) -> str:
+        # Direct local client uploads to a server-proxy route
+        return f"/api/matches/upload/part?upload_id={upload_id}&part_number={part_number}"
+
+    def save_upload_part(self, upload_id: str, part_number: int, file_obj) -> bool:
+        upload_dir = os.path.join(self.temp_dir, upload_id)
+        if not os.path.exists(upload_dir):
+            return False
+        
+        part_file = os.path.join(upload_dir, str(part_number))
+        with open(part_file, "wb") as f:
+            shutil.copyfileobj(file_obj, f)
+        return True
+
+    def complete_multipart_upload(self, remote_name: str, upload_id: str, parts: List[Dict]) -> bool:
+        upload_dir = os.path.join(self.temp_dir, upload_id)
+        if not os.path.exists(upload_dir):
+            return False
+
+        final_dest = self._get_local_path(remote_name)
+        os.makedirs(os.path.dirname(final_dest), exist_ok=True)
+
+        # Sort parts by their part number to assemble chronologically
+        sorted_parts = sorted(parts, key=lambda x: x["PartNumber"])
+
+        with open(final_dest, "wb") as outfile:
+            for part in sorted_parts:
+                part_num = part["PartNumber"]
+                part_file = os.path.join(upload_dir, str(part_num))
+                if os.path.exists(part_file):
+                    with open(part_file, "rb") as infile:
+                        shutil.copyfileobj(infile, outfile)
+                else:
+                    return False
+        
+        # Clean up temporary parts folder
+        shutil.rmtree(upload_dir)
+        return True
+
+    def abort_multipart_upload(self, remote_name: str, upload_id: str) -> bool:
+        upload_dir = os.path.join(self.temp_dir, upload_id)
+        if os.path.exists(upload_dir):
+            shutil.rmtree(upload_dir)
             return True
         return False
 
@@ -135,6 +219,55 @@ class S3StorageProvider(StorageProvider):
             return True
         except ClientError:
             return False
+
+    # --- S3 Multipart Upload Implementation ---
+    def initiate_multipart_upload(self, remote_name: str) -> str:
+        response = self.s3_client.create_multipart_upload(
+            Bucket=self.bucket_name,
+            Key=remote_name
+        )
+        return response["UploadId"]
+
+    def generate_presigned_upload_part_url(self, remote_name: str, upload_id: str, part_number: int) -> str:
+        url = self.s3_client.generate_presigned_url(
+            ClientMethod="upload_part",
+            Params={
+                "Bucket": self.bucket_name,
+                "Key": remote_name,
+                "UploadId": upload_id,
+                "PartNumber": part_number
+            }
+        )
+        return url
+
+    def complete_multipart_upload(self, remote_name: str, upload_id: str, parts: List[Dict]) -> bool:
+        from botocore.exceptions import ClientError
+        try:
+            self.s3_client.complete_multipart_upload(
+                Bucket=self.bucket_name,
+                Key=remote_name,
+                UploadId=upload_id,
+                MultipartUpload={"Parts": parts}
+            )
+            return True
+        except ClientError:
+            return False
+
+    def abort_multipart_upload(self, remote_name: str, upload_id: str) -> bool:
+        from botocore.exceptions import ClientError
+        try:
+            self.s3_client.abort_multipart_upload(
+                Bucket=self.bucket_name,
+                Key=remote_name,
+                UploadId=upload_id
+            )
+            return True
+        except ClientError:
+            return False
+
+    def save_upload_part(self, upload_id: str, part_number: int, file_obj) -> bool:
+        # S3 parts go directly from browser to AWS S3, bypassing this server
+        raise NotImplementedError("save_upload_part is only for LocalStorageProvider")
 
 
 def get_storage_provider() -> StorageProvider:

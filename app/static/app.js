@@ -1,8 +1,8 @@
 // Elements
 const matchForm = document.getElementById("match-form");
 const matchNameInput = document.getElementById("match-name");
-const player1Input = document.getElementById("player-1") || document.getElementById("player1");
-const player2Input = document.getElementById("player-2") || document.getElementById("player2");
+const player1Input = document.getElementById("player1");
+const player2Input = document.getElementById("player2");
 const dropZone = document.getElementById("drop-zone");
 const fileInput = document.getElementById("file-input");
 const progressContainer = document.getElementById("progress-container");
@@ -12,6 +12,8 @@ const submitBtn = document.getElementById("submit-btn");
 const matchesList = document.getElementById("matches-list");
 
 let selectedFile = null;
+const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB Chunks
+const CONCURRENCY_LIMIT = 3;         // Max parallel chunk uploads
 
 // Initial Load
 document.addEventListener("DOMContentLoaded", () => {
@@ -104,8 +106,8 @@ matchForm.addEventListener("submit", async (e) => {
 
         const match = await createResponse.json();
 
-        // Step 2: Upload Video File
-        uploadVideo(match.id, selectedFile);
+        // Step 2: Begin S3 Direct Multipart Upload sequence
+        await uploadVideoMultipart(match.id, selectedFile);
 
     } catch (error) {
         alert(error.message || "An error occurred during match creation.");
@@ -113,40 +115,136 @@ matchForm.addEventListener("submit", async (e) => {
     }
 });
 
-function uploadVideo(matchId, file) {
+// Multipart Uploader with Parallel Workers
+async function uploadVideoMultipart(matchId, file) {
     progressContainer.style.display = "flex";
-    
-    const formData = new FormData();
-    formData.append("file", file);
+    progressLabel.textContent = "Initializing upload...";
 
-    const xhr = new XMLHttpRequest();
-    
-    xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-            const percent = (e.loaded / e.total) * 100;
-            progressFill.style.width = `${percent}%`;
-            progressLabel.textContent = `${percent.toFixed(0)}%`;
-        }
+    // 1. Initialize Multipart Upload
+    const initResponse = await fetch(`/api/matches/${matchId}/upload/initialize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            filename: file.name,
+            file_size: file.size
+        })
     });
 
-    xhr.open("POST", `/api/matches/${matchId}/upload`);
+    if (!initResponse.ok) {
+        throw new Error("Failed to initialize multipart upload.");
+    }
+
+    const { upload_id, parts, original_filename } = await initResponse.json();
     
-    xhr.onload = () => {
-        if (xhr.status === 200) {
-            resetForm();
-            loadMatches();
-        } else {
-            alert("Video upload failed.");
-            submitBtn.disabled = false;
+    const completedParts = [];
+    const partProgress = {};
+
+    // Progress updates
+    const updateOverallProgress = () => {
+        let totalUploaded = 0;
+        for (const partNum in partProgress) {
+            totalUploaded += partProgress[partNum];
+        }
+        const percent = Math.min((totalUploaded / file.size) * 100, 99.9);
+        progressFill.style.width = `${percent}%`;
+        progressLabel.textContent = `Uploading: ${percent.toFixed(1)}% (${(totalUploaded / (1024 * 1024)).toFixed(0)}MB / ${(file.size / (1024 * 1024)).toFixed(0)}MB)`;
+    };
+
+    // Helper to upload a single part
+    const uploadChunk = (part) => {
+        return new Promise((resolve, reject) => {
+            const start = (part.PartNumber - 1) * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const blob = file.slice(start, end);
+
+            const xhr = new XMLHttpRequest();
+            const method = part.UploadUrl.startsWith("/") ? "PUT" : "PUT";
+            xhr.open(method, part.UploadUrl);
+
+            xhr.upload.addEventListener("progress", (e) => {
+                if (e.lengthComputable) {
+                    partProgress[part.PartNumber] = e.loaded;
+                    updateOverallProgress();
+                }
+            });
+
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    let etag = xhr.getResponseHeader("ETag");
+                    
+                    if (!etag && xhr.responseText) {
+                        try {
+                            const res = JSON.parse(xhr.responseText);
+                            etag = res.ETag;
+                        } catch (err) {}
+                    }
+                    
+                    if (etag) {
+                        completedParts.push({
+                            PartNumber: part.PartNumber,
+                            ETag: etag
+                        });
+                        partProgress[part.PartNumber] = end - start;
+                        updateOverallProgress();
+                        resolve();
+                    } else {
+                        reject(new Error(`No ETag header returned for Part #${part.PartNumber}`));
+                    }
+                } else {
+                    reject(new Error(`Failed to upload Part #${part.PartNumber}. Status: ${xhr.status}`));
+                }
+            };
+
+            xhr.onerror = () => reject(new Error(`Network error during Part #${part.PartNumber}`));
+            xhr.send(blob);
+        });
+    };
+
+    // 2. Queue and execute chunk uploads with Concurrency Control
+    const queue = [...parts];
+    const workers = [];
+
+    const startWorker = async () => {
+        while (queue.length > 0) {
+            const part = queue.shift();
+            if (part) {
+                try {
+                    await uploadChunk(part);
+                } catch (err) {
+                    await fetch(`/api/matches/${matchId}/upload/abort?upload_id=${upload_id}&original_filename=${encodeURIComponent(original_filename)}`, {
+                        method: "POST"
+                    });
+                    throw err;
+                }
+            }
         }
     };
 
-    xhr.onerror = () => {
-        alert("Network error during upload.");
-        submitBtn.disabled = false;
-    };
+    for (let i = 0; i < Math.min(CONCURRENCY_LIMIT, parts.length); i++) {
+        workers.push(startWorker());
+    }
 
-    xhr.send(formData);
+    await Promise.all(workers);
+
+    // 3. Finalize upload (Complete Multipart Upload)
+    progressLabel.textContent = "Finalizing upload (assembling video)...";
+    
+    const completeResponse = await fetch(`/api/matches/${matchId}/upload/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            upload_id: upload_id,
+            parts: completedParts,
+            original_filename: original_filename
+        })
+    });
+
+    if (!completeResponse.ok) {
+        throw new Error("Failed to assemble the video on S3.");
+    }
+
+    resetForm();
+    loadMatches();
 }
 
 function resetForm() {
