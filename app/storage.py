@@ -169,12 +169,19 @@ class S3StorageProvider(StorageProvider):
     def __init__(self, bucket_name: str):
         try:
             import boto3
+            from botocore.config import Config
         except ImportError:
             raise ImportError(
                 "boto3 is required for S3 storage. Run 'pip install boto3' to install it."
             )
-        self.s3_client = boto3.client("s3")
+        region = os.getenv("AWS_REGION", "us-east-2")
+        self.s3_client = boto3.client(
+            "s3",
+            region_name=region,
+            config=Config(signature_version="s3v4")
+        )
         self.bucket_name = bucket_name
+
 
     def upload_file(self, local_path: str, remote_name: str) -> bool:
         from botocore.exceptions import ClientError
