@@ -1,4 +1,9 @@
-// Elements
+// DOM Elements
+const container = document.querySelector(".container");
+const dashboardView = document.getElementById("dashboard-view");
+const workspaceView = document.getElementById("workspace-view");
+
+// Dashboard Form Elements
 const matchForm = document.getElementById("match-form");
 const matchNameInput = document.getElementById("match-name");
 const player1Input = document.getElementById("player1");
@@ -11,7 +16,21 @@ const progressLabel = document.getElementById("progress-label");
 const submitBtn = document.getElementById("submit-btn");
 const matchesList = document.getElementById("matches-list");
 
+// Workspace Elements
+const backBtn = document.getElementById("back-btn");
+const workspaceTitle = document.getElementById("workspace-title");
+const videoPlayer = document.getElementById("video-player");
+const pendingStartLabel = document.getElementById("pending-start-label");
+const activeGameInput = document.getElementById("active-game");
+const eventsList = document.getElementById("events-list");
+const saveEventsBtn = document.getElementById("save-events-btn");
+const renderBtn = document.getElementById("render-btn");
+
+// Global State
 let selectedFile = null;
+let currentMatch = null;
+let pendingStartTime = null;
+
 const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB Chunks
 const CONCURRENCY_LIMIT = 3;         // Max parallel chunk uploads
 
@@ -548,6 +567,262 @@ function renderMatches(matches) {
         `;
     }).join("");
 }
+
+// Dashboard Click Delegator (Opens Workspace View)
+matchesList.addEventListener("click", (e) => {
+    const target = e.target;
+    if (target.classList.contains("delete-btn")) {
+        return; // Handled by deleteMatch
+    }
+    const matchItem = target.closest(".match-item");
+    if (matchItem) {
+        const matchId = matchItem.getAttribute("data-id");
+        if (matchId) {
+            selectMatchForWorkspace(matchId);
+        }
+    }
+});
+
+async function selectMatchForWorkspace(matchId) {
+    try {
+        const response = await fetch(`/api/matches/${matchId}`);
+        if (!response.ok) throw new Error("Failed to load match details.");
+        
+        const match = await response.json();
+        if (!match.video_filename) {
+            alert("This match does not have an uploaded video yet. Please upload a video first.");
+            return;
+        }
+        
+        openWorkspace(match);
+    } catch (error) {
+        alert(error.message || "Error entering workspace.");
+    }
+}
+
+// --- WORKSPACE VIEW CONTROLLER ---
+function openWorkspace(match) {
+    currentMatch = match;
+    
+    // Toggle views
+    dashboardView.style.display = "none";
+    workspaceView.style.display = "block";
+    container.classList.add("workspace-active");
+    
+    workspaceTitle.textContent = `${match.name} Workspace (${match.player1} vs ${match.player2})`;
+    
+    // Set video player src
+    if (match.video_url) {
+        videoPlayer.src = match.video_url;
+    } else {
+        videoPlayer.src = `/static/videos/uploads/${match.video_filename}`;
+    }
+    videoPlayer.load();
+    
+    // Reset state
+    pendingStartTime = null;
+    pendingStartLabel.textContent = "None";
+    activeGameInput.value = "1";
+    
+    renderEvents();
+}
+
+function renderEvents() {
+    if (!currentMatch) return;
+    
+    if (currentMatch.events.length === 0) {
+        eventsList.innerHTML = `
+            <p class="empty-state">No points logged yet. Use E/D to mark start and 1/2 keys to log winners.</p>
+        `;
+        return;
+    }
+    
+    // Events must be sorted chronologically
+    currentMatch.events.sort((a, b) => a.start - b.start);
+    
+    eventsList.innerHTML = currentMatch.events.map((event, index) => {
+        const startStr = formatTime(event.start);
+        const endStr = formatTime(event.end);
+        const isP1 = event.winner === currentMatch.player1;
+        const winnerClass = isP1 ? "p1" : "p2";
+        
+        return `
+            <div class="event-card">
+                <div class="event-card-header">
+                    <button class="time-link-btn" onclick="seekVideo(${event.start})">${startStr} - ${endStr}</button>
+                    <span class="event-winner ${winnerClass}">${event.winner} Wins Point</span>
+                </div>
+                <div class="event-details">
+                    <span>Game ${event.game} • Score: ${event.score_before}</span>
+                    <div class="event-inputs">
+                        <label>
+                            <input type="checkbox" ${event.isHighlight ? "checked" : ""} onchange="toggleEventHighlight(${index}, this.checked)">
+                            ⭐ Highlight
+                        </label>
+                        <label>
+                            TO:
+                            <select onchange="updateEventTimeout(${index}, this.value)" style="background: transparent; color: #fff; border: 1px solid var(--border-color); border-radius: 3px; font-size: 0.75rem;">
+                                <option value="" ${!event.timeout_player ? "selected" : ""}>None</option>
+                                <option value="${currentMatch.player1}" ${event.timeout_player === currentMatch.player1 ? "selected" : ""}>P1</option>
+                                <option value="${currentMatch.player2}" ${event.timeout_player === currentMatch.player2 ? "selected" : ""}>P2</option>
+                            </select>
+                        </label>
+                        <button class="event-delete-btn" onclick="deleteEvent(${index})">Delete</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+function formatTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 10);
+    const pad = (num) => num.toString().padStart(2, '0');
+    return `${pad(m)}:${pad(s)}.${ms}`;
+}
+
+// Real-time Event Persistence Auto-Saver
+async function autoSaveEvents() {
+    if (!currentMatch) return;
+    
+    saveEventsBtn.disabled = true;
+    saveEventsBtn.textContent = "Saving...";
+    
+    try {
+        const response = await fetch(`/api/matches/${currentMatch.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                events: currentMatch.events
+            })
+        });
+        
+        if (!response.ok) throw new Error("Auto-save failed.");
+        
+        const updatedMatch = await response.json();
+        currentMatch.events = updatedMatch.events;
+        renderEvents();
+        
+        saveEventsBtn.textContent = "Saved";
+        setTimeout(() => {
+            if (saveEventsBtn && saveEventsBtn.textContent === "Saved") {
+                saveEventsBtn.textContent = "Save Events";
+                saveEventsBtn.disabled = false;
+            }
+        }, 1000);
+    } catch (error) {
+        console.error("Auto-save error:", error);
+        saveEventsBtn.textContent = "Save Failed";
+        saveEventsBtn.disabled = false;
+    }
+}
+
+// Global Keyboard Shortcut Engine
+window.addEventListener("keydown", (e) => {
+    if (!currentMatch) return;
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT")) {
+        return;
+    }
+    
+    const key = e.key.toLowerCase();
+    
+    if (e.key === " ") {
+        e.preventDefault();
+        if (videoPlayer.paused) {
+            videoPlayer.play();
+        } else {
+            videoPlayer.pause();
+        }
+    } else if (key === "e" || key === "d") {
+        pendingStartTime = videoPlayer.currentTime;
+        pendingStartLabel.textContent = `${pendingStartTime.toFixed(1)}s`;
+        console.log(`[SHORTCUT] Marked Start Time: ${pendingStartTime.toFixed(1)}s`);
+    } else if (key === "1" || key === "a" || key === "2" || key === "s") {
+        if (pendingStartTime === null) {
+            alert("Please mark the Start Time first using 'E' or 'D'.");
+            return;
+        }
+        const endTime = videoPlayer.currentTime;
+        if (endTime <= pendingStartTime) {
+            alert("End time must be greater than start time.");
+            return;
+        }
+        
+        const winnerName = (key === "1" || key === "a") ? currentMatch.player1 : currentMatch.player2;
+        const activeGame = parseInt(activeGameInput.value) || 1;
+        
+        const newEvent = {
+            start: parseFloat(pendingStartTime.toFixed(2)),
+            end: parseFloat(endTime.toFixed(2)),
+            winner: winnerName,
+            timeout_player: null,
+            isHighlight: false,
+            game: activeGame,
+            score_before: "0-0"
+        };
+        
+        currentMatch.events.push(newEvent);
+        console.log(`[SHORTCUT] Logged Point for ${winnerName} (Start: ${newEvent.start}s, End: ${newEvent.end}s)`);
+        
+        pendingStartTime = null;
+        pendingStartLabel.textContent = "None";
+        
+        autoSaveEvents();
+    } else if (key === "z") {
+        if (currentMatch.events.length > 0) {
+            const removed = currentMatch.events.pop();
+            console.log("[SHORTCUT] Undone last event:", removed);
+            autoSaveEvents();
+        }
+    }
+});
+
+// Workspace Controls Click Handlers
+backBtn.addEventListener("click", () => {
+    videoPlayer.pause();
+    videoPlayer.src = "";
+    
+    currentMatch = null;
+    workspaceView.style.display = "none";
+    dashboardView.style.display = "block";
+    container.classList.remove("workspace-active");
+    
+    loadMatches();
+});
+
+saveEventsBtn.addEventListener("click", () => {
+    autoSaveEvents();
+});
+
+// Global Seek/Highlight Helpers
+window.seekVideo = (time) => {
+    videoPlayer.currentTime = time;
+    videoPlayer.play();
+};
+
+window.toggleEventHighlight = (index, checked) => {
+    if (currentMatch) {
+        currentMatch.events[index].isHighlight = checked;
+        autoSaveEvents();
+    }
+};
+
+window.updateEventTimeout = (index, value) => {
+    if (currentMatch) {
+        currentMatch.events[index].timeout_player = value === "" ? null : value;
+        autoSaveEvents();
+    }
+};
+
+window.deleteEvent = (index) => {
+    if (currentMatch) {
+        currentMatch.events.splice(index, 1);
+        autoSaveEvents();
+    }
+};
 
 // Delete Match
 async function deleteMatch(matchId) {

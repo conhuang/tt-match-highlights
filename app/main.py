@@ -15,6 +15,28 @@ app = FastAPI(title="Table Tennis Highlights API")
 db = get_db_repository()
 storage = get_storage_provider()
 
+@app.on_event("startup")
+def compile_typescript_locally():
+    """Autogenerates app.js from app.ts on server startup if tsc is installed locally."""
+    if os.getenv("STORAGE_TYPE", "local") == "local":
+        import subprocess
+        try:
+            # Check if tsc command is available
+            subprocess.run(["tsc", "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            ts_path = os.path.join("app", "static", "app.ts")
+            if os.path.exists(ts_path):
+                print(f"TypeScript: Autogenerating app.js from {ts_path}...")
+                subprocess.run([
+                    "tsc", ts_path,
+                    "--target", "es6",
+                    "--module", "es2015",
+                    "--removeComments",
+                    "--skipLibCheck"
+                ], check=True)
+                print("TypeScript: Compilation completed successfully!")
+        except Exception:
+            pass
+
 # Mount static frontend files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -100,9 +122,15 @@ def update_match(match_id: str, match_update: MatchUpdate):
     match = Match.model_validate(record)
     update_data = match_update.model_dump(exclude_unset=True)
     
-    # Update matching fields
-    for field, value in update_data.items():
+    # Update matching fields directly from match_update object, preserving Pydantic classes (eliminates serialization warnings)
+    for field in update_data.keys():
+        value = getattr(match_update, field)
         setattr(match, field, value)
+        
+    # Recalculate scores and game numbers if events list was modified
+    if "events" in update_data and match.events:
+        from app.scoring import compute_scores_and_games
+        match.events = compute_scores_and_games(match.events, match.player1, match.player2)
             
     # Save back to database
     updated = db.create_match(match.model_dump())
