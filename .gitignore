@@ -29,7 +29,6 @@ concat_list*.txt
 venv/
 env/
 .env
+.env.*
 metadata.db
 storage/
-
-metadata.db
