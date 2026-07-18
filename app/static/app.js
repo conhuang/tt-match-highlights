@@ -15,10 +15,106 @@ let selectedFile = null;
 const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB Chunks
 const CONCURRENCY_LIMIT = 3;         // Max parallel chunk uploads
 
+let activeResumeSession = null;
+let isOffline = false;
+let retryTimeoutId = null;
+
 // Initial Load
 document.addEventListener("DOMContentLoaded", () => {
     loadMatches();
+    checkActiveResumeSession();
 });
+
+// Check if there is an interrupted upload stored in localStorage
+function checkActiveResumeSession() {
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith("s3_upload_")) {
+            try {
+                activeResumeSession = JSON.parse(localStorage.getItem(key));
+                setupResumeUI();
+                break;
+            } catch (err) {
+                console.error("Failed to parse active resume session:", err);
+            }
+        }
+    }
+}
+
+// Pre-fill form and display resume message
+function setupResumeUI() {
+    if (!activeResumeSession) return;
+
+    matchNameInput.value = activeResumeSession.matchName;
+    player1Input.value = activeResumeSession.player1;
+    player2Input.value = activeResumeSession.player2;
+
+    matchNameInput.disabled = true;
+    player1Input.disabled = true;
+    player2Input.disabled = true;
+
+    const dropText = dropZone.querySelector(".drop-text");
+    if (dropText) {
+        dropText.innerHTML = `
+            <div style="font-weight: 600; color: #ff9800; margin-bottom: 5px;">⚠️ Interrupted Upload Detected</div>
+            <div style="margin-bottom: 10px;">Please drag or select the original file to resume:</div>
+            <div style="font-weight: 500; font-size: 1.1em; color: #4caf50; background: rgba(76, 175, 80, 0.1); padding: 5px 10px; border-radius: 4px; display: inline-block;">${activeResumeSession.originalFilename}</div>
+        `;
+    }
+    dropZone.classList.add("resume-mode");
+
+    // Inject Discard button
+    let discardBtn = document.getElementById("discard-resume-btn");
+    if (!discardBtn) {
+        discardBtn = document.createElement("button");
+        discardBtn.id = "discard-resume-btn";
+        discardBtn.type = "button";
+        discardBtn.textContent = "Discard Interrupted Upload";
+        discardBtn.style.cssText = "margin-top: 15px; background-color: #f44336; border: none; color: white; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9em; margin-right: 10px;";
+        discardBtn.addEventListener("click", discardActiveSession);
+        
+        submitBtn.parentNode.insertBefore(discardBtn, submitBtn);
+    }
+
+    submitBtn.textContent = "Resume Upload";
+    submitBtn.disabled = true; 
+}
+
+// Call backend /abort API and reset form
+async function discardActiveSession() {
+    if (!activeResumeSession) return;
+    if (!confirm("Are you sure you want to discard this upload? Any progress will be lost and S3 temporary storage will be cleaned up.")) {
+        return;
+    }
+
+    const { matchId, uploadId, originalFilename } = activeResumeSession;
+    const discardBtn = document.getElementById("discard-resume-btn");
+    if (discardBtn) discardBtn.disabled = true;
+
+    try {
+        progressContainer.style.display = "flex";
+        progressLabel.textContent = "Aborting upload on AWS S3...";
+        
+        await fetch(`/api/matches/${matchId}/upload/abort?upload_id=${uploadId}&original_filename=${encodeURIComponent(originalFilename)}`, {
+            method: "POST"
+        });
+    } catch (err) {
+        console.warn("Failed to abort multipart upload on S3, clearing locally anyway:", err);
+    }
+
+    localStorage.removeItem(`s3_upload_${matchId}`);
+    activeResumeSession = null;
+
+    if (discardBtn) discardBtn.remove();
+    submitBtn.textContent = "Create Match";
+    
+    matchNameInput.disabled = false;
+    player1Input.disabled = false;
+    player2Input.disabled = false;
+
+    resetForm();
+    loadMatches();
+}
 
 // Drag & Drop Handlers
 dropZone.addEventListener("click", () => fileInput.click());
@@ -56,6 +152,20 @@ function handleFileSelect(file) {
     selectedFile = file;
     dropZone.classList.add("file-selected");
     const dropText = dropZone.querySelector(".drop-text");
+    
+    if (activeResumeSession) {
+        if (file.name !== activeResumeSession.originalFilename || file.size !== activeResumeSession.fileSize) {
+            alert(`Please select the exact same file to resume:\nName: ${activeResumeSession.originalFilename}\nSize: ${(activeResumeSession.fileSize / (1024 * 1024)).toFixed(1)} MB`);
+            selectedFile = null;
+            dropZone.classList.remove("file-selected");
+            if (dropText) {
+                setupResumeUI();
+            }
+            validateForm();
+            return;
+        }
+    }
+
     if (dropText) {
         dropText.textContent = `Selected: ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`;
     }
@@ -71,6 +181,14 @@ inputs.forEach(input => {
 });
 
 function validateForm() {
+    if (activeResumeSession) {
+        const matches = selectedFile && 
+                        selectedFile.name === activeResumeSession.originalFilename && 
+                        selectedFile.size === activeResumeSession.fileSize;
+        submitBtn.disabled = !matches;
+        return;
+    }
+
     const isFormValid = matchNameInput.value.trim() !== "" &&
                         player1Input.value.trim() !== "" &&
                         player2Input.value.trim() !== "";
@@ -85,6 +203,28 @@ matchForm.addEventListener("submit", async (e) => {
     if (!selectedFile) return;
 
     submitBtn.disabled = true;
+
+    if (activeResumeSession) {
+        try {
+            progressContainer.style.display = "flex";
+            progressLabel.textContent = "Checking upload progress on S3...";
+            
+            const discardBtn = document.getElementById("discard-resume-btn");
+            if (discardBtn) discardBtn.remove();
+            
+            await runUploadQueue(
+                activeResumeSession.matchId,
+                selectedFile,
+                activeResumeSession.uploadId,
+                activeResumeSession.parts,
+                activeResumeSession.originalFilename
+            );
+        } catch (error) {
+            alert(error.message || "An error occurred during upload resume.");
+            setupResumeUI();
+        }
+        return;
+    }
     
     try {
         // Step 1: Create Match record in DB
@@ -107,7 +247,7 @@ matchForm.addEventListener("submit", async (e) => {
         const match = await createResponse.json();
 
         // Step 2: Begin S3 Direct Multipart Upload sequence
-        await uploadVideoMultipart(match.id, selectedFile);
+        await uploadVideoMultipart(match.id, selectedFile, matchData.name, matchData.player1, matchData.player2);
 
     } catch (error) {
         alert(error.message || "An error occurred during match creation.");
@@ -115,12 +255,11 @@ matchForm.addEventListener("submit", async (e) => {
     }
 });
 
-// Multipart Uploader with Parallel Workers
-async function uploadVideoMultipart(matchId, file) {
+// Multipart Uploader Initiation
+async function uploadVideoMultipart(matchId, file, matchName, player1, player2) {
     progressContainer.style.display = "flex";
     progressLabel.textContent = "Initializing upload...";
 
-    // 1. Initialize Multipart Upload
     const initResponse = await fetch(`/api/matches/${matchId}/upload/initialize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -138,15 +277,45 @@ async function uploadVideoMultipart(matchId, file) {
     
     console.log("Multipart upload initialized successfully!");
     console.log("  Upload ID:", upload_id);
-    console.log("  Total chunks to upload:", parts.length);
-    if (parts.length > 0) {
-        console.log("  First chunk pre-signed upload URL:", parts[0].UploadUrl);
+    
+    // Save to localStorage so we can resume if tab is closed
+    localStorage.setItem(`s3_upload_${matchId}`, JSON.stringify({
+        matchId,
+        uploadId: upload_id,
+        originalFilename: original_filename,
+        fileSize: file.size,
+        matchName,
+        player1,
+        player2,
+        parts
+    }));
+
+    await runUploadQueue(matchId, file, upload_id, parts, original_filename);
+}
+
+// Core upload queue execution with parallel workers & auto-resume retry state machine
+async function runUploadQueue(matchId, file, upload_id, parts, original_filename) {
+    let uploadedParts = [];
+    try {
+        const res = await fetch(`/api/matches/${matchId}/upload/parts?upload_id=${upload_id}&original_filename=${encodeURIComponent(original_filename)}`);
+        if (!res.ok) throw new Error("Failed to fetch uploaded parts.");
+        const data = await res.json();
+        uploadedParts = data.parts;
+    } catch (err) {
+        console.warn("Could not query uploaded parts from S3, assuming none are uploaded:", err);
     }
 
-    const completedParts = [];
+    const uploadedPartNumbers = new Set(uploadedParts.map(p => p.PartNumber));
+    const completedParts = [...uploadedParts];
     const partProgress = {};
 
-    // Progress updates
+    // Pre-fill progress for already completed parts
+    uploadedParts.forEach(p => {
+        const start = (p.PartNumber - 1) * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        partProgress[p.PartNumber] = end - start;
+    });
+
     const updateOverallProgress = () => {
         let totalUploaded = 0;
         for (const partNum in partProgress) {
@@ -156,8 +325,20 @@ async function uploadVideoMultipart(matchId, file) {
         progressFill.style.width = `${percent}%`;
         progressLabel.textContent = `Uploading: ${percent.toFixed(1)}% (${(totalUploaded / (1024 * 1024)).toFixed(0)}MB / ${(file.size / (1024 * 1024)).toFixed(0)}MB)`;
     };
+    updateOverallProgress();
 
-    // Helper to upload a single part
+    // Filter out remaining parts
+    const remainingParts = parts.filter(p => !uploadedPartNumbers.has(p.PartNumber));
+    if (remainingParts.length === 0) {
+        await finalizeUpload(matchId, upload_id, completedParts, original_filename);
+        return;
+    }
+
+    // Queue workers
+    const queue = [...remainingParts];
+    const workers = [];
+    let uploadAborted = false;
+
     const uploadChunk = (part) => {
         return new Promise((resolve, reject) => {
             const start = (part.PartNumber - 1) * CHUNK_SIZE;
@@ -167,8 +348,7 @@ async function uploadVideoMultipart(matchId, file) {
             console.log(`Starting upload of Part #${part.PartNumber}/${parts.length} (size: ${(blob.size / (1024 * 1024)).toFixed(1)}MB)...`);
 
             const xhr = new XMLHttpRequest();
-            const method = part.UploadUrl.startsWith("/") ? "PUT" : "PUT";
-            xhr.open(method, part.UploadUrl);
+            xhr.open("PUT", part.UploadUrl);
 
             xhr.upload.addEventListener("progress", (e) => {
                 if (e.lengthComputable) {
@@ -210,34 +390,70 @@ async function uploadVideoMultipart(matchId, file) {
         });
     };
 
-    // 2. Queue and execute chunk uploads with Concurrency Control
-    const queue = [...parts];
-    const workers = [];
-
     const startWorker = async () => {
-        while (queue.length > 0) {
+        while (queue.length > 0 && !uploadAborted) {
             const part = queue.shift();
             if (part) {
                 try {
                     await uploadChunk(part);
                 } catch (err) {
-                    console.error(`Error uploading Part #${part.PartNumber}. Aborting upload session...`, err);
-                    await fetch(`/api/matches/${matchId}/upload/abort?upload_id=${upload_id}&original_filename=${encodeURIComponent(original_filename)}`, {
-                        method: "POST"
-                    });
+                    uploadAborted = true;
                     throw err;
                 }
             }
         }
     };
 
-    for (let i = 0; i < Math.min(CONCURRENCY_LIMIT, parts.length); i++) {
+    for (let i = 0; i < Math.min(CONCURRENCY_LIMIT, remainingParts.length); i++) {
         workers.push(startWorker());
     }
 
-    await Promise.all(workers);
+    try {
+        await Promise.all(workers);
+    } catch (err) {
+        console.warn("Upload interrupted due to network error, entering auto-resume mode:", err);
+        handleOfflineMode(matchId, file, upload_id, parts, original_filename);
+        return;
+    }
 
-    // 3. Finalize upload (Complete Multipart Upload)
+    await finalizeUpload(matchId, upload_id, completedParts, original_filename);
+}
+
+// Wait for internet to restore and auto-resume the upload
+function handleOfflineMode(matchId, file, upload_id, parts, original_filename) {
+    if (isOffline) return;
+    isOffline = true;
+
+    progressLabel.textContent = "Connection lost. Retrying automatically...";
+    progressFill.classList.add("progress-paused");
+
+    const tryResume = async () => {
+        try {
+            console.log("Auto-resume: checking network connection...");
+            const res = await fetch(`/api/matches/${matchId}/upload/parts?upload_id=${upload_id}&original_filename=${encodeURIComponent(original_filename)}`);
+            if (res.ok) {
+                console.log("Connection restored! Resuming upload...");
+                isOffline = false;
+                progressFill.classList.remove("progress-paused");
+                window.removeEventListener("online", tryResume);
+                if (retryTimeoutId) clearTimeout(retryTimeoutId);
+                
+                runUploadQueue(matchId, file, upload_id, parts, original_filename);
+                return;
+            }
+        } catch (e) {
+            console.log("Auto-resume: still offline, waiting to retry...");
+        }
+
+        retryTimeoutId = setTimeout(tryResume, 10000);
+    };
+
+    window.addEventListener("online", tryResume);
+    retryTimeoutId = setTimeout(tryResume, 5000);
+}
+
+// Send complete multipart request to backend
+async function finalizeUpload(matchId, upload_id, completedParts, original_filename) {
     console.log("All chunks successfully uploaded. Finalizing complete request to assemble video...");
     progressLabel.textContent = "Finalizing upload (assembling video)...";
     
@@ -252,10 +468,19 @@ async function uploadVideoMultipart(matchId, file) {
     });
 
     if (!completeResponse.ok) {
-        throw new Error("Failed to assemble the video on S3.");
+        let errorMsg = "Failed to assemble the video on S3.";
+        try {
+            const errData = await completeResponse.json();
+            if (errData && errData.detail) errorMsg = errData.detail;
+        } catch (e) {}
+        throw new Error(errorMsg);
     }
 
     console.log("Video assembled and upload workflow completed successfully!");
+    
+    localStorage.removeItem(`s3_upload_${matchId}`);
+    activeResumeSession = null;
+    
     resetForm();
     loadMatches();
 }
@@ -267,7 +492,12 @@ function resetForm() {
     progressFill.style.width = "0%";
     progressLabel.textContent = "0%";
     dropZone.classList.remove("file-selected");
+    dropZone.classList.remove("resume-mode");
     
+    const discardBtn = document.getElementById("discard-resume-btn");
+    if (discardBtn) discardBtn.remove();
+    submitBtn.textContent = "Create Match";
+
     const dropText = dropZone.querySelector(".drop-text");
     if (dropText) {
         dropText.textContent = "Drag video file here or click to select";

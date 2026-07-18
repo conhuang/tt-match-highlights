@@ -216,6 +216,22 @@ def complete_multipart(match_id: str, complete_data: MultipartComplete):
         "status": "upload_successful"
     }
 
+@app.get("/api/matches/{match_id}/upload/parts")
+def list_parts(match_id: str, upload_id: str, original_filename: str):
+    """Lists already uploaded parts for an active multipart upload session."""
+    ext = os.path.splitext(original_filename)[1].lower() or ".mp4"
+    unique_storage_name = f"{match_id}{ext}"
+    remote_path = f"uploads/{unique_storage_name}"
+    
+    try:
+        parts = storage.list_parts(remote_name=remote_path, upload_id=upload_id)
+        return {"parts": parts}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to query uploaded parts: {str(e)}"
+        )
+
 @app.post("/api/matches/{match_id}/upload/abort")
 def abort_multipart(match_id: str, upload_id: str, original_filename: str):
     """Aborts a multipart upload and deletes all uploaded temporary chunks."""
