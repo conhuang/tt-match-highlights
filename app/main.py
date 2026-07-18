@@ -186,17 +186,23 @@ def complete_multipart(match_id: str, complete_data: MultipartComplete):
     # Convert Pydantic parts to raw dict list for boto3/local uploader
     parts_list = [p.model_dump() for p in complete_data.parts]
     
-    success = storage.complete_multipart_upload(
-        remote_name=remote_path,
-        upload_id=complete_data.upload_id,
-        parts=parts_list
-    )
-    
-    if not success:
+    try:
+        success = storage.complete_multipart_upload(
+            remote_name=remote_path,
+            upload_id=complete_data.upload_id,
+            parts=parts_list
+        )
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to finalize video upload. The storage provider returned success=False."
+            )
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to finalize video upload."
+            detail=f"Failed to finalize video upload: {str(e)}"
         )
+
         
     # Update match database metadata
     match.video_filename = unique_storage_name

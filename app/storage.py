@@ -248,17 +248,15 @@ class S3StorageProvider(StorageProvider):
         return url
 
     def complete_multipart_upload(self, remote_name: str, upload_id: str, parts: List[Dict]) -> bool:
-        from botocore.exceptions import ClientError
-        try:
-            self.s3_client.complete_multipart_upload(
-                Bucket=self.bucket_name,
-                Key=remote_name,
-                UploadId=upload_id,
-                MultipartUpload={"Parts": parts}
-            )
-            return True
-        except ClientError:
-            return False
+        sorted_parts = sorted(parts, key=lambda x: x["PartNumber"])
+        self.s3_client.complete_multipart_upload(
+            Bucket=self.bucket_name,
+            Key=remote_name,
+            UploadId=upload_id,
+            MultipartUpload={"Parts": sorted_parts}
+        )
+        return True
+
 
     def abort_multipart_upload(self, remote_name: str, upload_id: str) -> bool:
         from botocore.exceptions import ClientError
