@@ -1,7 +1,7 @@
 import json
 import os
 import logging
-from models import Video
+from tt_video_editor.models import Video
 
 logger = logging.getLogger(__name__)
 

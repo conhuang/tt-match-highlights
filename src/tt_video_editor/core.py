@@ -3,7 +3,7 @@ import sys
 import os
 import subprocess
 import logging
-from models import Video
+from tt_video_editor.models import Video
 from tt_video_editor.event_manager import (
     load_events,
     save_events,
@@ -48,11 +48,12 @@ def parse_args():
     return parser.parse_args()
 
 
-def process_video(events, video, args, highlights_only=False):
+def process_video(events, video: Video, args, highlights_only=False):
     from tt_video_editor.scoreboard.scoreboard_generator import ScoreboardGenerator
 
     if not events:
         return
+    print(video.__class__)
     
     # Get input video properties
     output_fps = str(video.fps) if video.fps > 0 else "30"
@@ -119,10 +120,7 @@ def process_video(events, video, args, highlights_only=False):
     else:
         encoder = "h264_videotoolbox"
         # VideoToolbox uses bitrate. 100M for 4K sports, 30M for 1080p
-        if args.bitrate:
-            bitrate = args.bitrate
-        else:
-            bitrate = "100M" if width > 1920 else "30M"
+        bitrate = "100M" if width > 1920 else "30M"
         encoder_opts = ["-b:v", bitrate]
         print(f"Using hardware encoder (VideoToolbox, {bitrate})")
 
@@ -430,13 +428,13 @@ def main():
 
                 print(f"\n=== Rendering Highlights Reel ({highlight_count} clips) ===")
                 
-                process_video(events, args, video, highlights_only=True)
+                process_video(events, video, args, highlights_only=True)
                 
                 print("\nBoth videos complete!")
                 print(f"  Full match:  {original_output}")
                 print(f"  Highlights:  {highlights_output}")
         else:
-            process_video(events, args, video, highlights_only=args.highlights_only)
+            process_video(events, video, args, highlights_only=args.highlights_only)
 
     else:
         print("No events recorded or loaded. Exiting.")
