@@ -140,6 +140,18 @@ input[type="text"]:focus {
     transition: width 0.1s linear;
 }
 
+.progress-fill.progress-paused {
+    background-color: #ff9800;
+    animation: progress-pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes progress-pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
+}
+
+
 .progress-label {
     font-size: 0.75rem;
     font-weight: 500;

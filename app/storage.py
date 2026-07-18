@@ -57,6 +57,11 @@ class StorageProvider(ABC):
         """Saves a chunk to temporary storage (Only used in local development mode)."""
         pass
 
+    @abstractmethod
+    def list_parts(self, remote_name: str, upload_id: str) -> List[Dict]:
+        """Lists already uploaded parts for an active multipart upload."""
+        pass
+
 
 class LocalStorageProvider(StorageProvider):
     """
@@ -160,6 +165,19 @@ class LocalStorageProvider(StorageProvider):
             shutil.rmtree(upload_dir)
             return True
         return False
+
+    def list_parts(self, remote_name: str, upload_id: str) -> List[Dict]:
+        upload_dir = os.path.join(self.temp_dir, upload_id)
+        if not os.path.exists(upload_dir):
+            return []
+        parts = []
+        for name in os.listdir(upload_dir):
+            if name.isdigit():
+                parts.append({
+                    "PartNumber": int(name),
+                    "ETag": f'"mock-etag-{name}"'
+                })
+        return parts
 
 
 class S3StorageProvider(StorageProvider):
@@ -273,6 +291,27 @@ class S3StorageProvider(StorageProvider):
     def save_upload_part(self, upload_id: str, part_number: int, file_obj) -> bool:
         # S3 parts go directly from browser to AWS S3, bypassing this server
         raise NotImplementedError("save_upload_part is only for LocalStorageProvider")
+
+    def list_parts(self, remote_name: str, upload_id: str) -> List[Dict]:
+        parts = []
+        kwargs = {
+            "Bucket": self.bucket_name,
+            "Key": remote_name,
+            "UploadId": upload_id
+        }
+        while True:
+            response = self.s3_client.list_parts(**kwargs)
+            if "Parts" in response:
+                for part in response["Parts"]:
+                    parts.append({
+                        "PartNumber": part["PartNumber"],
+                        "ETag": part["ETag"]
+                    })
+            if response.get("IsTruncated"):
+                kwargs["PartNumberMarker"] = response["NextPartNumberMarker"]
+            else:
+                break
+        return parts
 
 
 def get_storage_provider() -> StorageProvider:
