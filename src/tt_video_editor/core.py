@@ -140,7 +140,9 @@ def process_video(events, video: Video, args, highlights_only=False):
     p1_timeout_taken = False
     p2_timeout_taken = False
 
-    temp_dir = "temp_overlays"
+    video_base = os.path.splitext(os.path.basename(args.input_file))[0]
+    suffix = "_highlights" if highlights_only else ""
+    temp_dir = f"temp_overlays_{video_base}{suffix}"
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
 
@@ -187,7 +189,7 @@ def process_video(events, video: Video, args, highlights_only=False):
 
         if event["winner"] == p1_name:
             p1_score += 1
-        else:
+        elif event["winner"] == p2_name:
             p2_score += 1
 
         if (p1_score >= 11 or p2_score >= 11) and abs(p1_score - p2_score) >= 2:
@@ -227,7 +229,7 @@ def process_video(events, video: Video, args, highlights_only=False):
 
     print(f"Generated {len(processed_segments)} segments. Rendering with FFmpeg...")
 
-    concat_list_path = "concat_list.txt"
+    concat_list_path = os.path.join(temp_dir, "concat_list.txt")
     failed_segments = 0
     skipped = 0
     start_total = time.time()

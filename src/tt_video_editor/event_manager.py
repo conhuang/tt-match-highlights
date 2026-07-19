@@ -251,11 +251,8 @@ def collect_events(video: Video, args, existing_events=None):
             elif events:
                 removed = events.pop()
                 current_start_time = removed["start"]
-                # Rewind to where last event ended (or start of removed if no more events)
-                if events:
-                    rewind_to = events[-1]["end"]
-                else:
-                    rewind_to = removed["start"]
+                # Rewind to the start of the removed point
+                rewind_to = removed["start"]
                 cap.set(cv2.CAP_PROP_POS_MSEC, rewind_to * 1000)
                 print(f"UNDO: Removed last event. Rewound to {rewind_to:.1f}s")
             else:
