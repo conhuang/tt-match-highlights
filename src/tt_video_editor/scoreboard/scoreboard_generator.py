@@ -1,29 +1,94 @@
 from PIL import Image, ImageDraw, ImageFont
+import os
 
 
 class ScoreboardGenerator:
     def __init__(self, p1_name, p2_name, width=1920, height=1080):
-        self.p1_name = p1_name
-        self.p2_name = p2_name
+        # Scale factor based on height (1080p as baseline)
+        self.scale = height / 1080
+        s = self.scale
         self.width = width
         self.height = height
 
-        # Scale factor based on height (1080p as baseline)
-        self.scale = height / 1080
+        # Enforce character limit of 22 characters
+        CHAR_LIMIT = 22
+        def limit_name(name):
+            if not name:
+                return ""
+            name = name.strip()
+            if len(name) > CHAR_LIMIT:
+                return name[:CHAR_LIMIT - 3] + "..."
+            return name
 
+        self.p1_name = limit_name(p1_name)
+        self.p2_name = limit_name(p2_name)
+
+        # Baseline font paths
+        main_path = "/System/Library/Fonts/Menlo.ttc"
+        
+        # Load baseline fonts
         try:
-            main_path = "/System/Library/Fonts/Menlo.ttc"
-            # Scale font sizes based on resolution
-            self.font_bold = ImageFont.truetype(main_path, int(48 * self.scale), index=1)
-            self.font_main = ImageFont.truetype(main_path, int(40 * self.scale), index=0)
-            self.font_small = ImageFont.truetype(main_path, int(24 * self.scale), index=0)
-            self.font_game = ImageFont.truetype(main_path, int(120 * self.scale), index=1)
+            self.font_bold = ImageFont.truetype(main_path, int(48 * s), index=1)
+            self.font_main = ImageFont.truetype(main_path, int(40 * s), index=0)
+            self.font_small = ImageFont.truetype(main_path, int(24 * s), index=0)
+            self.font_game = ImageFont.truetype(main_path, int(120 * s), index=1)
+            self.font_t = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", int(28 * s), index=1)
         except:
-            # Fallback
             self.font_bold = ImageFont.load_default()
             self.font_main = ImageFont.load_default()
             self.font_small = ImageFont.load_default()
             self.font_game = ImageFont.load_default()
+            self.font_t = ImageFont.load_default()
+
+        # Determine the name column width and custom fonts for each player name
+        # Minimum name column width is 360 * s, maximum is 500 * s
+        min_col_w = int(360 * s)
+        max_col_w = int(500 * s)
+        
+        # We will dynamically measure the width of the names at baseline font (size 40 * s)
+        # to decide if we need to expand the column width.
+        p1_w_base = self._get_text_width(self.p1_name, self.font_main)
+        p2_w_base = self._get_text_width(self.p2_name, self.font_main)
+        
+        # Optimal column width (with 48 * s padding for name + timeout letter T space)
+        padding_for_text = int(48 * s)
+        needed_w = max(p1_w_base, p2_w_base) + padding_for_text
+        
+        # Clamp between min_col_w and max_col_w
+        self.name_col_width = max(min_col_w, min(needed_w, max_col_w))
+        
+        # Find best font for p1_name and p2_name to fit within (self.name_col_width - padding_for_text)
+        max_text_w = self.name_col_width - padding_for_text
+        self.p1_font = self._find_fitting_font(self.p1_name, max_text_w, main_path)
+        self.p2_font = self._find_fitting_font(self.p2_name, max_text_w, main_path)
+
+    def _get_text_width(self, text, font):
+        # Create a dummy image to measure text width
+        img = Image.new("RGBA", (1, 1))
+        draw = ImageDraw.Draw(img)
+        bbox = draw.textbbox((0, 0), text, font=font)
+        return bbox[2] - bbox[0] 
+
+    def _find_fitting_font(self, name, max_width, font_path):
+        s = self.scale
+        base_size = int(40 * s)
+        min_size = int(20 * s)
+        
+        for size in range(base_size, min_size - 1, -2):
+            try:
+                font = ImageFont.truetype(font_path, size, index=0)
+            except:
+                return ImageFont.load_default()
+            
+            w = self._get_text_width(name, font)
+            if w <= max_width:
+                return font
+                
+        # Fallback to min_size font
+        try:
+            return ImageFont.truetype(font_path, min_size, index=0)
+        except:
+            return ImageFont.load_default()
 
     def create_scoreboard_image(
         self, p1_score, p2_score, p1_sets, p2_sets, output_path, p1_timeout=False, p2_timeout=False
@@ -34,7 +99,7 @@ class ScoreboardGenerator:
 
         # Scale all dimensions
         s = self.scale
-        col_widths = [int(360 * s), int(80 * s), int(80 * s)]
+        col_widths = [self.name_col_width, int(80 * s), int(80 * s)]
         row_height = int(64 * s)
         padding = int(16 * s)
         total_w = sum(col_widths)
@@ -71,49 +136,54 @@ class ScoreboardGenerator:
         )
 
         text_offset = int(16 * s)
-        text_y_offset = int(12 * s)
-        for i, (name, sets, points) in enumerate(
-            [(self.p1_name, p1_sets, p1_score), (self.p2_name, p2_sets, p2_score)]
+        for i, (name, font, sets, points) in enumerate(
+            [
+                (self.p1_name, self.p1_font, p1_sets, p1_score),
+                (self.p2_name, self.p2_font, p2_sets, p2_score),
+            ]
         ):
             y_offset = box_y + padding + i * row_height
+          
+            # Draw player name (vertical middle-aligned)
+
             draw.text(
-                (box_x + text_offset, y_offset + text_y_offset),
+                (box_x + text_offset + square_size + 10, y_offset + row_height / 2),
                 name,
-                font=self.font_main,
+                font=font,
                 fill="white",
+                anchor="lm",
             )
 
+            # Draw sets score (vertical middle-aligned)
             set_box_x = box_x + col_widths[0]
             draw.text(
-                (set_box_x + col_widths[1] / 2, y_offset + text_y_offset),
+                (set_box_x + col_widths[1] / 2, y_offset + row_height / 2),
                 str(sets),
                 font=self.font_main,
                 fill=(220, 220, 220),
-                anchor="ma",
+                anchor="mm",
             )
 
+            # Draw points score (vertical middle-aligned)
             point_box_x = set_box_x + col_widths[1]
             draw.text(
-                (point_box_x + col_widths[2] / 2, y_offset + text_y_offset),
+                (point_box_x + col_widths[2] / 2, y_offset + row_height / 2),
                 str(points),
                 font=self.font_main,
                 fill="white",
-                anchor="ma",
+                anchor="mm",
             )
 
             # Timeout Indicator "T"
             has_timeout = p1_timeout if i == 0 else p2_timeout
             if has_timeout:
                 # Place it right-aligned within the name column
-                font_t = ImageFont.truetype(
-                    "/System/Library/Fonts/Helvetica.ttc", int(28 * s), index=1
-                )
                 draw.text(
-                    (box_x + col_widths[0] - int(12 * s), y_offset + int(40 * s)),
+                    (box_x + col_widths[0] - int(12 * s), y_offset + row_height / 2),
                     "T",
-                    font=font_t,
+                    font=self.font_t,
                     fill=(255, 165, 0),
-                    anchor="rs",
+                    anchor="rm",
                 )
 
         # Labels removed per user request

@@ -1,7 +1,9 @@
 import json
 import os
 import logging
+import time
 from tt_video_editor.models import Video
+from .ui_utils import draw_status_overlay
 
 logger = logging.getLogger(__name__)
 
@@ -63,15 +65,17 @@ def collect_events(video: Video, args, existing_events=None):
     # Try hardware-accelerated decoding for faster 4K playback
     cap = cv2.VideoCapture(args.input_file, cv2.CAP_FFMPEG)
 
-    # Enable hardware acceleration (works on Mac with VideoToolbox, Intel Quick Sync, etc.)
-    cap.set(cv2.CAP_PROP_HW_ACCELERATION, cv2.VIDEO_ACCELERATION_ANY)
-    cap.set(cv2.CAP_PROP_HW_DEVICE, 0)  # Use first available HW device
+    # Disable hardware acceleration on Mac to prevent VideoToolbox memory leaks
+    cap.set(cv2.CAP_PROP_HW_ACCELERATION, cv2.VIDEO_ACCELERATION_NONE)
 
-    # Seek to start time if provided
+    # Seek to start time if provided (keyframe-aligned for fast initialization)
     start_time = getattr(args, "start_time", 0)
     if start_time > 0:
-        cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000)
-        print(f"Starting at {start_time:.1f}s")
+        target_frame = int(start_time * video.fps)
+        KEYFRAME_INTERVAL = int(video.fps)
+        target_frame = max(0, int(target_frame / KEYFRAME_INTERVAL) * KEYFRAME_INTERVAL)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+        print(f"Starting at {start_time:.1f}s (keyframe-aligned to {target_frame / video.fps:.1f}s)")
 
     # Performance settings for preview window
     # PREVIEW_WIDTH: Width of preview window in pixels. Options:
@@ -103,6 +107,11 @@ def collect_events(video: Video, args, existing_events=None):
         FRAME_SKIP = 1  # 24fps or lower
 
     print(f"Playback settings: FRAME_SKIP={FRAME_SKIP} for ~{TARGET_PLAYBACK_SPEED}x speed")
+
+    # Limit frame rate to maintain target speed and prevent GUI thread overloading
+    target_display_fps = (video.fps / FRAME_SKIP) * TARGET_PLAYBACK_SPEED
+    target_frame_delay = 1.0 / target_display_fps
+    last_frame_time = time.time()
 
     # SEEK_SECONDS: How many seconds to jump per arrow key press
     SEEK_SECONDS = 2
@@ -160,8 +169,6 @@ def collect_events(video: Video, args, existing_events=None):
 
             current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
 
-            from .ui_utils import draw_status_overlay
-
             # Compute current score
             p1_score, p2_score, p1_games, p2_games, game_num = compute_score(events)
 
@@ -188,10 +195,17 @@ def collect_events(video: Video, args, existing_events=None):
 
         # Frame delay: use waitKey(1) of all videos - FRAME_SKIP controls playback speed
         # Decode overhead naturally limits speed for 4K, lower res is faster
+        # Frame delay: dynamically calculated to target precise playback speed (1.5x)
+        # and prevent hammering the macOS GUI/Cocoa thread.
         if not paused:
-            frame_delay_ms = 1
+            now = time.time()
+            elapsed = now - last_frame_time
+            last_frame_time = now
+            remaining = target_frame_delay - elapsed
+            frame_delay_ms = max(1, int(remaining * 1000))
         else:
             frame_delay_ms = 100
+            last_frame_time = time.time()  # Reset baseline while paused
         key = cv2.waitKey(frame_delay_ms) & 0xFF
 
         # Keyframe-aligned seeking for faster response
@@ -199,7 +213,7 @@ def collect_events(video: Video, args, existing_events=None):
         # Dynamically calculate based on detected FPS
         KEYFRAME_INTERVAL = int(video.fps)  # ~1 second worth of frames
 
-        if key == ord("q"):
+        if key in [ord("q"), ord("Q")]:
             break
         elif key == ord(" "):
             paused = not paused
@@ -213,48 +227,58 @@ def collect_events(video: Video, args, existing_events=None):
             target_frame = current_frame + (SEEK_SECONDS * KEYFRAME_INTERVAL)
             target_frame = int(target_frame / KEYFRAME_INTERVAL + 1) * KEYFRAME_INTERVAL
             cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
-        # 1-minute jump controls
+        # 1-minute jump controls (keyframe-aligned for instant response)
         elif key == ord("["):  # Jump back 1 minute
             current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
             target_frame = max(0, current_frame - (60 * KEYFRAME_INTERVAL))
+            target_frame = int(target_frame / KEYFRAME_INTERVAL) * KEYFRAME_INTERVAL
             cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
         elif key == ord("]"):  # Jump forward 1 minute
             current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
             target_frame = current_frame + (60 * KEYFRAME_INTERVAL)
+            target_frame = int(target_frame / KEYFRAME_INTERVAL) * KEYFRAME_INTERVAL
             cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
         elif key != 255:
             if key not in [
                 ord("1"),
                 ord("2"),
                 ord("3"),
-                ord("e"),
-                ord("z"),
-                ord("h"),
+                ord("e"), ord("E"),
+                ord("z"), ord("Z"),
+                ord("h"), ord("H"),
+                ord("q"), ord("Q"),
                 ord("["),
                 ord("]"),
                 ord("!"),
                 ord("@"),
+                ord(" "),
+                ord(","),
+                ord("."),
+                81, 2,  # Left arrow
+                83, 3,  # Right arrow
             ]:
                 print(f"DEBUG: Key Pressed: {key}")
 
         # Logic keys
         current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
 
-        if key == ord("e"):
+        if key in [ord("e"), ord("E")]:
             current_start_time = current_time
             print(f"Clip Start set to: {current_start_time:.2f}")
 
-        elif key == ord("z"):
+        elif key in [ord("z"), ord("Z")]:
             if current_start_time is not None:
                 print(f"UNDO: Cleared start time mark ({current_start_time:.2f})")
                 current_start_time = None
             elif events:
                 removed = events.pop()
                 current_start_time = removed["start"]
-                # Rewind to the start of the removed point
+                # Rewind to the start of the removed point (keyframe-aligned for instant response)
                 rewind_to = removed["start"]
-                cap.set(cv2.CAP_PROP_POS_MSEC, rewind_to * 1000)
-                print(f"UNDO: Removed last event. Rewound to {rewind_to:.1f}s")
+                target_frame = int(rewind_to * video.fps)
+                target_frame = max(0, int(target_frame / KEYFRAME_INTERVAL) * KEYFRAME_INTERVAL)
+                cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+                print(f"UNDO: Removed last event. Rewound to start of point (approx {target_frame / video.fps:.1f}s)")
             else:
                 print("UNDO: No events to remove.")
 
@@ -310,7 +334,7 @@ def collect_events(video: Video, args, existing_events=None):
                 print(f"TIMEOUT RECORDED: {timeout_for} took a timeout after the last point.")
 
         # H key - toggle highlight
-        elif key == ord("h"):
+        elif key in [ord("h"), ord("H")]:
             if current_start_time is not None:
                 # Currently in a clip - toggle pending highlight
                 pending_highlight = not pending_highlight

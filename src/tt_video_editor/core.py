@@ -151,19 +151,26 @@ def process_video(events, video: Video, args, highlights_only=False):
 
     processed_segments = []
 
-    if not highlights_only and not args.no_game_cards:
-        game_card_path = os.path.join(temp_dir, "game_1.png")
-        gen.create_game_card(1, game_card_path)
-        processed_segments.append(
-            {
-                "type": "card",
-                "path": game_card_path,
-                "duration": 2.0,
-                "filename": "card_game_1.mp4",
-            }
-        )
+    # Find the index of the first winning event to position the Game 1 card correctly
+    first_winner_idx = -1
+    for idx, e in enumerate(events):
+        if e["winner"] in [p1_name, p2_name]:
+            first_winner_idx = idx
+            break
 
     for i, event in enumerate(events):
+        if not highlights_only and not args.no_game_cards and i == first_winner_idx:
+            game_card_path = os.path.join(temp_dir, "game_1.png")
+            gen.create_game_card(1, game_card_path)
+            processed_segments.append(
+                {
+                    "type": "card",
+                    "path": game_card_path,
+                    "duration": 2.0,
+                    "filename": "card_game_1.mp4",
+                }
+            )
+
         overlay_path = os.path.join(temp_dir, f"score_{i}.png")
         if not highlights_only:
             gen.create_scoreboard_image(
@@ -182,7 +189,7 @@ def process_video(events, video: Video, args, highlights_only=False):
                     "type": "clip",
                     "start": event["start"],
                     "end": event["end"],
-                    "overlay": overlay_path,
+                    "overlay": overlay_path if (first_winner_idx != -1 and i >= first_winner_idx) else None,
                     "filename": f"clip_event_{i}.mp4",
                 }
             )
@@ -302,7 +309,7 @@ def process_video(events, video: Video, args, highlights_only=False):
                         "0:a:0",
                         "-c:v",
                         encoder,
-                    ] if not highlights_only else [] 
+                    ] if (not highlights_only and seg.get("overlay") is not None) else [] 
                 cmd = (
                     [
                         "ffmpeg",
