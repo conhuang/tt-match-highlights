@@ -3,12 +3,14 @@ import os
 
 
 class ScoreboardGenerator:
-    def __init__(self, p1_name, p2_name, width=1920, height=1080):
+    def __init__(self, p1_name, p2_name, width=1920, height=1080, p1_color=("blue", "deeppink"), p2_color="black"):
         # Scale factor based on height (1080p as baseline)
         self.scale = height / 1080
         s = self.scale
         self.width = width
         self.height = height
+        self.p1_color = p1_color
+        self.p2_color = p2_color
 
         # Enforce character limit of 22 characters
         CHAR_LIMIT = 22
@@ -23,17 +25,18 @@ class ScoreboardGenerator:
         self.p1_name = limit_name(p1_name)
         self.p2_name = limit_name(p2_name)
 
-        # Baseline font paths
+        # Original font path (Menlo)
         main_path = "/System/Library/Fonts/Menlo.ttc"
-        
-        # Load baseline fonts
+        self.font_path = main_path
+
+        # Load original fonts (Menlo)
         try:
             self.font_bold = ImageFont.truetype(main_path, int(48 * s), index=1)
             self.font_main = ImageFont.truetype(main_path, int(40 * s), index=0)
             self.font_small = ImageFont.truetype(main_path, int(24 * s), index=0)
             self.font_game = ImageFont.truetype(main_path, int(120 * s), index=1)
             self.font_t = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", int(28 * s), index=1)
-        except:
+        except Exception:
             self.font_bold = ImageFont.load_default()
             self.font_main = ImageFont.load_default()
             self.font_small = ImageFont.load_default()
@@ -41,17 +44,17 @@ class ScoreboardGenerator:
             self.font_t = ImageFont.load_default()
 
         # Determine the name column width and custom fonts for each player name
-        # Minimum name column width is 360 * s, maximum is 500 * s
+        # Minimum name column width is 360 * s, maximum is 520 * s
         min_col_w = int(360 * s)
-        max_col_w = int(500 * s)
+        max_col_w = int(520 * s)
         
-        # We will dynamically measure the width of the names at baseline font (size 40 * s)
-        # to decide if we need to expand the column width.
+        # We measure the width of the names at baseline font (size 40 * s)
         p1_w_base = self._get_text_width(self.p1_name, self.font_main)
         p2_w_base = self._get_text_width(self.p2_name, self.font_main)
         
-        # Optimal column width (with 48 * s padding for name + timeout letter T space)
-        padding_for_text = int(48 * s)
+        # Total horizontal padding inside the name column:
+        # color bar flush left (23s) + gap (12s) + right margin/T indicator (28s) = 63s
+        padding_for_text = int(63 * s)
         needed_w = max(p1_w_base, p2_w_base) + padding_for_text
         
         # Clamp between min_col_w and max_col_w
@@ -67,7 +70,7 @@ class ScoreboardGenerator:
         img = Image.new("RGBA", (1, 1))
         draw = ImageDraw.Draw(img)
         bbox = draw.textbbox((0, 0), text, font=font)
-        return bbox[2] - bbox[0] 
+        return bbox[2] - bbox[0]
 
     def _find_fitting_font(self, name, max_width, font_path):
         s = self.scale
@@ -77,7 +80,7 @@ class ScoreboardGenerator:
         for size in range(base_size, min_size - 1, -2):
             try:
                 font = ImageFont.truetype(font_path, size, index=0)
-            except:
+            except Exception:
                 return ImageFont.load_default()
             
             w = self._get_text_width(name, font)
@@ -87,7 +90,7 @@ class ScoreboardGenerator:
         # Fallback to min_size font
         try:
             return ImageFont.truetype(font_path, min_size, index=0)
-        except:
+        except Exception:
             return ImageFont.load_default()
 
     def create_scoreboard_image(
@@ -104,6 +107,7 @@ class ScoreboardGenerator:
         padding = int(16 * s)
         total_w = sum(col_widths)
         total_h = row_height * 2 + padding * 2
+        box_radius = int(12 * s)
 
         box_x = int(64 * s)
         box_y = self.height - total_h - int(64 * s)
@@ -111,8 +115,52 @@ class ScoreboardGenerator:
         # Background: Dark Blue
         draw.rounded_rectangle(
             [box_x, box_y, box_x + total_w, box_y + total_h],
-            radius=12,
+            radius=box_radius,
             fill=(10, 25, 60, 210),
+        )
+
+        # Draw Team Jersey Color Rectangles (23s wide, flush left)
+        bar_w = int(23 * s)
+        bar_x1 = box_x
+        bar_x2 = box_x + bar_w
+        half_h = total_h // 2
+
+        for i, color in enumerate([self.p1_color, self.p2_color]):
+            if i == 0:
+                bar_y1 = box_y
+                bar_y2 = box_y + half_h
+                corners_tuple = (True, False, False, False)
+            else:
+                bar_y1 = box_y + half_h
+                bar_y2 = box_y + total_h
+                corners_tuple = (False, False, False, True)
+
+            bar_h = bar_y2 - bar_y1
+
+            if isinstance(color, (tuple, list)) and len(color) == 2 and isinstance(color[0], str):
+                # Diagonal split: fill background with color[0], draw color[1] polygon
+                bar_img = Image.new("RGBA", (bar_w, bar_h), color[0])
+                b_draw = ImageDraw.Draw(bar_img)
+                b_draw.polygon([(0, 0), (bar_w, bar_h), (0, bar_h)], fill=color[1])
+
+                mask = Image.new("L", (bar_w, bar_h), 0)
+                m_draw = ImageDraw.Draw(mask)
+                m_draw.rounded_rectangle([0, 0, bar_w - 1, bar_h - 1], radius=box_radius, corners=corners_tuple, fill=255)
+
+                img.paste(bar_img, (bar_x1, bar_y1), mask)
+            else:
+                draw.rounded_rectangle(
+                    [bar_x1, bar_y1, bar_x2, bar_y2],
+                    radius=box_radius,
+                    corners=corners_tuple,
+                    fill=color,
+                )
+
+        # Draw Scoreboard Box Outline
+        draw.rounded_rectangle(
+            [box_x, box_y, box_x + total_w, box_y + total_h],
+            radius=box_radius,
+            fill=None,
             outline=(255, 255, 255, 60),
             width=2,
         )
@@ -135,7 +183,6 @@ class ScoreboardGenerator:
             width=1,
         )
 
-        text_offset = int(16 * s)
         for i, (name, font, sets, points) in enumerate(
             [
                 (self.p1_name, self.p1_font, p1_sets, p1_score),
@@ -143,11 +190,11 @@ class ScoreboardGenerator:
             ]
         ):
             y_offset = box_y + padding + i * row_height
-          
-            # Draw player name (vertical middle-aligned)
 
+            # Draw player name (vertical middle-aligned)
+            text_x = bar_x2 + int(12 * s)
             draw.text(
-                (box_x + text_offset + square_size + 10, y_offset + row_height / 2),
+                (text_x, y_offset + row_height / 2),
                 name,
                 font=font,
                 fill="white",
@@ -186,7 +233,6 @@ class ScoreboardGenerator:
                     anchor="rm",
                 )
 
-        # Labels removed per user request
         img.save(output_path)
 
     def create_game_card(self, game_num, output_path):
