@@ -249,6 +249,7 @@ def process_video(events, video: Video, args, highlights_only=False):
                 skipped += 1
                 continue
 
+            result = None
             if seg["type"] == "card":
                 cmd = (
                     [
@@ -294,8 +295,6 @@ def process_video(events, video: Video, args, highlights_only=False):
                 result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
                 elapsed = time.time() - start_seg
                 print(f"  Done in {elapsed:.1f}s")
-                if result.returncode != 0:
-                    print(f"  Error: {result.stderr.decode()[:100]}")
             
             elif seg["type"] == "clip":
                 overlay = [
@@ -340,19 +339,10 @@ def process_video(events, video: Video, args, highlights_only=False):
                 result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
                 elapsed = time.time() - start_seg
                 print(f"  Done in {elapsed:.1f}s")
-                if result.returncode != 0:
-                    print(f"  Error: {result.stderr.decode()[:100]}")
 
-            f.write(f"file '{os.path.abspath(seg_output)}'\n")
-            # print(f"Rendered segment {idx + 1}/{len(processed_segments)}")
-
-        if skipped > 0:
-            print(f"Skipped {skipped} already-rendered segments (use --clean to re-render all)")
-
-            if result.returncode != 0 or not os.path.exists(seg_output):
+            if result is not None and (result.returncode != 0 or not os.path.exists(seg_output)):
                 failed_segments += 1
                 print(f"FAILED segment {idx + 1}/{len(processed_segments)} (type={seg['type']})")
-                # Print last few lines of ffmpeg error for diagnosis
                 if result.stderr:
                     err_lines = result.stderr.strip().split("\n")
                     for line in err_lines[-5:]:
@@ -360,6 +350,9 @@ def process_video(events, video: Video, args, highlights_only=False):
             else:
                 f.write(f"file '{os.path.abspath(seg_output)}'\n")
                 print(f"Rendered segment {idx + 1}/{len(processed_segments)}")
+
+    if skipped > 0:
+        print(f"Skipped {skipped} already-rendered segments (use --clean to re-render all)")
 
     if failed_segments > 0:
         print(f"WARNING: {failed_segments}/{len(processed_segments)} segments failed to render.")

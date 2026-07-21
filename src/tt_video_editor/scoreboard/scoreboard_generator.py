@@ -147,7 +147,7 @@ class ScoreboardGenerator:
             # Draw player name (vertical middle-aligned)
 
             draw.text(
-                (box_x + text_offset + square_size + 10, y_offset + row_height / 2),
+                (box_x + text_offset + 10, y_offset + row_height / 2),
                 name,
                 font=font,
                 fill="white",
