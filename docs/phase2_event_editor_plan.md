@@ -301,4 +301,39 @@ def test_editor_keystrokes_and_scoring(fastapi_server):
         browser.close()
 ```
 
+## 📹 6. Step-by-Step Video Player Backend Implementation Plan
 
+This section details the step-by-step roadmap for implementing the video player backend infrastructure, mapping each original script functionality from [src/tt_video_editor/core.py](file:///Users/conniehuang/.gemini/antigravity-cli/worktrees/phase2-event-editor/src/tt_video_editor/core.py) to our production web server.
+
+### 🗺️ Functionality Mapping (`core.py` → Web Backend)
+
+| Step | Functionality in `core.py` | Web Backend Implementation |
+| :--- | :--- | :--- |
+| **Step 1** | **Video Property Extraction**<br>`get_video_properties()` (lines 40–81)<br>Extracts FPS, duration, width, height via `ffprobe`. | Extract video metadata on upload completion (`POST /api/matches/{match_id}/upload/complete`) and save `fps`, `duration`, `width`, `height` into the `Match` database record. |
+| **Step 2** | **Direct Video Streaming & Seeking**<br>`cv2.VideoCapture` / keyframe jumps (lines 64–75)<br>Enables frame-accurate seeking and decoding. | Stream video via `GET /api/matches/{match_id}` with `HTTP 206 Partial Content` (Range Header) support (local) or S3 Pre-signed URLs (production) for instant HTML5 scrubbing. |
+| **Step 3** | **Event Log & Score Rules Engine**<br>Scores, Games, Deuce rules (lines 118–141)<br>Computes running scores (`0-0` → `1-0`) and advances games. | Maintain `PUT /api/matches/{match_id}` with `app/scoring.py` to auto-calculate `score_before` and `game` numbers on every event save. |
+| **Step 4** | **Frame Snapshot & Thumbnail Extraction**<br>`cap.read()` frame display (lines 149–187)<br>Extracts visual frame at given timestamp. | Implement `GET /api/matches/{match_id}/thumbnail?time=15.0` endpoint using FFmpeg to return JPEG frame snapshots for point cards in the UI sidebar. |
+
+### 🌐 Industry Standard Video Delivery Architecture
+
+In production, videos stream **directly from AWS S3 to the client browser**:
+1. The client browser calls `GET /api/matches/{match_id}`.
+2. The FastAPI backend calls `boto3` (`S3StorageProvider.get_download_url()`) to generate a temporary **S3 Pre-signed URL** (e.g. `https://bucket.s3.amazonaws.com/uploads/...`).
+3. The client sets the `<video src="...">` element to the pre-signed URL.
+4. AWS S3 natively handles `HTTP 206 Range` requests, allowing the browser to seek instantly to any byte offset without downloading the full video first.
+
+### 📝 Step-by-Step Implementation Roadmap
+
+1. **Step 1: Expand Data Models & Video Metadata Extraction**
+   - Add `fps`, `duration`, `width`, `height` fields to `Match` schema in [app/models.py](file:///Users/conniehuang/.gemini/antigravity-cli/worktrees/phase2-event-editor/app/models.py).
+   - Implement `get_video_properties()` utility using `ffprobe` in `app/video_utils.py` (reusing logic from `src/tt_video_editor/core.py`).
+   - Update `complete_multipart` in `app/main.py` to auto-extract and store video properties upon upload completion.
+
+2. **Step 2: Stream & Range-Request Media Endpoint**
+   - Implement Range-request streaming support in `app/main.py` for local development.
+
+3. **Step 3: Thumbnail Snapshot Endpoint**
+   - Create `GET /api/matches/{match_id}/thumbnail` endpoint using FFmpeg to extract JPEG frames at specified timestamps (`time` query parameter) for UI preview cards.
+
+4. **Step 4: Automated Backend Test Suite Verification**
+   - Add unit and integration tests in `tests/test_api.py` verifying metadata extraction, streaming headers, and thumbnail rendering.
