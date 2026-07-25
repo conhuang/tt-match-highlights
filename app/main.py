@@ -288,7 +288,10 @@ def stream_match_video(match_id: str, request: Request):
     local_base = getattr(storage, "base_dir", "storage")
     local_path = os.path.join(local_base, "uploads", record["video_filename"])
     if not os.path.exists(local_path):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video file missing on server.")
+        storage.download_file(f"uploads/{record['video_filename']}", local_path)
+    if not os.path.exists(local_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video file missing on server or storage bucket.")
+
         
     file_size = os.path.getsize(local_path)
     range_header = request.headers.get("range")
@@ -336,7 +339,11 @@ def get_match_thumbnail(match_id: str, time: float = 0.0):
     local_base = getattr(storage, "base_dir", "storage")
     local_path = os.path.join(local_base, "uploads", match.video_filename)
     if not os.path.exists(local_path):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video file missing on server.")
+        # If running in S3 mode (or file not present locally), fetch from storage provider
+        success_download = storage.download_file(f"uploads/{match.video_filename}", local_path)
+        if not success_download or not os.path.exists(local_path):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video file missing on server or storage bucket.")
+
         
     temp_thumb_dir = os.path.join(local_base, "temp_thumbs")
     thumb_path = os.path.join(temp_thumb_dir, f"{match_id}_{int(time * 100)}.jpg")
