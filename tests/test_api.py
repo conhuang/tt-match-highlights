@@ -201,5 +201,46 @@ class TestFastAPIBackend(unittest.TestCase):
         # Clean up
         self.client.delete(f"/api/matches/{match_id}")
 
+    def test_video_streaming_and_metadata(self):
+        """
+        Verify video stream endpoint with HTTP 206 Partial Content Range Headers.
+        """
+        # Create match
+        create_res = self.client.post("/api/matches", json={
+            "name": "Stream Test Match",
+            "player1": "Alice",
+            "player2": "Bob"
+        })
+        match_id = create_res.json()["id"]
+
+        # Seed mock video file
+        upload_dir = os.path.join("storage_test", "uploads")
+        os.makedirs(upload_dir, exist_ok=True)
+        video_file = os.path.join(upload_dir, f"{match_id}.mp4")
+        mock_data = b"0123456789" * 100  # 1000 bytes
+        with open(video_file, "wb") as f:
+            f.write(mock_data)
+
+        # Link video filename to match record
+        self.client.put(f"/api/matches/{match_id}", json={"video_filename": f"{match_id}.mp4"})
+
+        # 1. Test Stream Full Video (No Range Header)
+        full_res = self.client.get(f"/api/matches/{match_id}/stream")
+        self.assertEqual(full_res.status_code, 200)
+        self.assertEqual(len(full_res.content), 1000)
+
+        # 2. Test Stream Byte Range (HTTP 206 Partial Content)
+        headers = {"range": "bytes=0-99"}
+        range_res = self.client.get(f"/api/matches/{match_id}/stream", headers=headers)
+        self.assertEqual(range_res.status_code, 206)
+        self.assertEqual(len(range_res.content), 100)
+        self.assertEqual(range_res.content, mock_data[:100])
+        self.assertEqual(range_res.headers["Content-Range"], "bytes 0-99/1000")
+        self.assertEqual(range_res.headers["Accept-Ranges"], "bytes")
+
+        # Clean up
+        self.client.delete(f"/api/matches/{match_id}")
+
 if __name__ == "__main__":
     unittest.main()
+

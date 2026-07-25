@@ -194,6 +194,8 @@ def initialize_multipart(match_id: str, init_data: MultipartInit):
             detail=f"Failed to initialize upload: {str(e)}"
         )
 
+from fastapi.responses import FileResponse, StreamingResponse
+
 @app.post("/api/matches/{match_id}/upload/complete")
 def complete_multipart(match_id: str, complete_data: MultipartComplete):
     """Completes the multipart upload by assembling the chunks."""
@@ -235,12 +237,28 @@ def complete_multipart(match_id: str, complete_data: MultipartComplete):
     # Update match database metadata
     match.video_filename = unique_storage_name
     match.original_filename = orig_filename
+    
+    # Auto-extract video properties (fps, duration, width, height) if video is stored locally
+    local_base = getattr(storage, "base_dir", "storage")
+    local_file_path = os.path.join(local_base, remote_path)
+    if os.path.exists(local_file_path):
+        from app.video_utils import extract_video_metadata
+        meta = extract_video_metadata(local_file_path)
+        match.fps = meta.get("fps")
+        match.duration = meta.get("duration")
+        match.width = meta.get("width")
+        match.height = meta.get("height")
+
     db.create_match(match.model_dump())
     
     return {
         "id": match_id,
         "video_filename": unique_storage_name,
         "original_filename": orig_filename,
+        "fps": match.fps,
+        "duration": match.duration,
+        "width": match.width,
+        "height": match.height,
         "status": "upload_successful"
     }
 
@@ -259,6 +277,81 @@ def list_parts(match_id: str, upload_id: str, original_filename: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to query uploaded parts: {str(e)}"
         )
+    
+@app.get("/api/matches/{match_id}/stream")
+def stream_match_video(match_id: str, request: Request):
+    """Serves the uploaded video with HTTP 206 Partial Content Range header support for smooth scrubbing."""
+    record = db.get_match(match_id)
+    if not record or not record.get("video_filename"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match video not found.")
+        
+    local_base = getattr(storage, "base_dir", "storage")
+    local_path = os.path.join(local_base, "uploads", record["video_filename"])
+    if not os.path.exists(local_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video file missing on server.")
+        
+    file_size = os.path.getsize(local_path)
+    range_header = request.headers.get("range")
+    
+    if range_header:
+        range_val = range_header.replace("bytes=", "").split("-")
+        start = int(range_val[0]) if range_val[0] else 0
+        end = int(range_val[1]) if len(range_val) > 1 and range_val[1] else file_size - 1
+        end = min(end, file_size - 1)
+        chunk_size = (end - start) + 1
+
+        def iterfile():
+            with open(local_path, "rb") as f:
+                f.seek(start)
+                bytes_left = chunk_size
+                while bytes_left > 0:
+                    read_len = min(64 * 1024, bytes_left)
+                    data = f.read(read_len)
+                    if not data:
+                        break
+                    bytes_left -= len(data)
+                    yield data
+
+        headers = {
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(chunk_size),
+            "Content-Type": "video/mp4",
+        }
+        return StreamingResponse(iterfile(), status_code=206, headers=headers)
+    else:
+        return FileResponse(local_path, media_type="video/mp4")
+
+@app.get("/api/matches/{match_id}/thumbnail")
+def get_match_thumbnail(match_id: str, time: float = 0.0):
+    """Returns a JPEG frame snapshot at the requested timestamp in seconds."""
+    record = db.get_match(match_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Match with ID {match_id} not found.")
+        
+    match = Match.model_validate(record)
+    if not match.video_filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Match does not have an uploaded video yet.")
+        
+    local_base = getattr(storage, "base_dir", "storage")
+    local_path = os.path.join(local_base, "uploads", match.video_filename)
+    if not os.path.exists(local_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video file missing on server.")
+        
+    temp_thumb_dir = os.path.join(local_base, "temp_thumbs")
+    thumb_path = os.path.join(temp_thumb_dir, f"{match_id}_{int(time * 100)}.jpg")
+    
+    if not os.path.exists(thumb_path):
+        from app.video_utils import generate_frame_thumbnail
+        success = generate_frame_thumbnail(local_path, thumb_path, timestamp=time)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate frame thumbnail."
+            )
+            
+    return FileResponse(thumb_path, media_type="image/jpeg")
+
 
 @app.post("/api/matches/{match_id}/upload/abort")
 def abort_multipart(match_id: str, upload_id: str, original_filename: str):
