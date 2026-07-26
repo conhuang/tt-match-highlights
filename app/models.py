@@ -35,6 +35,10 @@ class MatchUpdate(BaseModel):
     video_filename: Optional[str] = None
     original_filename: Optional[str] = None
     rendered_video_filename: Optional[str] = None
+    fps: Optional[float] = None
+    duration: Optional[float] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
 
 
 class Match(MatchBase):
@@ -47,7 +51,12 @@ class Match(MatchBase):
     video_filename: Optional[str] = Field(None, description="Filename of the uploaded raw video")
     original_filename: Optional[str] = Field(None, description="Original human-readable filename uploaded by the user")
     rendered_video_filename: Optional[str] = Field(None, description="Filename of the compiled highlights video output")
+    fps: Optional[float] = Field(None, description="Frames per second of the source video")
+    duration: Optional[float] = Field(None, description="Duration in seconds of the source video")
+    width: Optional[int] = Field(None, description="Width in pixels of the source video")
+    height: Optional[int] = Field(None, description="Height in pixels of the source video")
     events: List[Event] = Field(default_factory=list, description="Ordered list of marked points/events")
+
 
     class Config:
         json_schema_extra = {
