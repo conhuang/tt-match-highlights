@@ -1,4 +1,4 @@
-import { Match, MatchEvent, CreateMatchInput, InitializeResponse, UploadPart } from '../types';
+import { Match, MatchEvent, CreateMatchInput, InitializeResponse, UploadPart, ResumeSession } from '../types';
 
 const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB
 const CONCURRENCY_LIMIT = 3;
@@ -52,31 +52,80 @@ export async function saveMatchEvents(matchId: string, events: MatchEvent[]): Pr
     return response.json();
 }
 
-export async function uploadVideoMultipart(
+export async function fetchUploadedParts(matchId: string, uploadId: string, originalFilename: string): Promise<{ PartNumber: number; ETag: string }[]> {
+    try {
+        const response = await fetch(`/api/matches/${matchId}/upload/parts?upload_id=${uploadId}&original_filename=${encodeURIComponent(originalFilename)}`);
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.parts || [];
+    } catch {
+        return [];
+    }
+}
+
+export async function abortUpload(matchId: string, uploadId: string, originalFilename: string): Promise<void> {
+    try {
+        await fetch(`/api/matches/${matchId}/upload/abort?upload_id=${uploadId}&original_filename=${encodeURIComponent(originalFilename)}`, {
+            method: 'POST'
+        });
+    } catch {
+        // Ignored
+    }
+    clearResumeSession(matchId);
+}
+
+// LocalStorage Persistence Helpers
+export function getStoredResumeSession(): ResumeSession | null {
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('s3_upload_')) {
+            try {
+                const item = localStorage.getItem(key);
+                if (item) {
+                    return JSON.parse(item);
+                }
+            } catch {
+                // Ignore parse error
+            }
+        }
+    }
+    return null;
+}
+
+export function saveResumeSession(session: ResumeSession): void {
+    localStorage.setItem(`s3_upload_${session.matchId}`, JSON.stringify(session));
+}
+
+export function clearResumeSession(matchId: string): void {
+    localStorage.removeItem(`s3_upload_${matchId}`);
+}
+
+export async function runUploadQueue(
     matchId: string,
     file: File,
+    uploadId: string,
+    parts: UploadPart[],
+    originalFilename: string,
     onProgress: (percent: number, uploadedMB: number, totalMB: number, statusText: string) => void
 ): Promise<void> {
-    onProgress(0, 0, Math.round(file.size / (1024 * 1024)), 'Initializing upload...');
+    onProgress(0, 0, Math.round(file.size / (1024 * 1024)), 'Checking uploaded parts on server...');
 
-    // 1. Initialize Multipart Upload
-    const initResponse = await fetch(`/api/matches/${matchId}/upload/initialize`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            filename: file.name,
-            file_size: file.size
-        })
-    });
+    const uploadedParts = await fetchUploadedParts(matchId, uploadId, originalFilename);
+    const uploadedPartNumbers = new Set<number>(uploadedParts.map(p => p.PartNumber));
 
-    if (!initResponse.ok) {
-        throw new Error('Failed to initialize multipart upload.');
+    const completedParts: { PartNumber: number; ETag: string }[] = [...uploadedParts];
+    const partProgress: { [key: number]: number } = {};
+
+    // Populate partProgress for already uploaded parts
+    for (const p of parts) {
+        if (uploadedPartNumbers.has(p.PartNumber)) {
+            const start = (p.PartNumber - 1) * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            partProgress[p.PartNumber] = end - start;
+        }
     }
 
-    const { upload_id, parts, original_filename }: InitializeResponse = await initResponse.json();
-
-    const completedParts: { PartNumber: number; ETag: string }[] = [];
-    const partProgress: { [key: number]: number } = {};
+    const remainingParts = parts.filter(p => !uploadedPartNumbers.has(p.PartNumber));
 
     const updateProgress = () => {
         let totalUploaded = 0;
@@ -88,6 +137,16 @@ export async function uploadVideoMultipart(
         const totalMB = Math.round(file.size / (1024 * 1024));
         onProgress(percent, uploadedMB, totalMB, `Uploading: ${percent.toFixed(1)}%`);
     };
+
+    updateProgress();
+
+    if (remainingParts.length === 0) {
+        onProgress(100, Math.round(file.size / (1024 * 1024)), Math.round(file.size / (1024 * 1024)), 'Finalizing video assembly...');
+        await finalizeUpload(matchId, uploadId, completedParts, originalFilename);
+        return;
+    }
+
+    let uploadAborted = false;
 
     const uploadChunk = (part: UploadPart): Promise<void> => {
         return new Promise((resolve, reject) => {
@@ -112,70 +171,127 @@ export async function uploadVideoMultipart(
                         try {
                             const res = JSON.parse(xhr.responseText);
                             etag = res.ETag;
-                        } catch (err) {
-                            // ignore json parse error
+                        } catch {
+                            // Ignore json error
                         }
                     }
 
                     if (etag) {
-                        completedParts.push({
-                            PartNumber: part.PartNumber,
-                            ETag: etag
-                        });
+                        completedParts.push({ PartNumber: part.PartNumber, ETag: etag });
                         partProgress[part.PartNumber] = end - start;
                         updateProgress();
                         resolve();
                     } else {
-                        reject(new Error(`No ETag returned for part ${part.PartNumber}`));
+                        reject(new Error(`No ETag header returned for Part #${part.PartNumber}`));
                     }
                 } else {
-                    reject(new Error(`Part upload failed with status ${xhr.status}`));
+                    reject(new Error(`Failed to upload Part #${part.PartNumber}. Status: ${xhr.status}`));
                 }
             };
 
-            xhr.onerror = () => reject(new Error(`Network error during part ${part.PartNumber} upload`));
+            xhr.onerror = () => reject(new Error(`Network error during Part #${part.PartNumber}`));
             xhr.send(blob);
         });
     };
 
-    const queue = [...parts];
+    const queue = [...remainingParts];
     const workers: Promise<void>[] = [];
 
-    const startWorker = async () => {
-        while (queue.length > 0) {
+    const startWorker = async (): Promise<void> => {
+        while (queue.length > 0 && !uploadAborted) {
             const part = queue.shift();
             if (part) {
                 try {
                     await uploadChunk(part);
                 } catch (err) {
-                    await fetch(`/api/matches/${matchId}/upload/abort?upload_id=${upload_id}&original_filename=${encodeURIComponent(original_filename)}`, {
-                        method: 'POST'
-                    }).catch(() => {});
+                    uploadAborted = true;
                     throw err;
                 }
             }
         }
     };
 
-    for (let i = 0; i < Math.min(CONCURRENCY_LIMIT, parts.length); i++) {
+    for (let i = 0; i < Math.min(CONCURRENCY_LIMIT, remainingParts.length); i++) {
         workers.push(startWorker());
     }
 
-    await Promise.all(workers);
+    try {
+        await Promise.all(workers);
+    } catch (err) {
+        onProgress(0, 0, Math.round(file.size / (1024 * 1024)), 'Connection lost. Retrying automatically...');
+        throw err;
+    }
 
-    onProgress(100, Math.round(file.size / (1024 * 1024)), Math.round(file.size / (1024 * 1024)), 'Finalizing upload...');
+    await finalizeUpload(matchId, uploadId, completedParts, originalFilename);
+}
 
+async function finalizeUpload(
+    matchId: string,
+    uploadId: string,
+    completedParts: { PartNumber: number; ETag: string }[],
+    originalFilename: string
+): Promise<void> {
     const completeResponse = await fetch(`/api/matches/${matchId}/upload/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            upload_id,
+            upload_id: uploadId,
             parts: completedParts,
-            original_filename
+            original_filename: originalFilename
         })
     });
 
     if (!completeResponse.ok) {
-        throw new Error('Failed to finalize video assembly on server.');
+        let errorMsg = 'Failed to assemble the video on server.';
+        try {
+            const errData = await completeResponse.json();
+            if (errData && errData.detail) errorMsg = errData.detail;
+        } catch {
+            // Ignore
+        }
+        throw new Error(errorMsg);
     }
+
+    clearResumeSession(matchId);
+}
+
+export async function uploadVideoMultipart(
+    matchId: string,
+    file: File,
+    matchName: string,
+    player1: string,
+    player2: string,
+    onProgress: (percent: number, uploadedMB: number, totalMB: number, statusText: string) => void
+): Promise<void> {
+    onProgress(0, 0, Math.round(file.size / (1024 * 1024)), 'Initializing upload...');
+
+    const initResponse = await fetch(`/api/matches/${matchId}/upload/initialize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            filename: file.name,
+            file_size: file.size
+        })
+    });
+
+    if (!initResponse.ok) {
+        throw new Error('Failed to initialize multipart upload.');
+    }
+
+    const { upload_id, parts, original_filename }: InitializeResponse = await initResponse.json();
+
+    const session: ResumeSession = {
+        matchId,
+        uploadId: upload_id,
+        originalFilename: original_filename,
+        fileSize: file.size,
+        matchName,
+        player1,
+        player2,
+        parts
+    };
+
+    saveResumeSession(session);
+
+    await runUploadQueue(matchId, file, upload_id, parts, original_filename, onProgress);
 }

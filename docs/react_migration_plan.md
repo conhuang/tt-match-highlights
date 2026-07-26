@@ -1,49 +1,89 @@
 # React Migration Plan - Table Tennis Highlights Automator
 
-We are migrating the existing HTML/TS frontend (`app/static/index.html` and `app/static/app.ts`) to a modern React frontend powered by **Vite** and **TypeScript** with an enhanced, premium **Vanilla CSS** design system.
+We are migrating the existing static frontend (`app/static/index.html` and `app/static/app.ts`) to a modern React SPA powered by **Vite**, **TypeScript**, and **Lucide Icons**, with a premium dark-mode **Vanilla CSS** design system.
 
-## 🛠️ Architecture & Setup
+## 📁 Architecture & Build Pipeline
 
-1. **Subdirectory Setup**: We will create a `frontend/` directory in the project root to keep the frontend source separate from the Python backend code.
-2. **Vite Project**: We will initialize a Vite project with React + TypeScript template.
-3. **Build Target**: We will configure `vite.config.ts` to output files directly into the backend's static directory (`app/static/`), setting the base URL to `/static/` so that the FastAPI server can serve the React SPA directly.
-4. **Clean-up**: We will move/remove the old static assets once the React app is ready.
+1. **Frontend Location**: React source lives in `frontend/`.
+2. **Vite Build Target**: `vite.config.ts` outputs production assets directly to `../app/static` with `base: "/static/"`.
+3. **FastAPI Integration**: FastAPI serves the React app via `app.mount("/static", StaticFiles(directory="app/static"), name="static")`. Accessing `/static/index.html` will render the React app seamlessly.
 
-## ⚡ React App Components
+## 📊 Data Models & State Structure
 
-We will build the frontend around a modular structure:
-- **`App.tsx`**: Manages view state (Dashboard vs. Workspace) and selected match.
-- **`Dashboard/`**:
-  - **`MatchForm.tsx`**: Standardized name and player input form.
-  - **`UploadZone.tsx`**: Premium drag-and-drop region featuring concurrent, chunked multipart uploads (parallel chunk queueing, concurrency limit of 3, progress bar, upload abort).
-  - **`MatchesList.tsx`**: Dynamic display of matches with status indicator, and delete buttons.
-- **`Workspace/`**:
-  - **`WorkspaceHeader.tsx`**: Breadcrumb nav back to Dashboard, displaying match names.
-  - **`VideoSection.tsx`**: Styled video player that responds to seek actions and state.
-  - **`ShortcutSheet.tsx`**: Interactive hotkey reference panel.
-  - **`SidebarLogs.tsx`**: Game number selector, list of chronological points with time-link seek buttons, score indicators, toggles for highlights, dropdowns for timeouts, and delete actions.
-  - **`KeyboardManager`**: Custom hooks/handlers for workspace keyboard shortcuts (`SPACE` to play/pause, `E/D` to mark clip start, `1/A` or `2/S` to record player points, `Z` to undo).
+- **`Event`**:
+  - `start: number` (seconds with decimal precision)
+  - `end: number` (seconds with decimal precision)
+  - `winner: string` (Player 1 or Player 2 name)
+  - `timeout_player?: string | null`
+  - `isHighlight: boolean`
+  - `game: number` (Active game, default 1)
+  - `score_before: string` (Backend computed, e.g. "0-0")
+- **`Match`**:
+  - `id: string`
+  - `name: string`, `player1: string`, `player2: string`
+  - `created_at: string`
+  - `video_filename?: string | null`, `original_filename?: string | null`
+  - `rendered_video_filename?: string | null`, `video_url?: string | null`, `rendered_video_url?: string | null`
+  - `events: Event[]`
 
-## 🎨 Premium CSS Styling System
+## ⚡ React Component Hierarchy
 
-We will implement a custom CSS system in `frontend/src/index.css` following our premium UI rules:
-- **Neon Dark Mode**: Deep grey/black base (`#070708` to `#121214`), translucent glassmorphism borders (`rgba(255, 255, 255, 0.08)`), high-contrast white and light grey typography.
-- **Accent Accents**: Vibrant neon blue (`#3b82f6` / `#60a5fa`) for Player 1 / generic primary highlights, neon coral-red (`#f87171` / `#ef4444`) for Player 2 / warnings, and neon green (`#10b981` / `#34d399`) for successful uploads/start times.
-- **Micro-animations**: Smooth hover transitions (`transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1)`), scales on buttons, glowing borders on focus/dragover.
+```
+App.tsx
+ ├── DashboardView
+ │    ├── MatchForm (Match Name, Player 1, Player 2 inputs)
+ │    ├── UploadZone (Drag & Drop, 50MB parallel chunked S3/Local multipart uploader)
+ │    └── MatchesList (Match cards, Status badges, Delete confirmation modal/button)
+ └── WorkspaceView
+      ├── WorkspaceHeader (Back button to Dashboard, Match title & players display)
+      ├── VideoSection (Controlled HTML5 Video element with custom ref for precise timestamp seeking)
+      ├── StatusPanel (Pending start time display, active status indicator)
+      ├── ShortcutSheet (Interactive key binding cheat sheet)
+      └── SidebarLogs
+           ├── GameSelector (Game 1-9 selector)
+           ├── EventCardList (Chronological event cards, time-link buttons, winner tags, highlight ⭐ toggle, timeout selector, delete button)
+           └── WorkspaceActions (Manual Save & Render Highlights triggers)
+```
 
-## 🚀 Step-by-Step Migration Plan
+## ⌨️ Keyboard Shortcuts Hook (`useKeyboardShortcuts`)
 
-1. **Vite Setup**:
-   - Initialize Vite template.
-   - Install required packages (e.g. `lucide-react` for premium icons).
-2. **Build Configuration**:
-   - Modify `vite.config.ts` to output build to `../app/static` and set base path to `/static/`.
-3. **Core API & Upload logic implementation**:
-   - Implement the parallel multipart uploader function in React state or custom helper.
-4. **Develop Dashboard and Workspace Components**:
-   - Replicate and enhance design with responsive grids and high-quality CSS layouts.
-5. **Add Hotkeys & Global Handlers**:
-   - Implement standard `window` keydown listeners cleanly inside a React hook context.
-6. **Verify and Deploy**:
-   - Build project (`npm run build`).
-   - Run server and verify UI in the browser.
+- Global `keydown` event listener attached when `WorkspaceView` is mounted.
+- Form Element Guard: Bypasses execution when focus is inside `<input>`, `<textarea>`, or `<select>`.
+- Controls:
+  - `SPACE`: Toggle play/pause on video player (`e.preventDefault()`).
+  - `E` / `D`: Set `pendingStartTime = videoPlayer.currentTime`.
+  - `1` / `A`: Log point won by **Player 1** (requires `pendingStartTime < currentTime`).
+  - `2` / `S`: Log point won by **Player 2** (requires `pendingStartTime < currentTime`).
+  - `Z`: Undo last point log (`events.pop()`).
+- Automatically triggers auto-save (`PUT /api/matches/{id}`) on point addition, deletion, or modification.
+
+## 🚀 Multipart Upload Engine (`uploadVideoMultipart`)
+
+- **Chunk Size**: 50MB (`50 * 1024 * 1024` bytes).
+- **Concurrency Limit**: 3 parallel chunk uploads.
+- **Workflow**:
+  1. `POST /api/matches/{match_id}/upload/initialize` -> Returns `upload_id` and pre-signed part URLs.
+  2. Queue chunk uploads via `XMLHttpRequest` / `fetch` to capture progress events (`xhr.upload.onprogress`).
+  3. Aggregate progress across parts to render smooth progress bar & percentage.
+  4. On failure, invoke `POST /api/matches/{match_id}/upload/abort`.
+  5. On all chunks complete, call `POST /api/matches/{match_id}/upload/complete` with array of `{ PartNumber, ETag }`.
+
+## 🎨 Design System Specifications
+
+- **Theme**: Premium Glassmorphic Dark Mode.
+- **Colors**:
+  - Background: `#070708` to `#121214` linear gradient.
+  - Cards: `#121216` with `1px solid rgba(255, 255, 255, 0.08)`.
+  - Player 1 Accent: `#3b82f6` (Neon Blue).
+  - Player 2 Accent: `#f87171` (Neon Coral Red).
+  - Success / Start Time: `#10b981` (Emerald Green).
+- **Animations**: Sub-200ms cubic-bezier transitions on hover, focus, dragover, and state changes.
+
+## 📋 Migration Execution Steps
+
+1. Run `npx create-vite@5 frontend --template react-ts`.
+2. Configure `vite.config.ts` (`outDir: "../app/static"`, `base: "/static/"`).
+3. Install dependencies (`lucide-react`).
+4. Build `frontend/src/` components, styles, and hooks.
+5. Compile React app (`npm run build` inside `frontend/`).
+6. Test end-to-end integration with FastAPI backend.

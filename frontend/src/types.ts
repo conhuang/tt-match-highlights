@@ -21,6 +21,10 @@ export interface Match {
     video_url?: string | null;
     rendered_video_url?: string | null;
     events: MatchEvent[];
+    fps?: number | null;
+    duration?: number | null;
+    width?: number | null;
+    height?: number | null;
 }
 
 export interface UploadPart {
@@ -39,4 +43,15 @@ export interface CreateMatchInput {
     name: string;
     player1: string;
     player2: string;
+}
+
+export interface ResumeSession {
+    matchId: string;
+    uploadId: string;
+    originalFilename: string;
+    fileSize: number;
+    matchName: string;
+    player1: string;
+    player2: string;
+    parts: UploadPart[];
 }

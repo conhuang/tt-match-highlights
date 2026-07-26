@@ -119,9 +119,59 @@ body {
     transition: var(--transition);
 }
 
-.card:hover {
-    border-color: var(--card-border-hover);
+.card.card-resume {
+    border-color: var(--accent-amber);
+    background: radial-gradient(circle at 100% 0%, rgba(245, 158, 11, 0.06) 0%, var(--card-bg) 60%);
 }
+
+.resume-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: var(--radius-sm);
+    padding: 0.85rem 1.1rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+}
+
+.resume-banner-info {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.resume-icon {
+    color: var(--accent-amber);
+}
+
+.discard-resume-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: var(--accent-red-light);
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.discard-resume-btn:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: var(--accent-red);
+}
+
+.drop-zone.resume-mode {
+    border-color: var(--accent-amber);
+    background: rgba(245, 158, 11, 0.05);
+}
+
 
 .card-header {
     display: flex;
