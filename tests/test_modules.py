@@ -9,17 +9,17 @@ if SRC_DIR not in sys.path:
 
 
 class TestTableTennisRefactor(unittest.TestCase):
-    def test_manual_mode_import(self):
-        """Verify manual_mode module exists and has run_manual_mode"""
+    def test_event_manager_import(self):
+        """Verify event_manager module exists and has collect_events"""
         try:
-            from tt_video_editor import manual_mode
+            from tt_video_editor import event_manager
 
             self.assertTrue(
-                hasattr(manual_mode, "run_manual_mode"),
-                "manual_mode missing run_manual_mode function",
+                hasattr(event_manager, "collect_events"),
+                "event_manager missing collect_events function",
             )
         except ImportError as e:
-            self.fail(f"Failed to import manual_mode: {e}")
+            self.fail(f"Failed to import event_manager: {e}")
 
     def test_core_import(self):
         """Verify core imports correctly"""

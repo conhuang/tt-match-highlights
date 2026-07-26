@@ -65,8 +65,9 @@ def collect_events(video: Video, args, existing_events=None):
     # Try hardware-accelerated decoding for faster 4K playback
     cap = cv2.VideoCapture(args.input_file, cv2.CAP_FFMPEG)
 
-    # Disable hardware acceleration on Mac to prevent VideoToolbox memory leaks
-    cap.set(cv2.CAP_PROP_HW_ACCELERATION, cv2.VIDEO_ACCELERATION_NONE)
+    # Enable hardware acceleration (works on Mac with VideoToolbox, Intel Quick Sync, etc.)
+    cap.set(cv2.CAP_PROP_HW_ACCELERATION, cv2.VIDEO_ACCELERATION_ANY)
+    cap.set(cv2.CAP_PROP_HW_DEVICE, 0)  # Use first available HW device
 
     # Seek to start time if provided (keyframe-aligned for fast initialization)
     start_time = getattr(args, "start_time", 0)
@@ -120,6 +121,7 @@ def collect_events(video: Video, args, existing_events=None):
     current_start_time = None
     pending_highlight = False  # Mark next clip as highlight
     paused = False
+    force_update_frame = True  # Force rendering of the current frame (e.g. on seeks/paused updates)
 
     p1_name, p2_name = args.names.split(",")
 
@@ -150,63 +152,64 @@ def collect_events(video: Video, args, existing_events=None):
         return p1_score, p2_score, p1_games, p2_games, game_num
 
     while cap.isOpened():
-        if not paused:
-            # Skip frames for speed
-            for _ in range(FRAME_SKIP - 1):
-                cap.grab()  # Fast skip without decoding
+        if not paused or force_update_frame:
+            # Skip frames for speed (only if playing normally)
+            if not paused:
+                for _ in range(FRAME_SKIP - 1):
+                    cap.grab()  # Fast skip without decoding
 
             ret, frame = cap.read()
             if not ret:
-                break
-
-            # Aggressive downscale for smooth preview
-            height, width = frame.shape[:2]
-            if width > PREVIEW_WIDTH:
-                scale = PREVIEW_WIDTH / width
-                frame = cv2.resize(
-                    frame, (PREVIEW_WIDTH, int(height * scale)), interpolation=cv2.INTER_NEAREST
-                )  # Fastest resize
-
-            current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
-
-            # Compute current score
-            p1_score, p2_score, p1_games, p2_games, game_num = compute_score(events)
-
-            # Build status display
-            if current_start_time is not None:
-                clip_status = f"REC from {current_start_time:.1f}s"
-                if pending_highlight:
-                    clip_status += " ⭐"
-            elif events:
-                # Show where last point ended so user knows where to seek
-                last_end = events[-1]["end"]
-                clip_status = f"Last: {last_end:.1f}s"
+                if not paused:
+                    break
             else:
-                clip_status = "No events"
+                # Aggressive downscale for smooth preview
+                height, width = frame.shape[:2]
+                if width > PREVIEW_WIDTH:
+                    scale = PREVIEW_WIDTH / width
+                    frame = cv2.resize(
+                        frame, (PREVIEW_WIDTH, int(height * scale)), interpolation=cv2.INTER_NEAREST
+                    )  # Fastest resize
 
-            lines = [
-                (f"G{game_num}: {p1_score}-{p2_score} ({p1_games}-{p2_games})", (0, 255, 0)),
-                (f"Time: {current_time:.1f}s | {clip_status}", (255, 255, 255)),
-            ]
-            # EDIT font scale here to adjust size of overlay
-            draw_status_overlay(frame, lines, font_scale=0.5)
+                current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
 
-            cv2.imshow("Table Tennis Automator", frame)
+                # Compute current score
+                p1_score, p2_score, p1_games, p2_games, game_num = compute_score(events)
 
-        # Frame delay: use waitKey(1) of all videos - FRAME_SKIP controls playback speed
-        # Decode overhead naturally limits speed for 4K, lower res is faster
+                # Build status display
+                if current_start_time is not None:
+                    clip_status = f"REC from {current_start_time:.1f}s"
+                    if pending_highlight:
+                        clip_status += " ⭐"
+                elif events:
+                    # Show where last point ended so user knows where to seek
+                    last_end = events[-1]["end"]
+                    clip_status = f"Last: {last_end:.1f}s"
+                else:
+                    clip_status = "No events"
+
+                lines = [
+                    (f"G{game_num}: {p1_score}-{p2_score} ({p1_games}-{p2_games})", (0, 255, 0)),
+                    (f"Time: {current_time:.1f}s | {clip_status}", (255, 255, 255)),
+                ]
+                # EDIT font scale here to adjust size of overlay
+                draw_status_overlay(frame, lines, font_scale=0.5)
+
+                cv2.imshow("Table Tennis Automator", frame)
+            
+            force_update_frame = False
+
         # Frame delay: dynamically calculated to target precise playback speed (1.5x)
         # and prevent hammering the macOS GUI/Cocoa thread.
         if not paused:
             now = time.time()
             elapsed = now - last_frame_time
-            last_frame_time = now
             remaining = target_frame_delay - elapsed
             frame_delay_ms = max(1, int(remaining * 1000))
         else:
             frame_delay_ms = 100
-            last_frame_time = time.time()  # Reset baseline while paused
         key = cv2.waitKey(frame_delay_ms) & 0xFF
+        last_frame_time = time.time()
 
         # Keyframe-aligned seeking for faster response
         # iPhone videos typically have keyframes every ~1 second
@@ -217,27 +220,32 @@ def collect_events(video: Video, args, existing_events=None):
             break
         elif key == ord(" "):
             paused = not paused
+            force_update_frame = True
         elif key in [81, 2, ord(",")]:  # Left Arrow or ','
             current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
             target_frame = max(0, current_frame - (SEEK_SECONDS * KEYFRAME_INTERVAL))
             target_frame = int(target_frame / KEYFRAME_INTERVAL) * KEYFRAME_INTERVAL
             cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+            force_update_frame = True
         elif key in [83, 3, ord(".")]:  # Right Arrow or '.'
             current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
             target_frame = current_frame + (SEEK_SECONDS * KEYFRAME_INTERVAL)
             target_frame = int(target_frame / KEYFRAME_INTERVAL + 1) * KEYFRAME_INTERVAL
             cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+            force_update_frame = True
         # 1-minute jump controls (keyframe-aligned for instant response)
         elif key == ord("["):  # Jump back 1 minute
             current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
             target_frame = max(0, current_frame - (60 * KEYFRAME_INTERVAL))
             target_frame = int(target_frame / KEYFRAME_INTERVAL) * KEYFRAME_INTERVAL
             cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+            force_update_frame = True
         elif key == ord("]"):  # Jump forward 1 minute
             current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
             target_frame = current_frame + (60 * KEYFRAME_INTERVAL)
             target_frame = int(target_frame / KEYFRAME_INTERVAL) * KEYFRAME_INTERVAL
             cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+            force_update_frame = True
         elif key != 255:
             if key not in [
                 ord("1"),
@@ -265,6 +273,7 @@ def collect_events(video: Video, args, existing_events=None):
         if key in [ord("e"), ord("E")]:
             current_start_time = current_time
             print(f"Clip Start set to: {current_start_time:.2f}")
+            force_update_frame = True
 
         elif key in [ord("z"), ord("Z")]:
             if current_start_time is not None:
@@ -281,6 +290,7 @@ def collect_events(video: Video, args, existing_events=None):
                 print(f"UNDO: Removed last event. Rewound to start of point (approx {target_frame / video.fps:.1f}s)")
             else:
                 print("UNDO: No events to remove.")
+            force_update_frame = True
 
         elif key in [ord("1"), ord("2"), ord("3")]:
             if key == ord("3"):
@@ -323,6 +333,7 @@ def collect_events(video: Video, args, existing_events=None):
 
             current_start_time = None
             pending_highlight = False  # Reset after recording
+            force_update_frame = True
 
         # Shift+1 (!) and Shift+2 (@) for timeouts
         elif key in [ord("!"), ord("@")]:
@@ -332,6 +343,7 @@ def collect_events(video: Video, args, existing_events=None):
                 timeout_for = p1_name if key == ord("!") else p2_name
                 events[-1]["timeout_player"] = timeout_for
                 print(f"TIMEOUT RECORDED: {timeout_for} took a timeout after the last point.")
+            force_update_frame = True
 
         # H key - toggle highlight
         elif key in [ord("h"), ord("H")]:
@@ -349,6 +361,7 @@ def collect_events(video: Video, args, existing_events=None):
                 )
             else:
                 print("No clip to highlight.")
+            force_update_frame = True
 
     cap.release()
     cv2.destroyAllWindows()
