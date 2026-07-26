@@ -32,3 +32,11 @@ env/
 .env.*
 metadata.db
 storage/
+
+.playwright-mcp/
+
+# Frontend & Compiled Build Assets
+frontend/node_modules/
+frontend/dist/
+app/static/assets/
+app/static/index.html

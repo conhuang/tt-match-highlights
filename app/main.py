@@ -37,6 +37,8 @@ def compile_typescript_locally():
         except Exception:
             pass
 
+from fastapi.responses import FileResponse
+
 # Mount static frontend files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -47,7 +49,11 @@ if os.path.exists(local_storage_dir):
 
 @app.get("/")
 def read_root():
+    index_file = os.path.join("app", "static", "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
     return {"message": "Hello World from FastAPI Backend!"}
+
 
 # --- Schemas for Multipart Upload ---
 class MultipartInit(BaseModel):
