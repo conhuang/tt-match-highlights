@@ -41,9 +41,9 @@ export function useKeyboardShortcuts({
 
             if (e.key === ' ') {
                 e.preventDefault();
-                if (video) {
+                if (video && video.src) {
                     if (video.paused) {
-                        video.play();
+                        video.play().catch(() => {});
                     } else {
                         video.pause();
                     }

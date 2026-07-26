@@ -24,21 +24,28 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     const [activeGame, setActiveGame] = useState<number>(1);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
 
-    // Video URL determination
-    const videoSrc = currentMatch.video_url || `/static/videos/uploads/${currentMatch.video_filename}`;
+    // Freeze video URL for the duration of this workspace session so backend auto-saves (which return new S3 signature URLs) do not cause DOM src resets or interrupt video playback.
+    const [videoSrc] = useState<string>(() => {
+        return currentMatch.video_url || `/static/videos/uploads/${currentMatch.video_filename}`;
+    });
 
     const autoSave = useCallback(async (updatedEvents: MatchEvent[]) => {
         setSaveStatus('saving');
         try {
             const result = await saveMatchEvents(currentMatch.id, updatedEvents);
-            onMatchUpdated(result);
+            const mergedMatch: Match = {
+                ...result,
+                video_url: result.video_url || currentMatch.video_url,
+                rendered_video_url: result.rendered_video_url || currentMatch.rendered_video_url
+            };
+            onMatchUpdated(mergedMatch);
             setSaveStatus('saved');
             setTimeout(() => setSaveStatus('idle'), 1500);
         } catch (err) {
             console.error('Save failed:', err);
             setSaveStatus('failed');
         }
-    }, [currentMatch.id, onMatchUpdated]);
+    }, [currentMatch.id, currentMatch.video_url, currentMatch.rendered_video_url, onMatchUpdated]);
 
     const handleAddEvent = useCallback((newEvent: MatchEvent) => {
         const newEvents = [...currentMatch.events, newEvent];
@@ -65,9 +72,9 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     });
 
     const handleSeek = (time: number) => {
-        if (videoRef.current) {
+        if (videoRef.current && videoRef.current.src) {
             videoRef.current.currentTime = time;
-            videoRef.current.play();
+            videoRef.current.play().catch(() => {});
         }
     };
 

@@ -88,6 +88,21 @@ def list_matches():
     records = db.list_matches()
     return [Match.model_validate(r) for r in records]
 
+def _enrich_match_urls(match: Match) -> dict:
+    """Generates temporary pre-signed S3 playback URLs (or local paths) for a match."""
+    video_url = None
+    if match.video_filename:
+        video_url = storage.get_download_url(f"uploads/{match.video_filename}")
+        
+    rendered_url = None
+    if match.rendered_video_filename:
+        rendered_url = storage.get_download_url(f"renders/{match.rendered_video_filename}")
+
+    response_data = match.model_dump()
+    response_data["video_url"] = video_url
+    response_data["rendered_video_url"] = rendered_url
+    return response_data
+
 @app.get("/api/matches/{match_id}")
 def get_match(match_id: str):
     """Retrieves a single match details along with temporary pre-signed playback URLs."""
@@ -99,23 +114,9 @@ def get_match(match_id: str):
         )
     
     match = Match.model_validate(record)
-    
-    # Generate temporary pre-signed S3 playback URLs (or local paths)
-    video_url = None
-    if match.video_filename:
-        video_url = storage.get_download_url(f"uploads/{match.video_filename}")
-        
-    rendered_url = None
-    if match.rendered_video_filename:
-        rendered_url = storage.get_download_url(f"renders/{match.rendered_video_filename}")
+    return _enrich_match_urls(match)
 
-    # Return the metadata combined with the transient playback links
-    response_data = match.model_dump()
-    response_data["video_url"] = video_url
-    response_data["rendered_video_url"] = rendered_url
-    return response_data
-
-@app.put("/api/matches/{match_id}", response_model=Match)
+@app.put("/api/matches/{match_id}")
 def update_match(match_id: str, match_update: MatchUpdate):
     """Updates match details or event logs in the database."""
     record = db.get_match(match_id)
@@ -140,7 +141,9 @@ def update_match(match_id: str, match_update: MatchUpdate):
             
     # Save back to database
     updated = db.create_match(match.model_dump())
-    return Match.model_validate(updated)
+    updated_match = Match.model_validate(updated)
+    return _enrich_match_urls(updated_match)
+
 
 # --- S3 Direct Multipart Upload Endpoints ---
 
