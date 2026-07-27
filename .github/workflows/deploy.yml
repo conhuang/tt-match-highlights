@@ -1,24 +1,22 @@
-name: Deploy to Amazon ECS
+name: Deploy to EC2 Instance
 
 on:
   push:
     branches:
-      - main # Change this to your default branch if different
+      - main
 
 permissions:
   contents: read
 
 jobs:
   deploy:
-    name: Deploy to ECS
+    name: Build & Deploy to EC2
     runs-on: ubuntu-latest
     
-    # Define these env variables or replace them with your actual resource names
     env:
-      AWS_REGION: us-east-2                  # e.g., us-east-1
-      ECR_REPOSITORY: tt_video_editor        # Your ECR repo name
-      ECS_CLUSTER: default                   # Your ECS cluster name
-      ECS_SERVICE: tt_video_editor-8212      # Your ECS service name
+      AWS_REGION: us-east-2                  
+      ECR_REPOSITORY: tt_video_editor        
+      EC2_INSTANCE_ID: i-0ddbb277eaf3c1889
 
     steps:
       - name: Checkout Code
@@ -35,40 +33,31 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, Tag, and Push Image to ECR
-        id: build-image
+      - name: Set up QEMU & Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build, Tag, and Push ARM64 Image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Build container image
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-          
-          # Push both specific commit SHA and latest tags
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          docker buildx build \
+            --platform linux/arm64 \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            --push .
 
-      - name: Download Active Task Definition
+      - name: Deploy to EC2 Server via AWS SSM
         run: |
-          aws ecs describe-task-definition \
-            --task-definition default-tt_video_editor-8212 \
-            --region ${{ env.AWS_REGION }} \
-            --query taskDefinition > task-definition.json
+          aws ssm send-command \
+            --instance-ids ${{ env.EC2_INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 475632990529.dkr.ecr.us-east-2.amazonaws.com",
+              "docker pull 475632990529.dkr.ecr.us-east-2.amazonaws.com/tt_video_editor:latest",
+              "docker stop tt_app || true",
+              "docker rm tt_app || true",
+              "docker run -d --name tt_app --restart always -p 8000:80 -e STORAGE_TYPE=s3 -e S3_BUCKET_NAME=tt-video-editor-storage -e DB_TYPE=dynamodb -e DYNAMODB_TABLE_NAME=tt_video_editor_matches -e AWS_REGION=us-east-2 475632990529.dkr.ecr.us-east-2.amazonaws.com/tt_video_editor:latest"
+            ]' \
+            --region ${{ env.AWS_REGION }}
 
-      - name: Fill in the new image ID in the Amazon ECS task definition
-        id: render-task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definition.json
-          container-name: Main
-          image: ${{ steps.build-image.outputs.image }}
-
-      - name: Deploy Amazon ECS task definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: false
