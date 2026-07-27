@@ -247,11 +247,22 @@ def complete_multipart(match_id: str, complete_data: MultipartComplete):
     match.video_filename = unique_storage_name
     match.original_filename = orig_filename
     
-    # Auto-extract video properties (fps, duration, width, height) if video is stored locally
+    # Apply FastStart Optimization (-movflags +faststart) for instant HTML5 web streaming
     local_base = getattr(storage, "base_dir", "storage")
     local_file_path = os.path.join(local_base, remote_path)
+    
+    from app.storage import S3StorageProvider
+    from app.video_utils import extract_video_metadata, optimize_video_for_faststart
+    
+    if isinstance(storage, S3StorageProvider) or os.getenv("STORAGE_TYPE") == "s3":
+        os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
+        if storage.download_file(remote_path, local_file_path):
+            if optimize_video_for_faststart(local_file_path):
+                storage.upload_file(local_file_path, remote_path)
+    elif os.path.exists(local_file_path):
+        optimize_video_for_faststart(local_file_path)
+
     if os.path.exists(local_file_path):
-        from app.video_utils import extract_video_metadata
         meta = extract_video_metadata(local_file_path)
         match.fps = meta.get("fps")
         match.duration = meta.get("duration")

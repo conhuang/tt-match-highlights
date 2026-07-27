@@ -80,3 +80,46 @@ def generate_frame_thumbnail(video_path: str, output_path: str, timestamp: float
     except Exception as e:
         logger.error(f"Thumbnail generation error at {timestamp}s: {e}")
         return False
+
+
+def optimize_video_for_faststart(video_path: str, output_path: Optional[str] = None) -> bool:
+    """
+    Runs FFmpeg with -movflags +faststart -c copy to relocate the moov atom header
+    to the beginning of the file for instant HTML5 web streaming.
+    """
+    if not os.path.exists(video_path):
+        return False
+
+    temp_output = output_path or f"{video_path}.faststart.mp4"
+    try:
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i", video_path,
+            "-c", "copy",
+            "-movflags", "+faststart",
+            temp_output
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0 and os.path.exists(temp_output) and os.path.getsize(temp_output) > 0:
+            if output_path is None:
+                os.replace(temp_output, video_path)
+            logger.info(f"Faststart optimization succeeded for {video_path}")
+            return True
+        else:
+            logger.warning(f"Faststart optimization failed for {video_path}: {result.stderr}")
+            if output_path is None and os.path.exists(temp_output):
+                try:
+                    os.remove(temp_output)
+                except OSError:
+                    pass
+            return False
+    except Exception as e:
+        logger.error(f"FFmpeg faststart error for {video_path}: {e}")
+        if output_path is None and os.path.exists(temp_output):
+            try:
+                os.remove(temp_output)
+            except OSError:
+                pass
+        return False
+
