@@ -14,13 +14,15 @@ elif [ -f .env ]; then
 fi
 
 # Ensure default configurations if not overridden by the env file
+export DB_TYPE="${DB_TYPE:-dynamodb}"
+export DYNAMODB_TABLE_NAME="${DYNAMODB_TABLE_NAME:-tt_video_editor_matches_dev}"
 export STORAGE_TYPE="${STORAGE_TYPE:-s3}"
 export S3_BUCKET_NAME="${S3_BUCKET_NAME:-tt-video-editor-storage}"
 export AWS_REGION="${AWS_REGION:-us-east-2}"
 
 echo "Starting FastAPI Development Server..."
-echo "  Storage:   $STORAGE_TYPE"
-echo "  S3 Bucket: $S3_BUCKET_NAME"
+echo "  Database:  $DB_TYPE (Table: $DYNAMODB_TABLE_NAME)"
+echo "  Storage:   $STORAGE_TYPE (Bucket: $S3_BUCKET_NAME)"
 echo "  Region:    $AWS_REGION"
 echo "  Web App UI: http://localhost:8000/"
 echo "  Swagger UI: http://localhost:8000/docs"

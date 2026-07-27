@@ -241,6 +241,41 @@ class TestFastAPIBackend(unittest.TestCase):
         # Clean up
         self.client.delete(f"/api/matches/{match_id}")
 
+    def test_dynamodb_float_serialization_regression(self):
+        """
+        Regression Test: Verify that Python floats in match metadata and event lists
+        are converted to Decimal types for DynamoDB without throwing TypeError.
+        """
+        from decimal import Decimal
+        from app.database import _to_dynamo_item, _from_dynamo_item
+
+        raw_match_data = {
+            "id": "regression_match_123",
+            "fps": 29.97,
+            "duration": 145.8,
+            "events": [
+                {"start": 10.5, "end": 15.2, "winner": "Alice"},
+                {"start": 30.1, "end": 35.8, "winner": "Bob"}
+            ]
+        }
+
+        # 1. Convert to DynamoDB item format
+        dynamo_item = _to_dynamo_item(raw_match_data)
+        
+        # Assert floats are converted to Decimal
+        self.assertIsInstance(dynamo_item["fps"], Decimal)
+        self.assertIsInstance(dynamo_item["duration"], Decimal)
+        self.assertIsInstance(dynamo_item["events"][0]["start"], Decimal)
+        self.assertIsInstance(dynamo_item["events"][0]["end"], Decimal)
+
+        # 2. Convert back to Python API response format
+        restored = _from_dynamo_item(dynamo_item)
+        self.assertIsInstance(restored["fps"], float)
+        self.assertIsInstance(restored["duration"], float)
+        self.assertEqual(restored["fps"], 29.97)
+        self.assertEqual(restored["events"][0]["start"], 10.5)
+
 if __name__ == "__main__":
     unittest.main()
+
 

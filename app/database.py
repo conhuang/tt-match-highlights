@@ -120,6 +120,29 @@ class SQLiteRepository(DatabaseRepository):
             return cursor.rowcount > 0
 
 
+from decimal import Decimal
+
+def _to_dynamo_item(val):
+    """Recursively converts Python float types to Decimal for boto3 DynamoDB."""
+    if isinstance(val, float):
+        return Decimal(str(val))
+    elif isinstance(val, dict):
+        return {k: _to_dynamo_item(v) for k, v in val.items() if v is not None}
+    elif isinstance(val, list):
+        return [_to_dynamo_item(v) for v in val]
+    return val
+
+def _from_dynamo_item(val):
+    """Recursively converts boto3 Decimal types back to float/int for API responses."""
+    if isinstance(val, Decimal):
+        return float(val) if val % 1 != 0 else int(val)
+    elif isinstance(val, dict):
+        return {k: _from_dynamo_item(v) for k, v in val.items()}
+    elif isinstance(val, list):
+        return [_from_dynamo_item(v) for v in val]
+    return val
+
+
 class DynamoDBRepository(DatabaseRepository):
     """
     AWS DynamoDB implementation of DatabaseRepository.
@@ -144,29 +167,45 @@ class DynamoDBRepository(DatabaseRepository):
             "player2": match_data["player2"],
             "created_at": match_data.get("created_at", datetime.utcnow().isoformat()),
             "video_filename": match_data.get("video_filename", ""),
+            "original_filename": match_data.get("original_filename", ""),
+            "owner_username": match_data.get("owner_username", "admin"),
             "events": match_data.get("events", [])
         }
-        self.table.put_item(Item=item)
-        return item
+        for attr in ("fps", "duration", "width", "height", "rendered_video_filename"):
+            if attr in match_data and match_data[attr] is not None:
+                item[attr] = match_data[attr]
+
+        dynamo_item = _to_dynamo_item(item)
+        self.table.put_item(Item=dynamo_item)
+        return _from_dynamo_item(dynamo_item)
 
     def get_match(self, match_id: str) -> dict:
         response = self.table.get_item(Key={"id": match_id})
-        return response.get("Item")
+        item = response.get("Item")
+        return _from_dynamo_item(item) if item else None
 
     def list_matches(self) -> list[dict]:
+        items = []
         response = self.table.scan()
-        items = response.get("Items", [])
+        items.extend(response.get("Items", []))
+        
+        while "LastEvaluatedKey" in response:
+            response = self.table.scan(ExclusiveStartKey=response["LastEvaluatedKey"])
+            items.extend(response.get("Items", []))
+            
+        items = [_from_dynamo_item(i) for i in items]
         items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
         return items
 
     def update_match_events(self, match_id: str, events: list) -> dict:
+        dynamo_events = _to_dynamo_item(events)
         response = self.table.update_item(
             Key={"id": match_id},
             UpdateExpression="set events = :e",
-            ExpressionAttributeValues={":e": events},
+            ExpressionAttributeValues={":e": dynamo_events},
             ReturnValues="ALL_NEW"
         )
-        return response.get("Attributes")
+        return _from_dynamo_item(response.get("Attributes"))
 
     def delete_match(self, match_id: str) -> bool:
         try:
@@ -179,13 +218,18 @@ class DynamoDBRepository(DatabaseRepository):
 def get_db_repository() -> DatabaseRepository:
     """
     Factory function returning the active Database Repository.
-    Reads DB_TYPE environment variable (defaults to 'sqlite').
+    If DB_TYPE=sqlite or local is explicitly set, uses SQLite.
+    Otherwise (for production, S3 mode, or cloud deployments), defaults to AWS DynamoDB
+    so match records persist permanently across deployments.
     """
-    db_type = os.getenv("DB_TYPE", "sqlite").lower()
+    db_type = os.getenv("DB_TYPE", "").lower()
+    storage_type = os.getenv("STORAGE_TYPE", "local").lower()
     
-    if db_type == "dynamodb":
-        table_name = os.getenv("DYNAMODB_TABLE_NAME", "tt_video_editor_matches")
-        return DynamoDBRepository(table_name=table_name)
-    else:
+    # If explicitly requested sqlite/local or running local mode without DB_TYPE override
+    if db_type in ("sqlite", "local") or (not db_type and storage_type == "local"):
         db_path = os.getenv("SQLITE_DB_PATH", "metadata.db")
         return SQLiteRepository(db_path=db_path)
+    
+    # Default to DynamoDB for cloud/production/S3 deployments
+    table_name = os.getenv("DYNAMODB_TABLE_NAME", "tt_video_editor_matches")
+    return DynamoDBRepository(table_name=table_name)

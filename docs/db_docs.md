@@ -64,3 +64,46 @@ To prevent file name collisions (e.g., if two users upload files named `match.mp
 2. **Displaying the Original Name**:
    - The unique filename (`vytxeJKJygguct7vC6Lxw.mp4`) is saved in `Match.video_filename`.
    - The user's original uploaded filename (e.g., `final_ping_pong_game.mp4`) is saved in `Match.original_filename` to show inside their dashboard.
+
+---
+
+## 4. Troubleshooting & Deployment Best Practices
+
+### 🚨 Issue: "Match List Disappears After Every Cloud Deployment"
+
+#### Root Cause:
+If `DB_TYPE` is omitted from your cloud deployment environment variables (AWS App Hosting / ECS Fargate / App Runner / Render / Railway), the app defaults to `DB_TYPE=sqlite`. SQLite writes match records to `metadata.db` on the container's local disk.
+
+Cloud containers have **ephemeral (temporary) disks**. When a new deployment occurs:
+1. The old container is terminated and destroyed.
+2. A new container boots up with a blank filesystem.
+3. The old `metadata.db` is gone, causing all saved matches to disappear.
+
+#### Resolution Strategies:
+
+1. **Separate DynamoDB Tables per Environment (Recommended)**:
+   Create separate DynamoDB tables to isolate development from production:
+   - **Production Table**: `tt_video_editor_matches_prod`
+   - **Staging / Dev Table**: `tt_video_editor_matches_dev`
+
+   **Production Deployment Settings**:
+   ```env
+   DB_TYPE=dynamodb
+   DYNAMODB_TABLE_NAME=tt_video_editor_matches_prod
+   AWS_REGION=us-east-2
+   ```
+
+   **Local Development (`.env.dev`)**:
+   ```env
+   DB_TYPE=dynamodb
+   DYNAMODB_TABLE_NAME=tt_video_editor_matches_dev
+   AWS_REGION=us-east-2
+   ```
+
+2. **DynamoDB Serialization & Pagination (Built-in Fixes)**:
+   - **Float to Decimal**: AWS `boto3` DynamoDB SDK rejects Python `float` timestamps (e.g., `start: 61.01`). The repository layer automatically converts `float` to `Decimal` before calling `put_item`/`update_item`, and converts back to `float` for API responses.
+   - **Pagination**: The scan method uses `LastEvaluatedKey` loops to handle large table datasets (>1MB).
+
+3. **Cleaning Orphaned S3 Files**:
+   - **Is it safe to delete S3 files without matching DB entries?** Yes. The application queries DynamoDB to list matches. S3 files without DB entries are orphaned and can be safely deleted.
+   - **Incomplete Multipart Uploads**: Set an AWS S3 Lifecycle Rule to automatically delete incomplete multipart upload chunks after 1–7 days to avoid storage costs from interrupted uploads.
