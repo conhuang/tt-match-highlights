@@ -55,6 +55,18 @@ def read_root():
     return {"message": "Hello World from FastAPI Backend!"}
 
 
+@app.get("/api/version")
+def get_version():
+    """Returns application version information, deployed commit SHA, and deployment timestamp."""
+    return {
+        "version": os.getenv("APP_VERSION", "1.0.0"),
+        "commit": os.getenv("GIT_COMMIT_SHA", "development"),
+        "environment": os.getenv("ENVIRONMENT", "production"),
+        "timestamp": os.getenv("DEPLOYMENT_TIMESTAMP", "unknown")
+    }
+
+
+
 # --- Schemas for Multipart Upload ---
 class MultipartInit(BaseModel):
     filename: str
