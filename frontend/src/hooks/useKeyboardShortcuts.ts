@@ -83,6 +83,31 @@ export function useKeyboardShortcuts({
                 setPendingStartTime(null);
             } else if (key === 'z') {
                 onUndoEvent();
+            } else if (e.key === 'ArrowLeft' || key === ',' || e.key === 'ArrowRight' || key === '.' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                if (video) {
+                    e.preventDefault();
+                    let delta = 0;
+                    if (e.key === 'ArrowLeft') {
+                        delta = e.shiftKey ? -1.0 : -5.0;
+                    } else if (e.key === 'ArrowRight') {
+                        delta = e.shiftKey ? 1.0 : 5.0;
+                    } else if (key === ',') {
+                        delta = e.shiftKey ? -0.1 : -1.0;
+                    } else if (key === '.') {
+                        delta = e.shiftKey ? 0.1 : 1.0;
+                    } else if (e.key === 'ArrowUp') {
+                        delta = 60.0;
+                    } else if (e.key === 'ArrowDown') {
+                        delta = -60.0;
+                    }
+
+                    const wasPlaying = !video.paused;
+                    const targetTime = Math.max(0, Math.min(video.duration || Infinity, video.currentTime + delta));
+                    video.currentTime = targetTime;
+                    if (wasPlaying) {
+                        video.play().catch(() => {});
+                    }
+                }
             }
         };
 
