@@ -1,6 +1,6 @@
 import os
 from io import BytesIO
-from fastapi import FastAPI, UploadFile, File, HTTPException, status, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, status, Request, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
@@ -216,10 +216,40 @@ def initialize_multipart(match_id: str, init_data: MultipartInit):
         )
 
 from fastapi.responses import FileResponse, StreamingResponse
+import logging
+
+logger = logging.getLogger(__name__)
+
+def process_post_upload_tasks(match_id: str, remote_path: str, local_file_path: str):
+    """Background task to run FastStart optimization and extract video metadata asynchronously."""
+    from app.storage import S3StorageProvider
+    from app.video_utils import extract_video_metadata, optimize_video_for_faststart
+
+    try:
+        if isinstance(storage, S3StorageProvider) or os.getenv("STORAGE_TYPE") == "s3":
+            os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
+            if storage.download_file(remote_path, local_file_path):
+                if optimize_video_for_faststart(local_file_path):
+                    storage.upload_file(local_file_path, remote_path)
+        elif os.path.exists(local_file_path):
+            optimize_video_for_faststart(local_file_path)
+
+        if os.path.exists(local_file_path):
+            meta = extract_video_metadata(local_file_path)
+            record = db.get_match(match_id)
+            if record:
+                match = Match.model_validate(record)
+                match.fps = meta.get("fps")
+                match.duration = meta.get("duration")
+                match.width = meta.get("width")
+                match.height = meta.get("height")
+                db.create_match(match.model_dump())
+    except Exception as e:
+        logger.error(f"Background post-processing failed for match {match_id}: {e}")
 
 @app.post("/api/matches/{match_id}/upload/complete")
-def complete_multipart(match_id: str, complete_data: MultipartComplete):
-    """Completes the multipart upload by assembling the chunks."""
+def complete_multipart(match_id: str, complete_data: MultipartComplete, background_tasks: BackgroundTasks):
+    """Completes the multipart upload by assembling the chunks and queuing post-processing tasks."""
     record = db.get_match(match_id)
     if not record:
         raise HTTPException(
@@ -254,43 +284,20 @@ def complete_multipart(match_id: str, complete_data: MultipartComplete):
             detail=f"Failed to finalize video upload: {str(e)}"
         )
 
-        
-    # Update match database metadata
+    # Update match database metadata immediately
     match.video_filename = unique_storage_name
     match.original_filename = orig_filename
-    
-    # Apply FastStart Optimization (-movflags +faststart) for instant HTML5 web streaming
+    db.create_match(match.model_dump())
+
+    # Schedule FastStart optimization and metadata extraction in background
     local_base = getattr(storage, "base_dir", "storage")
     local_file_path = os.path.join(local_base, remote_path)
-    
-    from app.storage import S3StorageProvider
-    from app.video_utils import extract_video_metadata, optimize_video_for_faststart
-    
-    if isinstance(storage, S3StorageProvider) or os.getenv("STORAGE_TYPE") == "s3":
-        os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
-        if storage.download_file(remote_path, local_file_path):
-            if optimize_video_for_faststart(local_file_path):
-                storage.upload_file(local_file_path, remote_path)
-    elif os.path.exists(local_file_path):
-        optimize_video_for_faststart(local_file_path)
+    background_tasks.add_task(process_post_upload_tasks, match_id, remote_path, local_file_path)
 
-    if os.path.exists(local_file_path):
-        meta = extract_video_metadata(local_file_path)
-        match.fps = meta.get("fps")
-        match.duration = meta.get("duration")
-        match.width = meta.get("width")
-        match.height = meta.get("height")
-
-    db.create_match(match.model_dump())
-    
     return {
         "id": match_id,
         "video_filename": unique_storage_name,
         "original_filename": orig_filename,
-        "fps": match.fps,
-        "duration": match.duration,
-        "width": match.width,
-        "height": match.height,
         "status": "upload_successful"
     }
 
@@ -312,50 +319,48 @@ def list_parts(match_id: str, upload_id: str, original_filename: str):
     
 @app.get("/api/matches/{match_id}/stream")
 def stream_match_video(match_id: str, request: Request):
-    """Serves the uploaded video with HTTP 206 Partial Content Range header support for smooth scrubbing."""
+    """Serves the uploaded video with S3 pre-signed redirects or byte-range streaming without full file downloads."""
     record = db.get_match(match_id)
     if not record or not record.get("video_filename"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match video not found.")
-        
-    local_base = getattr(storage, "base_dir", "storage")
-    local_path = os.path.join(local_base, "uploads", record["video_filename"])
-    if not os.path.exists(local_path):
-        storage.download_file(f"uploads/{record['video_filename']}", local_path)
-    if not os.path.exists(local_path):
+
+    remote_name = f"uploads/{record['video_filename']}"
+
+    # 1. If using S3 and request has no Range header, redirect directly to S3 pre-signed URL for native S3 streaming
+    from app.storage import S3StorageProvider
+    if isinstance(storage, S3StorageProvider) or os.getenv("STORAGE_TYPE") == "s3":
+        if not request.headers.get("range"):
+            presigned_url = storage.get_download_url(remote_name)
+            if presigned_url:
+                from fastapi.responses import RedirectResponse
+                return RedirectResponse(url=presigned_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+    # 2. Stream requested range directly from storage (S3 boto3 stream or Local iterator) without downloading file to disk
+    range_header = request.headers.get("range")
+    stream_data = storage.get_object_stream(remote_name, range_header=range_header)
+
+    if not stream_data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video file missing on server or storage bucket.")
 
-        
-    file_size = os.path.getsize(local_path)
-    range_header = request.headers.get("range")
-    
-    if range_header:
-        range_val = range_header.replace("bytes=", "").split("-")
-        start = int(range_val[0]) if range_val[0] else 0
-        end = int(range_val[1]) if len(range_val) > 1 and range_val[1] else file_size - 1
-        end = min(end, file_size - 1)
-        chunk_size = (end - start) + 1
+    headers = {
+        "Accept-Ranges": "bytes",
+        "Content-Type": stream_data.get("content_type", "video/mp4"),
+    }
+    if stream_data.get("content_length") is not None:
+        headers["Content-Length"] = str(stream_data["content_length"])
+    if stream_data.get("content_range"):
+        headers["Content-Range"] = stream_data["content_range"]
 
-        def iterfile():
-            with open(local_path, "rb") as f:
-                f.seek(start)
-                bytes_left = chunk_size
-                while bytes_left > 0:
-                    read_len = min(64 * 1024, bytes_left)
-                    data = f.read(read_len)
-                    if not data:
-                        break
-                    bytes_left -= len(data)
-                    yield data
-
-        headers = {
-            "Content-Range": f"bytes {start}-{end}/{file_size}",
-            "Accept-Ranges": "bytes",
-            "Content-Length": str(chunk_size),
-            "Content-Type": "video/mp4",
-        }
-        return StreamingResponse(iterfile(), status_code=206, headers=headers)
+    if "body" in stream_data:
+        def s3_iter():
+            body = stream_data["body"]
+            for chunk in body.iter_chunks(chunk_size=512 * 1024):
+                yield chunk
+        return StreamingResponse(s3_iter(), status_code=stream_data["status_code"], headers=headers)
+    elif "iter" in stream_data:
+        return StreamingResponse(stream_data["iter"], status_code=stream_data["status_code"], headers=headers)
     else:
-        return FileResponse(local_path, media_type="video/mp4")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to stream video content.")
 
 @app.get("/api/matches/{match_id}/thumbnail")
 def get_match_thumbnail(match_id: str, time: float = 0.0):

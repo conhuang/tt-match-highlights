@@ -56,9 +56,24 @@ class SQLiteRepository(DatabaseRepository):
                     created_at TEXT NOT NULL,
                     video_filename TEXT,
                     original_filename TEXT,
-                    events TEXT NOT NULL DEFAULT '[]'
+                    events TEXT NOT NULL DEFAULT '[]',
+                    fps REAL,
+                    duration REAL,
+                    width INTEGER,
+                    height INTEGER,
+                    rendered_video_filename TEXT
                 )
             """)
+            existing_cols = [row[1] for row in conn.execute("PRAGMA table_info(matches)").fetchall()]
+            for col, col_type in [
+                ("fps", "REAL"),
+                ("duration", "REAL"),
+                ("width", "INTEGER"),
+                ("height", "INTEGER"),
+                ("rendered_video_filename", "TEXT")
+            ]:
+                if col not in existing_cols:
+                    conn.execute(f"ALTER TABLE matches ADD COLUMN {col} {col_type}")
             conn.commit()
 
     def create_match(self, match_data: dict) -> dict:
@@ -67,8 +82,12 @@ class SQLiteRepository(DatabaseRepository):
         with self._get_connection() as conn:
             conn.execute(
                 """
-                INSERT OR REPLACE INTO matches (id, owner_username, name, player1, player2, created_at, video_filename, original_filename, events)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT OR REPLACE INTO matches (
+                    id, owner_username, name, player1, player2, created_at,
+                    video_filename, original_filename, events,
+                    fps, duration, width, height, rendered_video_filename
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     match_data["id"],
@@ -79,7 +98,12 @@ class SQLiteRepository(DatabaseRepository):
                     match_data.get("created_at", datetime.utcnow().isoformat()),
                     match_data.get("video_filename"),
                     match_data.get("original_filename"),
-                    json.dumps(events)
+                    json.dumps(events),
+                    match_data.get("fps"),
+                    match_data.get("duration"),
+                    match_data.get("width"),
+                    match_data.get("height"),
+                    match_data.get("rendered_video_filename")
                 )
             )
             conn.commit()

@@ -31,6 +31,11 @@ class StorageProvider(ABC):
     def delete_file(self, remote_name: str) -> bool:
         pass
 
+    @abstractmethod
+    def get_object_stream(self, remote_name: str, range_header: Optional[str] = None) -> Optional[Dict]:
+        """Fetches a stream handle or iterator directly from storage for range streaming."""
+        pass
+
     # --- Multipart Upload Methods ---
     @abstractmethod
     def initiate_multipart_upload(self, remote_name: str) -> str:
@@ -179,6 +184,57 @@ class LocalStorageProvider(StorageProvider):
                 })
         return parts
 
+    def get_object_stream(self, remote_name: str, range_header: Optional[str] = None) -> Optional[Dict]:
+        """
+        Local file system stream generator supporting byte-range requests.
+        """
+        local_path = self._get_local_path(remote_name)
+        if not os.path.exists(local_path):
+            return None
+            
+        file_size = os.path.getsize(local_path)
+        if range_header:
+            range_val = range_header.replace("bytes=", "").split("-")
+            start = int(range_val[0]) if range_val[0] else 0
+            end = int(range_val[1]) if len(range_val) > 1 and range_val[1] else file_size - 1
+            end = min(end, file_size - 1)
+            chunk_size = (end - start) + 1
+
+            def iterfile():
+                with open(local_path, "rb") as f:
+                    f.seek(start)
+                    bytes_left = chunk_size
+                    while bytes_left > 0:
+                        read_len = min(512 * 1024, bytes_left)
+                        data = f.read(read_len)
+                        if not data:
+                            break
+                        bytes_left -= len(data)
+                        yield data
+
+            return {
+                "iter": iterfile(),
+                "content_length": chunk_size,
+                "content_range": f"bytes {start}-{end}/{file_size}",
+                "content_type": "video/mp4",
+                "status_code": 206
+            }
+        else:
+            def iterfile_full():
+                with open(local_path, "rb") as f:
+                    while True:
+                        data = f.read(512 * 1024)
+                        if not data:
+                            break
+                        yield data
+            return {
+                "iter": iterfile_full(),
+                "content_length": file_size,
+                "content_range": None,
+                "content_type": "video/mp4",
+                "status_code": 200
+            }
+
 
 class S3StorageProvider(StorageProvider):
     """
@@ -312,6 +368,27 @@ class S3StorageProvider(StorageProvider):
             else:
                 break
         return parts
+
+    def get_object_stream(self, remote_name: str, range_header: Optional[str] = None) -> Optional[Dict]:
+        """
+        Fetches an object stream directly from S3 using boto3 without saving to disk.
+        Supports byte-range requests.
+        """
+        from botocore.exceptions import ClientError
+        params = {"Bucket": self.bucket_name, "Key": remote_name}
+        if range_header:
+            params["Range"] = range_header
+        try:
+            response = self.s3_client.get_object(**params)
+            return {
+                "body": response["Body"],
+                "content_length": response.get("ContentLength"),
+                "content_range": response.get("ContentRange"),
+                "content_type": response.get("ContentType", "video/mp4"),
+                "status_code": 206 if range_header else 200
+            }
+        except ClientError:
+            return None
 
 
 def get_storage_provider() -> StorageProvider:
