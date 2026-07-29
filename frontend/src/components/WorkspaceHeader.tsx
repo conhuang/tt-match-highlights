@@ -5,9 +5,10 @@ import { ArrowLeft } from 'lucide-react';
 interface WorkspaceHeaderProps {
     currentMatch: Match;
     onBack: () => void;
+    onOpenRenderModal?: () => void;
 }
 
-export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ currentMatch, onBack }) => {
+export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ currentMatch, onBack, onOpenRenderModal }) => {
     return (
         <header className="workspace-header">
             <button className="back-btn" onClick={onBack}>
@@ -19,6 +20,11 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ currentMatch, 
                     {currentMatch.player1} <span className="vs">vs</span> {currentMatch.player2}
                 </span>
             </div>
+            {onOpenRenderModal && (
+                <button className="btn btn-primary btn-sm render-header-btn" onClick={onOpenRenderModal}>
+                    🎬 Render Video
+                </button>
+            )}
         </header>
     );
 };

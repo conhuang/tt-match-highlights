@@ -17,6 +17,34 @@ class Event(BaseModel):
     score_before: str = Field("0-0", description="The match score before this point played (e.g. '3-5')")
 
 
+class RenderOptions(BaseModel):
+    highlights_only: bool = Field(False, description="Whether to include only tagged highlight rallies")
+    include_scoreboard: bool = Field(True, description="Whether to overlay the dynamic live scoreboards")
+    include_game_cards: bool = Field(True, description="Whether to insert inter-game 'Game X' title cards")
+    cpu_mode: bool = Field(True, description="Whether to use CPU software encoding (libx264) vs GPU hardware")
+
+
+class RenderJob(BaseModel):
+    id: str = Field(default_factory=lambda: shortuuid.uuid(), description="Unique identifier for this render job")
+    type: str = Field("full_match", description="Type of render ('full_match' or 'highlights')")
+    label: str = Field("Full Scored Match", description="Human-readable title for this render")
+    filename: Optional[str] = Field(None, description="Filename of the rendered output video")
+    options: RenderOptions = Field(default_factory=RenderOptions, description="Render configuration options")
+    status: str = Field("rendering", description="Current status: 'rendering', 'completed', or 'failed'")
+    progress: int = Field(0, description="Completion percentage (0 to 100)")
+    stage: str = Field("Initializing", description="Human-readable stage description")
+    error: Optional[str] = Field(None, description="Error message if rendering failed")
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="ISO timestamp of render start")
+    completed_at: Optional[str] = Field(None, description="ISO timestamp of render completion")
+    video_url: Optional[str] = Field(None, description="Playback/download URL for the rendered video")
+
+
+class RenderCreate(BaseModel):
+    type: Optional[str] = Field("full_match", description="Type of render ('full_match' or 'highlights')")
+    label: Optional[str] = Field(None, description="Optional custom title for this render")
+    options: Optional[RenderOptions] = Field(default_factory=RenderOptions, description="Render configuration options")
+
+
 class MatchBase(BaseModel):
     name: str = Field(..., description="Descriptive name of the match (e.g. 'Jonsen vs. Ryan Lin')")
     player1: str = Field(..., description="Name of Player 1")
@@ -32,6 +60,7 @@ class MatchUpdate(BaseModel):
     player1: Optional[str] = None
     player2: Optional[str] = None
     events: Optional[List[Event]] = None
+    renders: Optional[List[RenderJob]] = None
     video_filename: Optional[str] = None
     original_filename: Optional[str] = None
     rendered_video_filename: Optional[str] = None
@@ -56,6 +85,7 @@ class Match(MatchBase):
     width: Optional[int] = Field(None, description="Width in pixels of the source video")
     height: Optional[int] = Field(None, description="Height in pixels of the source video")
     events: List[Event] = Field(default_factory=list, description="Ordered list of marked points/events")
+    renders: List[RenderJob] = Field(default_factory=list, description="List of generated renders for this match")
 
 
     class Config:

@@ -12,6 +12,7 @@ interface SidebarLogsProps {
     onDeleteEvent: (index: number) => void;
     onSaveEvents: () => void;
     saveStatus: 'idle' | 'saving' | 'saved' | 'failed';
+    onOpenRenderModal: () => void;
 }
 
 function formatTime(seconds: number): string {
@@ -31,7 +32,8 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     onUpdateTimeout,
     onDeleteEvent,
     onSaveEvents,
-    saveStatus
+    saveStatus,
+    onOpenRenderModal
 }) => {
     const events = [...currentMatch.events].sort((a, b) => a.start - b.start);
 
@@ -132,9 +134,9 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                 </button>
                 <button
                     type="button"
-                    className="secondary-btn"
-                    disabled
-                    title="Highlight renderer backend service"
+                    className="secondary-btn render-trigger-btn"
+                    onClick={onOpenRenderModal}
+                    title="Render scored match or highlights reel"
                 >
                     <Film size={16} />
                     Render Highlights

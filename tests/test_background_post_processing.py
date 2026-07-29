@@ -11,6 +11,7 @@ if ROOT_DIR not in sys.path:
 os.environ["DB_TYPE"] = "local"
 os.environ["STORAGE_TYPE"] = "local"
 os.environ["LOCAL_STORAGE_DIR"] = "storage_test_bg"
+os.environ["SQLITE_DB_PATH"] = "storage_test_bg/metadata.db"
 
 from app.main import process_post_upload_tasks, complete_multipart, MultipartComplete, db
 from app.models import Match
@@ -31,8 +32,6 @@ class TestBackgroundPostProcessing(unittest.TestCase):
         db.create_match(self.match.model_dump())
 
     def tearDown(self):
-        if os.path.exists("metadata.db"):
-            os.remove("metadata.db")
         if os.path.exists("storage_test_bg"):
             import shutil
             shutil.rmtree("storage_test_bg")

@@ -1,0 +1,157 @@
+import React from 'react';
+import { RenderJob } from '../types';
+import { Play, Download, Trash2, Film, AlertCircle, RefreshCw, Star } from 'lucide-react';
+
+interface RenderHistoryProps {
+    renders: RenderJob[];
+    onPreviewRender: (renderUrl: string, label: string) => void;
+    onDeleteRender: (renderId: string) => void;
+    activePreviewUrl?: string | null;
+    onResetToOriginalVideo?: () => void;
+}
+
+export const RenderHistory: React.FC<RenderHistoryProps> = ({
+    renders,
+    onPreviewRender,
+    onDeleteRender,
+    activePreviewUrl,
+    onResetToOriginalVideo
+}) => {
+    if (!renders || renders.length === 0) {
+        return (
+            <div className="renders-card card">
+                <div className="card-header">
+                    <Film size={18} />
+                    <h3>Rendered Outputs</h3>
+                </div>
+                <p className="empty-state">No rendered videos created yet. Click <strong>Render Highlights</strong> to start.</p>
+            </div>
+        );
+    }
+
+    const sortedRenders = [...renders].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    return (
+        <div className="renders-card card">
+            <div className="card-header">
+                <Film size={18} />
+                <h3>Rendered Outputs ({renders.length})</h3>
+            </div>
+
+            <div className="renders-list">
+                {sortedRenders.map((render) => {
+                    const isCompleted = render.status === 'completed';
+                    const isRendering = render.status === 'rendering' || render.status === 'pending';
+                    const isFailed = render.status === 'failed';
+                    const isPreviewing = activePreviewUrl === render.video_url;
+
+                    const dateStr = new Date(render.created_at).toLocaleTimeString(undefined, {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+
+                    return (
+                        <div key={render.id} className={`render-item ${isPreviewing ? 'previewing' : ''}`}>
+                            <div className="render-item-top">
+                                <div className="render-info">
+                                    <div className="render-title-row">
+                                        {render.type === 'highlights' ? (
+                                            <Star size={14} className="star-active" />
+                                        ) : (
+                                            <Film size={14} className="accent-icon" />
+                                        )}
+                                        <span className="render-label">{render.label}</span>
+                                        <span className="render-time">{dateStr}</span>
+                                    </div>
+                                    <span className="render-specs">
+                                        {render.options.highlights_only ? 'Highlights Reel' : 'Full Match'} •
+                                        {render.options.include_scoreboard ? ' Scoreboard' : ' Clean'} •
+                                        {render.options.include_game_cards ? ' Title Cards' : ' Direct Clips'}
+                                    </span>
+                                </div>
+
+                                <div className="render-status-badge">
+                                    {isRendering && (
+                                        <span className="status-pill status-rendering">
+                                            <RefreshCw size={12} className="spin-icon" /> Rendering
+                                        </span>
+                                    )}
+                                    {isCompleted && (
+                                        <span className="status-pill status-completed">
+                                            Completed
+                                        </span>
+                                    )}
+                                    {isFailed && (
+                                        <span className="status-pill status-failed">
+                                            <AlertCircle size={12} /> Failed
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {isRendering && (
+                                <div className="render-progress-section">
+                                    <div className="progress-bar">
+                                        <div className="progress-fill" style={{ width: `${render.progress}%` }} />
+                                    </div>
+                                    <div className="progress-info">
+                                        <span className="stage-text">{render.stage}</span>
+                                        <span className="percent-text">{render.progress}%</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {isFailed && render.error && (
+                                <div className="error-banner">
+                                    {render.error}
+                                </div>
+                            )}
+
+                            <div className="render-actions">
+                                {isCompleted && render.video_url && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            className={`action-btn preview-btn ${isPreviewing ? 'active' : ''}`}
+                                            onClick={() => {
+                                                if (isPreviewing && onResetToOriginalVideo) {
+                                                    onResetToOriginalVideo();
+                                                } else {
+                                                    onPreviewRender(render.video_url!, render.label);
+                                                }
+                                            }}
+                                        >
+                                            <Play size={13} />
+                                            {isPreviewing ? 'Viewing Output' : 'Preview Video'}
+                                        </button>
+
+                                        <a
+                                            href={render.video_url}
+                                            download={render.filename || 'rendered_highlight.mp4'}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="action-btn download-btn"
+                                        >
+                                            <Download size={13} />
+                                            Download MP4
+                                        </a>
+                                    </>
+                                )}
+
+                                <button
+                                    type="button"
+                                    className="action-btn delete-render-btn"
+                                    onClick={() => onDeleteRender(render.id)}
+                                    title="Delete Rendered Video"
+                                >
+                                    <Trash2 size={13} />
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};

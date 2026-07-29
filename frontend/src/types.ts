@@ -8,6 +8,28 @@ export interface MatchEvent {
     score_before: string;
 }
 
+export interface RenderOptions {
+    highlights_only: boolean;
+    include_scoreboard: boolean;
+    include_game_cards: boolean;
+    cpu_mode: boolean;
+}
+
+export interface RenderJob {
+    id: string;
+    type: 'full_match' | 'highlights';
+    label: string;
+    filename?: string | null;
+    options: RenderOptions;
+    status: 'pending' | 'rendering' | 'completed' | 'failed';
+    progress: number;
+    stage: string;
+    error?: string | null;
+    created_at: string;
+    completed_at?: string | null;
+    video_url?: string | null;
+}
+
 export interface Match {
     id: string;
     owner_username?: string;
@@ -21,6 +43,7 @@ export interface Match {
     video_url?: string | null;
     rendered_video_url?: string | null;
     events: MatchEvent[];
+    renders?: RenderJob[];
     fps?: number | null;
     duration?: number | null;
     width?: number | null;

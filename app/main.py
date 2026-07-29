@@ -1,11 +1,12 @@
 import os
 from io import BytesIO
+from datetime import datetime
 from fastapi import FastAPI, UploadFile, File, HTTPException, status, Request, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
 
-from app.models import Match, MatchCreate, MatchUpdate
+from app.models import Match, MatchCreate, MatchUpdate, RenderCreate, RenderJob, RenderOptions
 from app.database import get_db_repository
 from app.storage import get_storage_provider
 
@@ -101,7 +102,7 @@ def list_matches():
     return [Match.model_validate(r) for r in records]
 
 def _enrich_match_urls(match: Match) -> dict:
-    """Generates temporary pre-signed S3 playback URLs (or local paths) for a match."""
+    """Generates temporary pre-signed S3 playback URLs (or local paths) for a match and its renders."""
     video_url = None
     if match.video_filename:
         video_url = storage.get_download_url(f"uploads/{match.video_filename}")
@@ -110,9 +111,17 @@ def _enrich_match_urls(match: Match) -> dict:
     if match.rendered_video_filename:
         rendered_url = storage.get_download_url(f"renders/{match.rendered_video_filename}")
 
+    enriched_renders = []
+    for r in match.renders:
+        r_dict = r.model_dump()
+        if r.filename:
+            r_dict["video_url"] = storage.get_download_url(f"renders/{r.filename}")
+        enriched_renders.append(r_dict)
+
     response_data = match.model_dump()
     response_data["video_url"] = video_url
     response_data["rendered_video_url"] = rendered_url
+    response_data["renders"] = enriched_renders
     return response_data
 
 @app.get("/api/matches/{match_id}")
@@ -127,6 +136,112 @@ def get_match(match_id: str):
     
     match = Match.model_validate(record)
     return _enrich_match_urls(match)
+
+from app.render_adapter import execute_render_job
+
+@app.post("/api/matches/{match_id}/renders", status_code=status.HTTP_202_ACCEPTED)
+def create_render_job(match_id: str, render_create: RenderCreate, background_tasks: BackgroundTasks):
+    """Triggers an asynchronous background render job for a match."""
+    record = db.get_match(match_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Match with ID {match_id} not found.")
+
+    match = Match.model_validate(record)
+    if not match.events:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot render a match without logged events.")
+    if not match.video_filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot render a match without an uploaded raw video.")
+
+    r_options = render_create.options or RenderOptions()
+    if r_options.highlights_only:
+        highlight_count = sum(1 for e in match.events if getattr(e, "isHighlight", False))
+        if highlight_count == 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No highlighted rallies tagged in this match.")
+
+    render_type = render_create.type or ("highlights" if r_options.highlights_only else "full_match")
+    default_label = "Highlights Reel" if r_options.highlights_only else "Full Scored Match"
+    render_label = render_create.label or default_label
+
+    new_job = RenderJob(
+        type=render_type,
+        label=render_label,
+        options=r_options,
+        status="rendering",
+        progress=0,
+        stage="Queued in background",
+        created_at=datetime.utcnow().isoformat()
+    )
+
+    match.renders.append(new_job)
+    db.create_match(match.model_dump())
+
+    # Trigger background execution
+    background_tasks.add_task(execute_render_job, match_id, new_job.id, db, storage)
+
+    job_dict = new_job.model_dump()
+    return job_dict
+
+
+@app.get("/api/matches/{match_id}/renders")
+def list_match_renders(match_id: str):
+    """Lists all render jobs for a match along with playback/download URLs."""
+    record = db.get_match(match_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Match with ID {match_id} not found.")
+
+    match = Match.model_validate(record)
+    enriched = _enrich_match_urls(match)
+    return enriched.get("renders", [])
+
+
+@app.get("/api/matches/{match_id}/renders/{render_id}/status")
+def get_render_job_status(match_id: str, render_id: str):
+    """Returns status and progress of a specific render job."""
+    record = db.get_match(match_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Match with ID {match_id} not found.")
+
+    match = Match.model_validate(record)
+    target_job = None
+    for r in match.renders:
+        if r.id == render_id:
+            target_job = r
+            break
+
+    if not target_job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"RenderJob {render_id} not found.")
+
+    job_dict = target_job.model_dump()
+    if target_job.filename:
+        job_dict["video_url"] = storage.get_download_url(f"renders/{target_job.filename}")
+    return job_dict
+
+
+@app.delete("/api/matches/{match_id}/renders/{render_id}")
+def delete_render_job(match_id: str, render_id: str):
+    """Deletes a specific render job and its output video file from storage."""
+    record = db.get_match(match_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Match with ID {match_id} not found.")
+
+    match = Match.model_validate(record)
+    target_job = None
+    remaining_renders = []
+    for r in match.renders:
+        if r.id == render_id:
+            target_job = r
+        else:
+            remaining_renders.append(r)
+
+    if not target_job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"RenderJob {render_id} not found.")
+
+    if target_job.filename:
+        storage.delete_file(f"renders/{target_job.filename}")
+
+    match.renders = remaining_renders
+    db.create_match(match.model_dump())
+    return {"status": "success", "message": f"RenderJob {render_id} deleted."}
 
 @app.put("/api/matches/{match_id}")
 def update_match(match_id: str, match_update: MatchUpdate):
