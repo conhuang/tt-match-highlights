@@ -101,7 +101,9 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
     const handleSeek = (time: number) => {
         if (videoRef.current && videoRef.current.src) {
+            const currentRate = videoRef.current.playbackRate;
             videoRef.current.currentTime = time;
+            videoRef.current.playbackRate = currentRate;
             videoRef.current.play().catch(() => {});
         }
     };

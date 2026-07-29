@@ -97,9 +97,11 @@ export function useKeyboardShortcuts({
                         delta = -60.0;
                     }
 
+                    const currentRate = video.playbackRate;
                     const wasPlaying = !video.paused;
                     const targetTime = Math.max(0, Math.min(video.duration || Infinity, video.currentTime + delta));
                     video.currentTime = targetTime;
+                    video.playbackRate = currentRate;
                     if (wasPlaying) {
                         video.play().catch(() => {});
                     }
