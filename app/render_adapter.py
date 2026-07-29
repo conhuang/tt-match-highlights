@@ -382,7 +382,7 @@ def execute_render_job(
             storage_provider.upload_file(local_output_path, remote_render_key)
 
         # 7. Finalize Status
-        completed_timestamp = datetime.utcnow().isoformat()
+        completed_timestamp = datetime.utcnow().isoformat() + "Z"
         update_render_job_status(
             match_id, render_id, db_repo,
             status="completed", progress=100, stage="Complete",

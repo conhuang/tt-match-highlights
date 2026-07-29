@@ -45,11 +45,17 @@ export const RenderHistory: React.FC<RenderHistoryProps> = ({
                     const isFailed = render.status === 'failed';
                     const isPreviewing = activePreviewUrl === render.video_url;
 
-                    const dateStr = new Date(render.created_at).toLocaleTimeString(undefined, {
+                    const formattedUtc = render.created_at ? (
+                        render.created_at.endsWith('Z') || render.created_at.includes('+')
+                            ? render.created_at
+                            : `${render.created_at}Z`
+                    ) : '';
+
+                    const dateStr = formattedUtc ? new Date(formattedUtc).toLocaleTimeString(undefined, {
                         hour: '2-digit',
                         minute: '2-digit',
                         second: '2-digit'
-                    });
+                    }) : '';
 
                     return (
                         <div key={render.id} className={`render-item ${isPreviewing ? 'previewing' : ''}`}>

@@ -34,7 +34,7 @@ class RenderJob(BaseModel):
     progress: int = Field(0, description="Completion percentage (0 to 100)")
     stage: str = Field("Initializing", description="Human-readable stage description")
     error: Optional[str] = Field(None, description="Error message if rendering failed")
-    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="ISO timestamp of render start")
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z", description="ISO timestamp of render start")
     completed_at: Optional[str] = Field(None, description="ISO timestamp of render completion")
     video_url: Optional[str] = Field(None, description="Playback/download URL for the rendered video")
 
@@ -76,7 +76,7 @@ class Match(MatchBase):
     """
     id: str = Field(default_factory=lambda: shortuuid.uuid(), description="Unique ShortUUID identifier for the match")
     owner_username: Optional[str] = Field("admin", description="The username of the account that uploaded this match")
-    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="ISO timestamp of match creation")
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z", description="ISO timestamp of match creation")
     video_filename: Optional[str] = Field(None, description="Filename of the uploaded raw video")
     original_filename: Optional[str] = Field(None, description="Original human-readable filename uploaded by the user")
     rendered_video_filename: Optional[str] = Field(None, description="Filename of the compiled highlights video output")

@@ -171,7 +171,7 @@ def create_render_job(match_id: str, render_create: RenderCreate, background_tas
         status="rendering",
         progress=0,
         stage="Queued in background",
-        created_at=datetime.utcnow().isoformat()
+        created_at=datetime.utcnow().isoformat() + "Z"
     )
 
     match.renders.append(new_job)
