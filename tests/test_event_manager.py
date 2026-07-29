@@ -6,7 +6,7 @@ import sys
 # Add src to sys.path to find the package
 SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 if SRC_DIR not in sys.path:
-    sys.path.append(SRC_DIR)
+    sys.path.insert(0, SRC_DIR)
 
 from tt_video_editor.event_manager import save_events, load_events, get_default_event_path
 
