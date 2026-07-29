@@ -4,18 +4,51 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
 
 jobs:
+  test:
+    name: Run Automated Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install System FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r app/requirements.txt
+          pip install pytest httpx
+          pip install --no-deps -e .
+
+      - name: Run Pytest Suite
+        run: |
+          PYTHONPATH=. pytest tests/
+
   deploy:
     name: Build & Deploy to EC2
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    
+
     env:
-      AWS_REGION: us-east-2                  
-      ECR_REPOSITORY: tt_video_editor        
+      AWS_REGION: us-east-2
+      ECR_REPOSITORY: tt_video_editor
       EC2_INSTANCE_ID: i-0ddbb277eaf3c1889
 
     steps:
