@@ -87,13 +87,9 @@ export function useKeyboardShortcuts({
                 if (video) {
                     e.preventDefault();
                     let delta = 0;
-                    if (e.key === 'ArrowLeft') {
-                        delta = e.shiftKey ? -1.0 : -5.0;
-                    } else if (e.key === 'ArrowRight') {
-                        delta = e.shiftKey ? 1.0 : 5.0;
-                    } else if (key === ',') {
+                    if (e.key === 'ArrowLeft' || key === ',') {
                         delta = e.shiftKey ? -0.1 : -1.0;
-                    } else if (key === '.') {
+                    } else if (e.key === 'ArrowRight' || key === '.') {
                         delta = e.shiftKey ? 0.1 : 1.0;
                     } else if (e.key === 'ArrowUp') {
                         delta = 60.0;

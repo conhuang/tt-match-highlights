@@ -22,13 +22,13 @@ export const ShortcutSheet: React.FC = () => {
                     <kbd>2</kbd> or <kbd>S</kbd> <span>Log Point Won by Player 2</span>
                 </div>
                 <div className="shortcut-row">
-                    <kbd>◄</kbd> / <kbd>►</kbd> <span>Seek -5s / +5s</span>
+                    <kbd>◄</kbd> / <kbd>►</kbd> or <kbd>,</kbd> / <kbd>.</kbd> <span>Seek -1s / +1s</span>
+                </div>
+                <div className="shortcut-row">
+                    <kbd>Shift</kbd> + <kbd>◄</kbd> / <kbd>►</kbd> <span>Fine Seek (-0.1s / +0.1s)</span>
                 </div>
                 <div className="shortcut-row">
                     <kbd>▲</kbd> / <kbd>▼</kbd> <span>Jump +1m / -1m</span>
-                </div>
-                <div className="shortcut-row">
-                    <kbd>,</kbd> / <kbd>.</kbd> <span>Fine Seek (-1s / +1s)</span>
                 </div>
                 <div className="shortcut-row">
                     <kbd>Z</kbd> <span>Undo Last Event</span>
