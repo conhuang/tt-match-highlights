@@ -43,3 +43,4 @@ app/static/index.html
 
 skills-lock.json
 .agents/
+*.egg-info/

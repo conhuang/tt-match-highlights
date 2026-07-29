@@ -1,6 +1,6 @@
 import React from 'react';
 import { Match } from '../types';
-import { Trash2, Video, Calendar, Trophy } from 'lucide-react';
+import { Trash2, Video, Calendar, Trophy, Film } from 'lucide-react';
 
 interface MatchesListProps {
     matches: Match[];
@@ -17,6 +17,7 @@ export const MatchesList: React.FC<MatchesListProps> = ({ matches, onSelectMatch
         <div className="matches-list">
             {matches.map((match) => {
                 const isReady = Boolean(match.video_filename);
+                const completedRenders = match.renders?.filter(r => r.status === 'completed').length || 0;
                 const dateStr = new Date(match.created_at).toLocaleDateString(undefined, {
                     month: 'short',
                     day: 'numeric',
@@ -43,6 +44,11 @@ export const MatchesList: React.FC<MatchesListProps> = ({ matches, onSelectMatch
                         </div>
 
                         <div className="match-meta">
+                            {completedRenders > 0 && (
+                                <span className="match-status status-rendered">
+                                    <Film size={12} /> {completedRenders} Render{completedRenders > 1 ? 's' : ''}
+                                </span>
+                            )}
                             <span className={`match-status ${isReady ? 'status-ready' : 'status-uploading'}`}>
                                 <Video size={12} /> {isReady ? 'Ready' : 'Uploading'}
                             </span>

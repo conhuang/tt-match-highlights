@@ -1,4 +1,4 @@
-import { Match, MatchEvent, CreateMatchInput, InitializeResponse, UploadPart, ResumeSession } from '../types';
+import { Match, MatchEvent, CreateMatchInput, InitializeResponse, UploadPart, ResumeSession, RenderJob, RenderOptions } from '../types';
 
 const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB
 const CONCURRENCY_LIMIT = 3;
@@ -294,4 +294,63 @@ export async function uploadVideoMultipart(
     saveResumeSession(session);
 
     await runUploadQueue(matchId, file, upload_id, parts, original_filename, onProgress);
+}
+
+export async function createRenderJob(
+    matchId: string,
+    type: 'full_match' | 'highlights',
+    label?: string,
+    options?: Partial<RenderOptions>
+): Promise<RenderJob> {
+    const response = await fetch(`/api/matches/${matchId}/renders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            type,
+            label,
+            options: {
+                highlights_only: type === 'highlights',
+                include_scoreboard: true,
+                include_game_cards: true,
+                cpu_mode: true,
+                ...options
+            }
+        })
+    });
+    if (!response.ok) {
+        let errText = 'Failed to initiate video rendering.';
+        try {
+            const errData = await response.json();
+            if (errData && errData.detail) errText = errData.detail;
+        } catch {
+            // Ignore
+        }
+        throw new Error(errText);
+    }
+    return response.json();
+}
+
+export async function fetchMatchRenders(matchId: string): Promise<RenderJob[]> {
+    const response = await fetch(`/api/matches/${matchId}/renders`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch render jobs.');
+    }
+    return response.json();
+}
+
+export async function fetchRenderStatus(matchId: string, renderId: string): Promise<RenderJob> {
+    const response = await fetch(`/api/matches/${matchId}/renders/${renderId}/status`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch render status.');
+    }
+    return response.json();
+}
+
+export async function deleteRenderJob(matchId: string, renderId: string): Promise<void> {
+    const response = await fetch(`/api/matches/${matchId}/renders/${renderId}`, {
+        method: 'DELETE'
+    });
+    if (!response.ok) {
+        throw new Error('Failed to delete render job.');
+    }
 }

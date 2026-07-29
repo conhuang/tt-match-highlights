@@ -35,11 +35,15 @@ class SQLiteRepository(DatabaseRepository):
     SQLite implementation of DatabaseRepository.
     Ideal for local development and fast testing.
     """
-    def __init__(self, db_path: str = "metadata.db"):
+    def __init__(self, db_path: str = "storage/metadata.db"):
         self.db_path = db_path
+        if self.db_path != ":memory:" and os.path.dirname(self.db_path):
+            os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self._init_db()
 
     def _get_connection(self):
+        if self.db_path != ":memory:" and os.path.dirname(self.db_path):
+            os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row  # Access columns by name
         return conn
@@ -57,6 +61,7 @@ class SQLiteRepository(DatabaseRepository):
                     video_filename TEXT,
                     original_filename TEXT,
                     events TEXT NOT NULL DEFAULT '[]',
+                    renders TEXT NOT NULL DEFAULT '[]',
                     fps REAL,
                     duration REAL,
                     width INTEGER,
@@ -70,7 +75,8 @@ class SQLiteRepository(DatabaseRepository):
                 ("duration", "REAL"),
                 ("width", "INTEGER"),
                 ("height", "INTEGER"),
-                ("rendered_video_filename", "TEXT")
+                ("rendered_video_filename", "TEXT"),
+                ("renders", "TEXT DEFAULT '[]'")
             ]:
                 if col not in existing_cols:
                     conn.execute(f"ALTER TABLE matches ADD COLUMN {col} {col_type}")
@@ -78,16 +84,17 @@ class SQLiteRepository(DatabaseRepository):
 
     def create_match(self, match_data: dict) -> dict:
         events = match_data.get("events", [])
+        renders = match_data.get("renders", [])
         
         with self._get_connection() as conn:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO matches (
                     id, owner_username, name, player1, player2, created_at,
-                    video_filename, original_filename, events,
+                    video_filename, original_filename, events, renders,
                     fps, duration, width, height, rendered_video_filename
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     match_data["id"],
@@ -99,6 +106,7 @@ class SQLiteRepository(DatabaseRepository):
                     match_data.get("video_filename"),
                     match_data.get("original_filename"),
                     json.dumps(events),
+                    json.dumps(renders),
                     match_data.get("fps"),
                     match_data.get("duration"),
                     match_data.get("width"),
@@ -114,7 +122,8 @@ class SQLiteRepository(DatabaseRepository):
             row = conn.execute("SELECT * FROM matches WHERE id = ?", (match_id,)).fetchone()
             if row:
                 res = dict(row)
-                res["events"] = json.loads(res["events"])
+                res["events"] = json.loads(res.get("events") or "[]")
+                res["renders"] = json.loads(res.get("renders") or "[]")
                 return res
         return None
 
@@ -124,7 +133,8 @@ class SQLiteRepository(DatabaseRepository):
             matches = []
             for row in rows:
                 m = dict(row)
-                m["events"] = json.loads(m["events"])
+                m["events"] = json.loads(m.get("events") or "[]")
+                m["renders"] = json.loads(m.get("renders") or "[]")
                 matches.append(m)
             return matches
 
@@ -193,7 +203,8 @@ class DynamoDBRepository(DatabaseRepository):
             "video_filename": match_data.get("video_filename", ""),
             "original_filename": match_data.get("original_filename", ""),
             "owner_username": match_data.get("owner_username", "admin"),
-            "events": match_data.get("events", [])
+            "events": match_data.get("events", []),
+            "renders": match_data.get("renders", [])
         }
         for attr in ("fps", "duration", "width", "height", "rendered_video_filename"):
             if attr in match_data and match_data[attr] is not None:
@@ -251,7 +262,7 @@ def get_db_repository() -> DatabaseRepository:
     
     # If explicitly requested sqlite/local or running local mode without DB_TYPE override
     if db_type in ("sqlite", "local") or (not db_type and storage_type == "local"):
-        db_path = os.getenv("SQLITE_DB_PATH", "metadata.db")
+        db_path = os.getenv("SQLITE_DB_PATH", os.path.join("storage", "metadata.db"))
         return SQLiteRepository(db_path=db_path)
     
     # Default to DynamoDB for cloud/production/S3 deployments

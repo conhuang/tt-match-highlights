@@ -19,6 +19,7 @@ COPY app/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+RUN pip install --no-cache-dir --no-deps -e .
 
 # Copy compiled React static assets from Stage 1 into app/static/
 COPY --from=frontend-builder /app/app/static /app/app/static

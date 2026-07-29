@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Match, MatchEvent } from '../types';
+import { Match, MatchEvent, RenderOptions } from '../types';
 import { WorkspaceHeader } from './WorkspaceHeader';
 import { VideoSection } from './VideoSection';
 import { StatusPanel } from './StatusPanel';
 import { ShortcutSheet } from './ShortcutSheet';
 import { SidebarLogs } from './SidebarLogs';
+import { RenderModal } from './RenderModal';
+import { RenderHistory } from './RenderHistory';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
-import { saveMatchEvents } from '../services/api';
+import { saveMatchEvents, createRenderJob, fetchMatchRenders, deleteRenderJob } from '../services/api';
 
 interface WorkspaceViewProps {
     currentMatch: Match;
@@ -24,10 +26,36 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     const [activeGame, setActiveGame] = useState<number>(1);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
 
-    // Freeze video URL for the duration of this workspace session so backend auto-saves (which return new S3 signature URLs) do not cause DOM src resets or interrupt video playback.
-    const [videoSrc] = useState<string>(() => {
-        return currentMatch.video_url || `/static/videos/uploads/${currentMatch.video_filename}`;
-    });
+    // Render Modal & History state
+    const [isRenderModalOpen, setIsRenderModalOpen] = useState<boolean>(false);
+    const [isRenderingJob, setIsRenderingJob] = useState<boolean>(false);
+
+    // Initial raw video URL
+    const rawVideoUrl = currentMatch.video_url || `/static/videos/uploads/${currentMatch.video_filename}`;
+    const [activeVideoSrc, setActiveVideoSrc] = useState<string>(rawVideoUrl);
+    const [activePreviewUrl, setActivePreviewUrl] = useState<string | null>(null);
+
+    // Polling for active render jobs progress
+    useEffect(() => {
+        const hasActiveRender = currentMatch.renders?.some(
+            r => r.status === 'rendering' || r.status === 'pending'
+        );
+        if (!hasActiveRender) return;
+
+        const interval = setInterval(async () => {
+            try {
+                const renders = await fetchMatchRenders(currentMatch.id);
+                onMatchUpdated({
+                    ...currentMatch,
+                    renders
+                });
+            } catch (err) {
+                console.error('Render polling error:', err);
+            }
+        }, 2500);
+
+        return () => clearInterval(interval);
+    }, [currentMatch, onMatchUpdated]);
 
     const autoSave = useCallback(async (updatedEvents: MatchEvent[]) => {
         setSaveStatus('saving');
@@ -95,6 +123,58 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         autoSave(updated);
     };
 
+    const handleCreateRender = async (
+        type: 'full_match' | 'highlights',
+        label: string,
+        options: RenderOptions
+    ) => {
+        setIsRenderingJob(true);
+        try {
+            const newJob = await createRenderJob(currentMatch.id, type, label, options);
+            const updatedRenders = [...(currentMatch.renders || []), newJob];
+            onMatchUpdated({
+                ...currentMatch,
+                renders: updatedRenders
+            });
+            setIsRenderModalOpen(false);
+        } catch (err: any) {
+            alert(err.message || 'Failed to start render job.');
+        } finally {
+            setIsRenderingJob(false);
+        }
+    };
+
+    const handleDeleteRender = async (renderId: string) => {
+        if (!window.confirm('Are you sure you want to delete this rendered video?')) return;
+        try {
+            await deleteRenderJob(currentMatch.id, renderId);
+            const updatedRenders = (currentMatch.renders || []).filter(r => r.id !== renderId);
+            onMatchUpdated({
+                ...currentMatch,
+                renders: updatedRenders
+            });
+            if (activePreviewUrl) {
+                const deleted = currentMatch.renders?.find(r => r.id === renderId);
+                if (deleted && deleted.video_url === activePreviewUrl) {
+                    setActiveVideoSrc(rawVideoUrl);
+                    setActivePreviewUrl(null);
+                }
+            }
+        } catch (err: any) {
+            alert(err.message || 'Failed to delete render job.');
+        }
+    };
+
+    const handlePreviewRender = (videoUrl: string) => {
+        setActiveVideoSrc(videoUrl);
+        setActivePreviewUrl(videoUrl);
+    };
+
+    const handleResetToOriginalVideo = () => {
+        setActiveVideoSrc(rawVideoUrl);
+        setActivePreviewUrl(null);
+    };
+
     const handleBackClick = () => {
         if (videoRef.current) {
             videoRef.current.pause();
@@ -103,11 +183,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         onBack();
     };
 
-    useEffect(() => {
-        if (videoRef.current) {
-            videoRef.current.load();
-        }
-    }, [videoSrc]);
+    const hasHighlights = currentMatch.events.some(e => e.isHighlight);
 
     return (
         <div className="workspace-view">
@@ -115,9 +191,16 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
             <div className="workspace-grid">
                 <div className="workspace-left">
-                    <VideoSection ref={videoRef} src={videoSrc} />
+                    <VideoSection ref={videoRef} src={activeVideoSrc} />
                     <StatusPanel pendingStartTime={pendingStartTime} />
                     <ShortcutSheet />
+                    <RenderHistory
+                        renders={currentMatch.renders || []}
+                        onPreviewRender={handlePreviewRender}
+                        onDeleteRender={handleDeleteRender}
+                        activePreviewUrl={activePreviewUrl}
+                        onResetToOriginalVideo={handleResetToOriginalVideo}
+                    />
                 </div>
 
                 <SidebarLogs
@@ -130,8 +213,17 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     onDeleteEvent={handleDeleteEvent}
                     onSaveEvents={() => autoSave(currentMatch.events)}
                     saveStatus={saveStatus}
+                    onOpenRenderModal={() => setIsRenderModalOpen(true)}
                 />
             </div>
+
+            <RenderModal
+                isOpen={isRenderModalOpen}
+                onClose={() => setIsRenderModalOpen(false)}
+                onSubmit={handleCreateRender}
+                hasHighlights={hasHighlights}
+                isRendering={isRenderingJob}
+            />
         </div>
     );
 };

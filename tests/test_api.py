@@ -12,6 +12,7 @@ if ROOT_DIR not in sys.path:
 os.environ["DB_TYPE"] = "local"
 os.environ["STORAGE_TYPE"] = "local"
 os.environ["LOCAL_STORAGE_DIR"] = "storage_test"
+os.environ["SQLITE_DB_PATH"] = "storage_test/metadata.db"
 
 from app.main import app
 from app.models import Match
@@ -25,9 +26,7 @@ class TestFastAPIBackend(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # Clean up local test metadata database and test storage folder
-        if os.path.exists("metadata.db"):
-            os.remove("metadata.db")
+        # Clean up local test storage folder
         if os.path.exists("storage_test"):
             import shutil
             shutil.rmtree("storage_test")

@@ -11,6 +11,12 @@ dependencies = [
     "scipy",
     "Pillow",
     "tqdm",
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "shortuuid",
+    "boto3",
+    "python-multipart",
 ]
 
 [project.optional-dependencies]

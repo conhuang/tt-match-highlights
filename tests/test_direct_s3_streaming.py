@@ -10,6 +10,7 @@ if ROOT_DIR not in sys.path:
 os.environ["DB_TYPE"] = "local"
 os.environ["STORAGE_TYPE"] = "local"
 os.environ["LOCAL_STORAGE_DIR"] = "storage_test_stream"
+os.environ["SQLITE_DB_PATH"] = "storage_test_stream/metadata.db"
 
 from app.storage import LocalStorageProvider, S3StorageProvider
 from app.main import app, db, storage
@@ -31,8 +32,6 @@ class TestDirectS3Streaming(unittest.TestCase):
         db.create_match(self.match.model_dump())
 
     def tearDown(self):
-        if os.path.exists("metadata.db"):
-            os.remove("metadata.db")
         if os.path.exists("storage_test_stream"):
             import shutil
             shutil.rmtree("storage_test_stream")
