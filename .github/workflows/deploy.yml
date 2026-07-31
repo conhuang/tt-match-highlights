@@ -81,44 +81,12 @@ jobs:
             --push .
 
       - name: Deploy to EC2 Server via AWS SSM & Verify Success
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          EC2_INSTANCE_ID: ${{ env.EC2_INSTANCE_ID }}
+          ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
+          GIT_COMMIT_SHA: ${{ github.sha }}
         run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids ${{ env.EC2_INSTANCE_ID }} \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 475632990529.dkr.ecr.us-east-2.amazonaws.com",
-              "docker image prune -a -f",
-              "docker pull 475632990529.dkr.ecr.us-east-2.amazonaws.com/tt_video_editor:latest",
-              "docker stop tt_app || true",
-              "docker rm tt_app || true",
-              "docker run -d --name tt_app --restart always -p 80:8000 -e STORAGE_TYPE=s3 -e S3_BUCKET_NAME=tt-video-editor-storage-test -e DATABASE_TYPE=dynamodb -e DYNAMODB_TABLE_NAME=tt_video_editor_matches_dev -e AWS_REGION=us-east-2 -e GIT_COMMIT_SHA=${{ github.sha }} 475632990529.dkr.ecr.us-east-2.amazonaws.com/tt_video_editor:latest"
-            ]' \
-            --region ${{ env.AWS_REGION }} \
-            --query "Command.CommandId" --output text)
-
-          echo "Submitted SSM Command ID: $COMMAND_ID"
-          echo "Waiting for remote execution on EC2..."
-
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" \
-            --instance-id ${{ env.EC2_INSTANCE_ID }} \
-            --region ${{ env.AWS_REGION }} || true
-
-          STATUS=$(aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" \
-            --instance-id ${{ env.EC2_INSTANCE_ID }} \
-            --region ${{ env.AWS_REGION }} \
-            --query "Status" --output text)
-
-          if [ "$STATUS" != "Success" ]; then
-            echo "❌ Deployment command failed on EC2 with status: $STATUS"
-            aws ssm get-command-invocation \
-              --command-id "$COMMAND_ID" \
-              --instance-id ${{ env.EC2_INSTANCE_ID }} \
-              --region ${{ env.AWS_REGION }} \
-              --query "StandardErrorContent" --output text
-            exit 1
-          fi
-
-          echo "✅ Deployment completed successfully on EC2!"
+          chmod +x ./deploy.sh
+          ./deploy.sh
 
