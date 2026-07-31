@@ -252,8 +252,9 @@ def execute_render_job(
         except Exception as e:
             logger.warning(f"Color metadata inspection error: {e}")
 
-        # 3. Encoder Selection (-preset superfast for CPU)
-        if cpu_mode:
+        # 3. Encoder Selection (-preset superfast for CPU / Linux)
+        is_macos = sys.platform == "darwin"
+        if cpu_mode or not is_macos:
             encoder = "libx264"
             encoder_opts = ["-preset", "superfast", "-crf", "18"]
         else:
