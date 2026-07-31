@@ -87,10 +87,11 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=[
               "aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 475632990529.dkr.ecr.us-east-2.amazonaws.com",
+              "docker image prune -a -f",
               "docker pull 475632990529.dkr.ecr.us-east-2.amazonaws.com/tt_video_editor:latest",
               "docker stop tt_app || true",
               "docker rm tt_app || true",
-              "docker run -d --name tt_app --restart always -p 8000:80 -e STORAGE_TYPE=s3 -e S3_BUCKET_NAME=tt-video-editor-storage -e DB_TYPE=dynamodb -e DYNAMODB_TABLE_NAME=tt_video_editor_matches -e AWS_REGION=us-east-2 -e GIT_COMMIT_SHA=${{ github.sha }} -e DEPLOYMENT_TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ') 475632990529.dkr.ecr.us-east-2.amazonaws.com/tt_video_editor:latest"
+              "docker run -d --name tt_app --restart always -p 80:8000 -e STORAGE_TYPE=s3 -e S3_BUCKET_NAME=tt-video-editor-storage-test -e DATABASE_TYPE=dynamodb -e DYNAMODB_TABLE_NAME=tt_video_editor_matches_dev -e AWS_REGION=us-east-2 -e GIT_COMMIT_SHA=${{ github.sha }} 475632990529.dkr.ecr.us-east-2.amazonaws.com/tt_video_editor:latest"
             ]' \
             --region ${{ env.AWS_REGION }}
 
