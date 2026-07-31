@@ -23,22 +23,23 @@ class ScoreboardGenerator:
         self.p1_name = limit_name(p1_name)
         self.p2_name = limit_name(p2_name)
 
-        # Baseline font paths
-        main_path = "/System/Library/Fonts/Menlo.ttc"
-        
-        # Load baseline fonts
-        try:
-            self.font_bold = ImageFont.truetype(main_path, int(48 * s), index=1)
-            self.font_main = ImageFont.truetype(main_path, int(40 * s), index=0)
-            self.font_small = ImageFont.truetype(main_path, int(24 * s), index=0)
-            self.font_game = ImageFont.truetype(main_path, int(120 * s), index=1)
-            self.font_t = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", int(28 * s), index=1)
-        except:
-            self.font_bold = ImageFont.load_default()
-            self.font_main = ImageFont.load_default()
-            self.font_small = ImageFont.load_default()
-            self.font_game = ImageFont.load_default()
-            self.font_t = ImageFont.load_default()
+        # Resolve bundled font paths in tt_video_editor package
+        pkg_fonts_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "fonts"))
+        bundled_bold = os.path.join(pkg_fonts_dir, "Scoreboard-Bold.ttf")
+        bundled_regular = os.path.join(pkg_fonts_dir, "Scoreboard-Regular.ttf")
+
+        font_bold_path = bundled_bold if os.path.exists(bundled_bold) else "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
+        font_regular_path = bundled_regular if os.path.exists(bundled_regular) else "/System/Library/Fonts/Supplemental/Arial.ttf"
+
+        self.font_bold_path = font_bold_path
+        self.font_regular_path = font_regular_path
+
+        # Load baseline fonts safely
+        self.font_bold = self._load_font(font_bold_path, int(48 * s))
+        self.font_main = self._load_font(font_regular_path, int(40 * s))
+        self.font_small = self._load_font(font_regular_path, int(24 * s))
+        self.font_game = self._load_font(font_bold_path, int(120 * s))
+        self.font_t = self._load_font(font_bold_path, int(28 * s))
 
         # Determine the name column width and custom fonts for each player name
         # Minimum name column width is 360 * s, maximum is 500 * s
@@ -59,8 +60,18 @@ class ScoreboardGenerator:
         
         # Find best font for p1_name and p2_name to fit within (self.name_col_width - padding_for_text)
         max_text_w = self.name_col_width - padding_for_text
-        self.p1_font = self._find_fitting_font(self.p1_name, max_text_w, main_path)
-        self.p2_font = self._find_fitting_font(self.p2_name, max_text_w, main_path)
+        self.p1_font = self._find_fitting_font(self.p1_name, max_text_w, font_regular_path)
+        self.p2_font = self._find_fitting_font(self.p2_name, max_text_w, font_regular_path)
+
+    def _load_font(self, font_path, size):
+        if not font_path or not os.path.exists(font_path):
+            return ImageFont.load_default()
+        try:
+            if font_path.endswith(".ttc"):
+                return ImageFont.truetype(font_path, size, index=0)
+            return ImageFont.truetype(font_path, size)
+        except Exception:
+            return ImageFont.load_default()
 
     def _get_text_width(self, text, font):
         # Create a dummy image to measure text width
@@ -75,20 +86,12 @@ class ScoreboardGenerator:
         min_size = int(20 * s)
         
         for size in range(base_size, min_size - 1, -2):
-            try:
-                font = ImageFont.truetype(font_path, size, index=0)
-            except:
-                return ImageFont.load_default()
-            
+            font = self._load_font(font_path, size)
             w = self._get_text_width(name, font)
             if w <= max_width:
                 return font
                 
-        # Fallback to min_size font
-        try:
-            return ImageFont.truetype(font_path, min_size, index=0)
-        except:
-            return ImageFont.load_default()
+        return self._load_font(font_path, min_size)
 
     def create_scoreboard_image(
         self, p1_score, p2_score, p1_sets, p2_sets, output_path, p1_timeout=False, p2_timeout=False
