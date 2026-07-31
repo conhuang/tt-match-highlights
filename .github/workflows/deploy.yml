@@ -86,6 +86,8 @@ jobs:
           EC2_INSTANCE_ID: ${{ env.EC2_INSTANCE_ID }}
           ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
           GIT_COMMIT_SHA: ${{ github.sha }}
+          S3_BUCKET_NAME: "tt-video-editor-storage"
+          DYNAMODB_TABLE_NAME: "tt_video_editor_matches"
         run: |
           chmod +x ./deploy.sh
           ./deploy.sh
