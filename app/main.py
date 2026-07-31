@@ -245,6 +245,18 @@ def delete_render_job(match_id: str, render_id: str):
     db.create_match(match.model_dump())
     return {"status": "success", "message": f"RenderJob {render_id} deleted."}
 
+
+@app.post("/api/matches/{match_id}/renders/{render_id}/cancel")
+def cancel_render_job_endpoint(match_id: str, render_id: str):
+    """Cancels an active render job mid-render and terminates running processes."""
+    record = db.get_match(match_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Match with ID {match_id} not found.")
+
+    from app.render_adapter import cancel_render_job
+    cancel_render_job(match_id, render_id, db)
+    return {"status": "cancelling", "message": f"RenderJob {render_id} cancelled."}
+
 @app.put("/api/matches/{match_id}")
 def update_match(match_id: str, match_update: MatchUpdate):
     """Updates match details or event logs in the database."""

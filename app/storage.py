@@ -274,11 +274,12 @@ class S3StorageProvider(StorageProvider):
             return False
 
     def download_file(self, remote_name: str, local_path: str) -> bool:
-        from botocore.exceptions import ClientError
         try:
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
             self.s3_client.download_file(self.bucket_name, remote_name, local_path)
             return True
-        except ClientError:
+        except Exception as e:
+            logger.error(f"S3 download_file error for {remote_name}: {e}", exc_info=True)
             return False
 
     def get_download_url(self, remote_name: str, expiration: int = 3600) -> str:

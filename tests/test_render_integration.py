@@ -127,6 +127,31 @@ class TestRenderIntegration(unittest.TestCase):
         # Verify file deleted from storage
         self.assertFalse(os.path.exists(render_file))
 
+    def test_cancel_render_job(self):
+        """Verify POST /renders/{render_id}/cancel sets status to failed/cancelled."""
+        job = RenderJob(
+            id="job_to_cancel",
+            type="full_match",
+            status="rendering",
+            progress=25,
+            stage="Encoding"
+        )
+        match_rec = db.get_match(self.match_id)
+        match_obj = Match.model_validate(match_rec)
+        match_obj.renders.append(job)
+        db.create_match(match_obj.model_dump())
+
+        # Call cancel endpoint
+        cancel_res = self.client.post(f"/api/matches/{self.match_id}/renders/{job.id}/cancel")
+        self.assertEqual(cancel_res.status_code, 200)
+        self.assertEqual(cancel_res.json()["status"], "cancelling")
+
+        # Verify DB status updated to failed/Cancelled
+        status_res = self.client.get(f"/api/matches/{self.match_id}/renders/{job.id}/status")
+        self.assertEqual(status_res.status_code, 200)
+        self.assertEqual(status_res.json()["status"], "failed")
+        self.assertEqual(status_res.json()["stage"], "Cancelled")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,7 +6,7 @@ import time
 import json
 import logging
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 # Automatically resolve src/ directory for tt_video_editor package
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -50,6 +50,52 @@ def update_render_job_status(
     match_dict = match.model_dump()
     match_dict["renders"] = updated_renders
     db_repo.create_match(match_dict)
+
+
+CANCELLED_RENDER_JOBS = set()
+RUNNING_PROCESSES: Dict[str, subprocess.Popen] = {}
+
+
+def cancel_render_job(match_id: str, render_id: str, db_repo) -> bool:
+    """
+    Cancels an active render job, terminating any running FFmpeg subprocess mid-render.
+    """
+    CANCELLED_RENDER_JOBS.add(render_id)
+    
+    # Immediately kill active process if running
+    proc = RUNNING_PROCESSES.get(render_id)
+    if proc and proc.poll() is None:
+        try:
+            proc.kill()
+            logger.info(f"Terminated active FFmpeg process for render {render_id}")
+        except Exception as e:
+            logger.warning(f"Error killing process for render_id {render_id}: {e}")
+
+    now_iso = datetime.utcnow().isoformat() + "Z"
+    update_render_job_status(
+        match_id, render_id, db_repo,
+        status="failed", progress=0, stage="Cancelled",
+        error="Render job cancelled by user.",
+        completed_at=now_iso
+    )
+    return True
+
+
+def run_cancellable_cmd(cmd: List[str], render_id: str):
+    """Executes a subprocess command while checking for cancellation signals."""
+    if render_id in CANCELLED_RENDER_JOBS:
+        raise InterruptedError("Render job cancelled by user.")
+
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    RUNNING_PROCESSES[render_id] = proc
+    try:
+        ret = proc.wait()
+        if render_id in CANCELLED_RENDER_JOBS:
+            raise InterruptedError("Render job cancelled by user.")
+        if ret != 0:
+            raise RuntimeError(f"FFmpeg process returned non-zero exit code {ret}")
+    finally:
+        RUNNING_PROCESSES.pop(render_id, None)
 
 
 def execute_render_job(
@@ -117,25 +163,48 @@ def execute_render_job(
 
     update_render_job_status(
         match_id, render_id, db_repo,
-        status="rendering", progress=5, stage="Preparing source video"
+        status="rendering", progress=5, stage="Downloading raw video from S3"
     )
 
     # Working Directory setup
     local_base = getattr(storage_provider, "base_dir", "storage")
     remote_video_key = f"uploads/{match.video_filename}"
-    input_file_path = os.path.join(local_base, remote_video_key)
+    local_input_file = os.path.join(local_base, remote_video_key)
 
-    # Download from storage if file is not on local server disk
-    if not os.path.exists(input_file_path):
-        os.makedirs(os.path.dirname(input_file_path), exist_ok=True)
-        download_success = storage_provider.download_file(remote_video_key, input_file_path)
-        if not download_success or not os.path.exists(input_file_path):
+    # Determine input video source (S3 presigned URL for direct range streaming if S3 active, or local file)
+    if getattr(storage_provider, "bucket_name", None) or os.getenv("STORAGE_TYPE") == "s3":
+        video_input_source = storage_provider.get_download_url(remote_video_key, expiration=7200)
+        if not video_input_source:
+            update_render_job_status(
+                match_id, render_id, db_repo,
+                status="failed", progress=0, stage="Failed",
+                error="Failed to generate S3 streaming URL."
+            )
+            return
+        log_msg = f"INFO:     [S3 DIRECT RANGE STREAMING] URL generated for match {match_id}: {video_input_source[:80]}..."
+        print(log_msg, flush=True)
+        logger.info(log_msg)
+        update_render_job_status(
+            match_id, render_id, db_repo,
+            status="rendering", progress=5, stage="Streaming clips directly from S3 (0s download wait)"
+        )
+    elif os.path.exists(local_input_file):
+        video_input_source = local_input_file
+        update_render_job_status(
+            match_id, render_id, db_repo,
+            status="rendering", progress=5, stage="Using local raw video source"
+        )
+    else:
+        os.makedirs(os.path.dirname(local_input_file), exist_ok=True)
+        download_success = storage_provider.download_file(remote_video_key, local_input_file)
+        if not download_success or not os.path.exists(local_input_file):
             update_render_job_status(
                 match_id, render_id, db_repo,
                 status="failed", progress=0, stage="Failed",
                 error="Failed to retrieve raw video file from storage."
             )
             return
+        video_input_source = local_input_file
 
     temp_dir = os.path.join(local_base, "temp_render_work", f"{match_id}_{render_id}")
     os.makedirs(temp_dir, exist_ok=True)
@@ -172,7 +241,7 @@ def execute_render_job(
             cmd_color = [
                 "ffprobe", "-v", "error", "-select_streams", "v:0",
                 "-show_entries", "stream=color_space,color_transfer,color_primaries",
-                "-of", "csv=p=0", input_file_path
+                "-of", "csv=p=0", video_input_source
             ]
             res_color = subprocess.run(cmd_color, capture_output=True, text=True)
             parts = res_color.stdout.strip().rstrip(",").split(",")
@@ -320,17 +389,20 @@ def execute_render_job(
                         "-c:a", "aac", "-b:a", "192k",
                         "-shortest", seg_output
                     ]
-                    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                    run_cancellable_cmd(cmd, render_id)
 
                 elif seg["type"] == "clip":
+                    seg_msg = f"INFO:     [FFMPEG S3 STREAMING] Segment {idx+1}/{total_segs} input: {video_input_source[:70]}..."
+                    print(seg_msg, flush=True)
+                    logger.info(seg_msg)
                     filter_graph = f"scale={width}:{height}[vscaled]"
                     if seg.get("overlay") and os.path.exists(seg["overlay"]):
                         filter_graph = f"[0:v]scale={width}:{height}[vscaled];[vscaled][1:v]overlay=0:0[outv]"
                         map_v = "[outv]"
-                        inputs = ["-i", input_file_path, "-i", seg["overlay"]]
+                        inputs = ["-i", video_input_source, "-i", seg["overlay"]]
                     else:
                         map_v = "[vscaled]"
-                        inputs = ["-i", input_file_path]
+                        inputs = ["-i", video_input_source]
 
                     cmd = [
                         "ffmpeg", "-y",
@@ -350,7 +422,7 @@ def execute_render_job(
                         "-c:a", "aac", "-b:a", "192k",
                         seg_output
                     ]
-                    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                    run_cancellable_cmd(cmd, render_id)
 
         # 6. Concatenate Segments into Final MP4 Output
         update_render_job_status(
@@ -370,7 +442,7 @@ def execute_render_job(
             "-movflags", "+faststart",
             local_output_path
         ]
-        subprocess.run(concat_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        run_cancellable_cmd(concat_cmd, render_id)
 
         # Upload to remote storage if S3 is active
         remote_render_key = f"renders/{output_filename}"
@@ -390,6 +462,15 @@ def execute_render_job(
         )
         logger.info(f"Render job {render_id} for match {match_id} completed successfully.")
 
+    except InterruptedError:
+        logger.info(f"Render job {render_id} for match {match_id} was cancelled by user.")
+        now_iso = datetime.utcnow().isoformat() + "Z"
+        update_render_job_status(
+            match_id, render_id, db_repo,
+            status="failed", progress=0, stage="Cancelled",
+            error="Render job cancelled by user.",
+            completed_at=now_iso
+        )
     except Exception as e:
         logger.error(f"Render execution error for job {render_id}: {e}", exc_info=True)
         update_render_job_status(
@@ -398,9 +479,12 @@ def execute_render_job(
             error=str(e)
         )
     finally:
-        # Cleanup temp directory
+        CANCELLED_RENDER_JOBS.discard(render_id)
+        RUNNING_PROCESSES.pop(render_id, None)
         if os.path.exists(temp_dir):
             try:
                 shutil.rmtree(temp_dir)
+            except Exception:
+                pass
             except OSError:
                 pass

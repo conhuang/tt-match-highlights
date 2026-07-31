@@ -354,3 +354,12 @@ export async function deleteRenderJob(matchId: string, renderId: string): Promis
         throw new Error('Failed to delete render job.');
     }
 }
+
+export async function cancelRenderJob(matchId: string, renderId: string): Promise<void> {
+    const response = await fetch(`/api/matches/${matchId}/renders/${renderId}/cancel`, {
+        method: 'POST'
+    });
+    if (!response.ok) {
+        throw new Error('Failed to cancel render job.');
+    }
+}

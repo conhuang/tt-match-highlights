@@ -6,6 +6,7 @@ interface RenderHistoryProps {
     renders: RenderJob[];
     onPreviewRender: (renderUrl: string, label: string) => void;
     onDeleteRender: (renderId: string) => void;
+    onCancelRender?: (renderId: string) => void;
     activePreviewUrl?: string | null;
     onResetToOriginalVideo?: () => void;
 }
@@ -14,6 +15,7 @@ export const RenderHistory: React.FC<RenderHistoryProps> = ({
     renders,
     onPreviewRender,
     onDeleteRender,
+    onCancelRender,
     activePreviewUrl,
     onResetToOriginalVideo
 }) => {
@@ -115,6 +117,19 @@ export const RenderHistory: React.FC<RenderHistoryProps> = ({
                             )}
 
                             <div className="render-actions">
+                                {isRendering && onCancelRender && (
+                                    <button
+                                        type="button"
+                                        className="action-btn cancel-render-btn"
+                                        onClick={() => onCancelRender(render.id)}
+                                        title="Cancel active rendering job"
+                                        style={{ backgroundColor: '#ef4444', color: '#ffffff', borderColor: '#dc2626' }}
+                                    >
+                                        <AlertCircle size={13} />
+                                        Cancel Render
+                                    </button>
+                                )}
+
                                 {isCompleted && render.video_url && (
                                     <>
                                         <button

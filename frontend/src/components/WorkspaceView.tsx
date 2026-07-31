@@ -8,7 +8,7 @@ import { SidebarLogs } from './SidebarLogs';
 import { RenderModal } from './RenderModal';
 import { RenderHistory } from './RenderHistory';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
-import { saveMatchEvents, createRenderJob, fetchMatchRenders, deleteRenderJob } from '../services/api';
+import { saveMatchEvents, createRenderJob, fetchMatchRenders, deleteRenderJob, cancelRenderJob } from '../services/api';
 
 interface WorkspaceViewProps {
     currentMatch: Match;
@@ -55,7 +55,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         }, 2500);
 
         return () => clearInterval(interval);
-    }, [currentMatch, onMatchUpdated]);
+    }, [currentMatch.id, currentMatch.renders, onMatchUpdated]);
 
     const autoSave = useCallback(async (updatedEvents: MatchEvent[]) => {
         setSaveStatus('saving');
@@ -167,6 +167,19 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         }
     };
 
+    const handleCancelRender = async (renderId: string) => {
+        try {
+            await cancelRenderJob(currentMatch.id, renderId);
+            const renders = await fetchMatchRenders(currentMatch.id);
+            onMatchUpdated({
+                ...currentMatch,
+                renders
+            });
+        } catch (err: any) {
+            alert(err.message || 'Failed to cancel render job.');
+        }
+    };
+
     const handlePreviewRender = (videoUrl: string) => {
         setActiveVideoSrc(videoUrl);
         setActivePreviewUrl(videoUrl);
@@ -200,6 +213,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                         renders={currentMatch.renders || []}
                         onPreviewRender={handlePreviewRender}
                         onDeleteRender={handleDeleteRender}
+                        onCancelRender={handleCancelRender}
                         activePreviewUrl={activePreviewUrl}
                         onResetToOriginalVideo={handleResetToOriginalVideo}
                     />

@@ -1361,12 +1361,20 @@ kbd {
     animation: spin 1.2s linear infinite;
 }
 
+.render-progress-section {
+    margin: 0.75rem 0;
+    position: relative;
+    z-index: 1;
+}
+
 /* Render Actions */
 .render-actions {
     display: flex;
     align-items: center;
     gap: 0.6rem;
-
+    margin-top: 0.75rem;
+    position: relative;
+    z-index: 10;
 }
 
 .action-btn {
