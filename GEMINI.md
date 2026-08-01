@@ -11,3 +11,7 @@
 ## 3. Local Development Testing via `start_dev.sh`
 - **Rule**: ALWAYS run and test local backend + frontend changes using `./start_dev.sh` before deploying to production or staging.
 - Ensure environment variables in `.env.dev` or `start_dev.sh` match the expected local dev configuration.
+
+## 4. Root Cause Analysis Before Fixing Bugs
+- **Rule**: When debugging an error or issue, ALWAYS identify and extract the empirical root cause FIRST.
+- Clearly explain the exact problem and your proposed fix to the user BEFORE modifying code.
