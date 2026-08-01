@@ -26,7 +26,8 @@ def update_render_job_status(
     stage: str,
     error: Optional[str] = None,
     filename: Optional[str] = None,
-    completed_at: Optional[str] = None
+    completed_at: Optional[str] = None,
+    render_duration_seconds: Optional[float] = None
 ):
     """Helper function to update a specific render job inside a match's renders array."""
     record = db_repo.get_match(match_id)
@@ -45,6 +46,8 @@ def update_render_job_status(
                 r.filename = filename
             if completed_at:
                 r.completed_at = completed_at
+            if render_duration_seconds is not None:
+                r.render_duration_seconds = render_duration_seconds
         updated_renders.append(r.model_dump())
     
     match_dict = match.model_dump()
@@ -109,6 +112,7 @@ def execute_render_job(
     Enforces 1080p max resolution capping, '-preset superfast', color space preservation/HDR tone-mapping,
     and positive render option signals (include_scoreboard, include_game_cards).
     """
+    render_start_time = time.time()
     record = db_repo.get_match(match_id)
     if not record:
         logger.error(f"Render failed: Match {match_id} not found.")
@@ -456,10 +460,12 @@ def execute_render_job(
 
         # 7. Finalize Status
         completed_timestamp = datetime.utcnow().isoformat() + "Z"
+        elapsed_sec = round(time.time() - render_start_time, 1)
         update_render_job_status(
             match_id, render_id, db_repo,
             status="completed", progress=100, stage="Complete",
-            filename=output_filename, completed_at=completed_timestamp
+            filename=output_filename, completed_at=completed_timestamp,
+            render_duration_seconds=elapsed_sec
         )
         logger.info(f"Render job {render_id} for match {match_id} completed successfully.")
 

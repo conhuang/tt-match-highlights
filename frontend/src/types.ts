@@ -27,6 +27,7 @@ export interface RenderJob {
     error?: string | null;
     created_at: string;
     completed_at?: string | null;
+    render_duration_seconds?: number | null;
     video_url?: string | null;
 }
 

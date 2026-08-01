@@ -1,6 +1,6 @@
 import React from 'react';
 import { RenderJob } from '../types';
-import { Play, Download, Trash2, Film, AlertCircle, RefreshCw, Star } from 'lucide-react';
+import { Play, Download, Trash2, Film, AlertCircle, RefreshCw, Star, Clock } from 'lucide-react';
 
 interface RenderHistoryProps {
     renders: RenderJob[];
@@ -11,6 +11,13 @@ interface RenderHistoryProps {
     onResetToOriginalVideo?: () => void;
 }
 
+function formatDuration(seconds: number): string {
+    if (!seconds || seconds <= 0) return '';
+    if (seconds < 60) return `${seconds.toFixed(1)}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${mins}m ${secs}s`;
+}
 export const RenderHistory: React.FC<RenderHistoryProps> = ({
     renders,
     onPreviewRender,
@@ -86,9 +93,16 @@ export const RenderHistory: React.FC<RenderHistoryProps> = ({
                                         </span>
                                     )}
                                     {isCompleted && (
-                                        <span className="status-pill status-completed">
-                                            Completed
-                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            {render.render_duration_seconds && render.render_duration_seconds > 0 && (
+                                                <span className="duration-pill" title="Total render execution duration">
+                                                    <Clock size={11} /> {formatDuration(render.render_duration_seconds)}
+                                                </span>
+                                            )}
+                                            <span className="status-pill status-completed">
+                                                Completed
+                                            </span>
+                                        </div>
                                     )}
                                     {isFailed && (
                                         <span className="status-pill status-failed">
