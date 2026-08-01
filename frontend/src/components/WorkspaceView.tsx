@@ -14,12 +14,14 @@ interface WorkspaceViewProps {
     currentMatch: Match;
     onBack: () => void;
     onMatchUpdated: (updatedMatch: Match) => void;
+    onLogout?: () => void;
 }
 
 export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     currentMatch,
     onBack,
-    onMatchUpdated
+    onMatchUpdated,
+    onLogout
 }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [pendingStartTime, setPendingStartTime] = useState<number | null>(null);
@@ -202,7 +204,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
     return (
         <div className="workspace-view">
-            <WorkspaceHeader currentMatch={currentMatch} onBack={handleBackClick} />
+            <WorkspaceHeader currentMatch={currentMatch} onBack={handleBackClick} onLogout={onLogout} />
 
             <div className="workspace-grid">
                 <div className="workspace-left">

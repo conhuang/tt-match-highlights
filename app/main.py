@@ -53,7 +53,11 @@ if os.path.exists(local_storage_dir):
 from fastapi.responses import HTMLResponse, FileResponse
 
 @app.get("/")
-def read_root():
+@app.get("/login")
+@app.get("/matches")
+@app.get("/matches/{match_id}")
+def serve_spa_frontend(match_id: Optional[str] = None):
+    """Serves the single-page React frontend for all client-side routes."""
     index_file = os.path.join("app", "static", "index.html")
     if os.path.exists(index_file):
         with open(index_file, "r", encoding="utf-8") as f:
