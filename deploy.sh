@@ -23,7 +23,7 @@ COMMAND_ID=$(aws ssm send-command \
     \"docker pull $ECR_REGISTRY/$ECR_REPOSITORY:latest\",
     \"docker stop tt_app || true\",
     \"docker rm tt_app || true\",
-    \"docker run -d --name tt_app --restart always -p 80:80 -e STORAGE_TYPE=s3 -e S3_BUCKET_NAME=$S3_BUCKET_NAME -e DATABASE_TYPE=dynamodb -e DYNAMODB_TABLE_NAME=$DYNAMODB_TABLE_NAME -e ALLOWED_BETA_EMAILS=\\\"$ALLOWED_BETA_EMAILS\\\" -e GOOGLE_CLIENT_ID=\\\"$GOOGLE_CLIENT_ID\\\" -e AWS_REGION=$AWS_REGION -e GIT_COMMIT_SHA=$GIT_SHA $ECR_REGISTRY/$ECR_REPOSITORY:latest\"
+    \"docker run -d --name tt_app --restart always -p 80:80 -e STORAGE_TYPE=s3 -e S3_BUCKET_NAME=$S3_BUCKET_NAME -e DB_TYPE=dynamodb -e DATABASE_TYPE=dynamodb -e DYNAMODB_TABLE_NAME=$DYNAMODB_TABLE_NAME -e ALLOWED_BETA_EMAILS=\\\"$ALLOWED_BETA_EMAILS\\\" -e GOOGLE_CLIENT_ID=\\\"$GOOGLE_CLIENT_ID\\\" -e AWS_REGION=$AWS_REGION -e GIT_COMMIT_SHA=$GIT_SHA $ECR_REGISTRY/$ECR_REPOSITORY:latest\"
   ]" \
   --region "$AWS_REGION" \
   --query "Command.CommandId" --output text)

@@ -88,6 +88,18 @@ def verify_auth(current_user: dict = Depends(get_current_user)):
     return current_user
 
 
+@app.get("/api/auth/config")
+def get_auth_config():
+    """Returns public authentication configuration (Google Client ID and whether beta whitelist auth is active)."""
+    from app.auth import get_allowed_emails
+    google_client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip().strip('"').strip("'")
+    return {
+        "google_client_id": google_client_id,
+        "auth_enabled": bool(get_allowed_emails())
+    }
+
+
+
 
 # --- Schemas for Multipart Upload ---
 class MultipartInit(BaseModel):

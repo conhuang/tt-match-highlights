@@ -46,3 +46,18 @@ def test_get_current_user_local_dev_bypass(monkeypatch):
     user = get_current_user(credentials=None, request=None)
     assert user["email"] == "dev@local"
     assert user["authenticated"] is False
+
+def test_get_auth_config_endpoint(monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.main import app
+    client = TestClient(app)
+    
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id-123.apps.googleusercontent.com")
+    monkeypatch.setenv("ALLOWED_BETA_EMAILS", "allowed@gmail.com")
+    
+    response = client.get("/api/auth/config")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["google_client_id"] == "test-client-id-123.apps.googleusercontent.com"
+    assert data["auth_enabled"] is True
+

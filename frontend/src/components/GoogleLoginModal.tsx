@@ -15,10 +15,24 @@ declare global {
 export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({ onLoginSuccess, errorMessage }) => {
     const [scriptLoaded, setScriptLoaded] = useState(false);
     const [localError, setLocalError] = useState<string | null>(null);
+    const [fetchedClientId, setFetchedClientId] = useState<string>('');
 
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || (window as any).GOOGLE_CLIENT_ID || '';
+    const initialClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || (window as any).GOOGLE_CLIENT_ID || '';
+    const clientId = initialClientId || fetchedClientId;
 
     useEffect(() => {
+        // Fetch runtime Google Client ID from backend if not already set statically
+        if (!initialClientId) {
+            fetch('/api/auth/config')
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data?.google_client_id) {
+                        setFetchedClientId(data.google_client_id);
+                    }
+                })
+                .catch((err) => console.warn('Could not fetch auth config:', err));
+        }
+
         // Dynamically load Google Identity Services SDK script
         const existingScript = document.getElementById('google-gsi-script');
         if (!existingScript) {
@@ -32,7 +46,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({ onLoginSucce
         } else {
             setScriptLoaded(true);
         }
-    }, []);
+    }, [initialClientId]);
 
     useEffect(() => {
         if (scriptLoaded && window.google?.accounts?.id && clientId) {
