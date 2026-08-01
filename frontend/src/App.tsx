@@ -59,8 +59,9 @@ export function App() {
             if (!needsAuth) {
                 navigateTo('/matches');
             }
-        } else if (path === '/' || path === '/home') {
-            navigateTo('/matches');
+        } else if (path === '/' || path === '/matches') {
+            setCurrentMatch(null);
+            if (path !== '/matches') navigateTo('/matches');
         }
     }, [needsAuth]);
 
@@ -72,7 +73,7 @@ export function App() {
             setAuthError(null);
             
             const path = window.location.pathname;
-            if (path === '/' || path === '/home' || path === '/login') {
+            if (path === '/' || path === '/login') {
                 navigateTo('/matches');
             } else if (path.startsWith('/matches/')) {
                 const matchId = path.split('/matches/')[1];
