@@ -3,8 +3,33 @@ import { Match, MatchEvent, CreateMatchInput, InitializeResponse, UploadPart, Re
 const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB
 const CONCURRENCY_LIMIT = 3;
 
+export function getAuthHeaders(): Record<string, string> {
+    const token = sessionStorage.getItem('beta_id_token') || localStorage.getItem('beta_id_token');
+    if (!token) return {};
+    return {
+        'Authorization': `Bearer ${token}`,
+        'X-Beta-Auth-Token': token
+    };
+}
+
+export async function verifyAuthToken(token: string): Promise<any> {
+    const response = await fetch('/api/auth/verify', {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'X-Beta-Auth-Token': token
+        }
+    });
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Authentication failed or email not whitelisted.');
+    }
+    return response.json();
+}
+
 export async function fetchMatches(): Promise<Match[]> {
-    const response = await fetch('/api/matches');
+    const response = await fetch('/api/matches', {
+        headers: { ...getAuthHeaders() }
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch matches.');
     }
@@ -12,7 +37,9 @@ export async function fetchMatches(): Promise<Match[]> {
 }
 
 export async function fetchMatch(matchId: string): Promise<Match> {
-    const response = await fetch(`/api/matches/${matchId}`);
+    const response = await fetch(`/api/matches/${matchId}`, {
+        headers: { ...getAuthHeaders() }
+    });
     if (!response.ok) {
         throw new Error('Failed to load match details.');
     }
@@ -22,7 +49,7 @@ export async function fetchMatch(matchId: string): Promise<Match> {
 export async function createMatch(input: CreateMatchInput): Promise<Match> {
     const response = await fetch('/api/matches', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(input)
     });
     if (!response.ok) {
@@ -33,7 +60,8 @@ export async function createMatch(input: CreateMatchInput): Promise<Match> {
 
 export async function deleteMatch(matchId: string): Promise<void> {
     const response = await fetch(`/api/matches/${matchId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { ...getAuthHeaders() }
     });
     if (!response.ok) {
         throw new Error('Failed to delete match.');

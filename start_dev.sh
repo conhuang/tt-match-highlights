@@ -17,8 +17,10 @@ fi
 export DB_TYPE="${DB_TYPE:-dynamodb}"
 export DYNAMODB_TABLE_NAME="${DYNAMODB_TABLE_NAME:-tt_video_editor_matches_dev}"
 export STORAGE_TYPE="${STORAGE_TYPE:-s3}"
-export S3_BUCKET_NAME="${S3_BUCKET_NAME:-tt-video-editor-storage}"
+export S3_BUCKET_NAME="${S3_BUCKET_NAME:-tt-video-editor-storage-test}"
 export AWS_REGION="${AWS_REGION:-us-east-2}"
+export ALLOWED_BETA_EMAILS="${ALLOWED_BETA_EMAILS:-}"
+export GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}"
 
 echo "Starting FastAPI Development Server..."
 echo "  Database:  $DB_TYPE (Table: $DYNAMODB_TABLE_NAME)"
