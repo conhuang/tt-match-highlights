@@ -88,6 +88,8 @@ jobs:
           GIT_COMMIT_SHA: ${{ github.sha }}
           S3_BUCKET_NAME: "tt-video-editor-storage"
           DYNAMODB_TABLE_NAME: "tt_video_editor_matches"
+          ALLOWED_BETA_EMAILS: ${{ secrets.ALLOWED_BETA_EMAILS }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
         run: |
           chmod +x ./deploy.sh
           ./deploy.sh

@@ -1,7 +1,7 @@
 import os
 from io import BytesIO
 from datetime import datetime
-from fastapi import FastAPI, UploadFile, File, HTTPException, status, Request, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, HTTPException, status, Request, BackgroundTasks, Depends
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
@@ -50,13 +50,23 @@ local_storage_dir = os.getenv("LOCAL_STORAGE_DIR", "storage")
 if os.path.exists(local_storage_dir):
     app.mount("/static/videos", StaticFiles(directory=local_storage_dir), name="videos")
 
+from fastapi.responses import HTMLResponse, FileResponse
+
 @app.get("/")
 def read_root():
     index_file = os.path.join("app", "static", "index.html")
     if os.path.exists(index_file):
-        return FileResponse(index_file)
+        with open(index_file, "r", encoding="utf-8") as f:
+            html = f.read()
+        google_client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip().strip('"').strip("'")
+        if google_client_id:
+            script_tag = f"<script>window.GOOGLE_CLIENT_ID = '{google_client_id}';</script>"
+            html = html.replace("<head>", f"<head>{script_tag}")
+        return HTMLResponse(content=html)
     return {"message": "Hello World from FastAPI Backend!"}
 
+
+from app.auth import get_current_user
 
 @app.get("/api/version")
 def get_version():
@@ -67,6 +77,11 @@ def get_version():
         "environment": os.getenv("ENVIRONMENT", "production"),
         "timestamp": os.getenv("DEPLOYMENT_TIMESTAMP", "unknown")
     }
+
+@app.get("/api/auth/verify")
+def verify_auth(current_user: dict = Depends(get_current_user)):
+    """Verifies user authentication and email whitelist status."""
+    return current_user
 
 
 
@@ -87,18 +102,19 @@ class MultipartComplete(BaseModel):
 # --- Matches API Endpoints ---
 
 @app.post("/api/matches", response_model=Match, status_code=status.HTTP_201_CREATED)
-def create_match(match_in: MatchCreate):
+def create_match(match_in: MatchCreate, current_user: dict = Depends(get_current_user)):
     """Creates a new match metadata record in the database."""
     match = Match(
         name=match_in.name,
         player1=match_in.player1,
-        player2=match_in.player2
+        player2=match_in.player2,
+        owner_username=current_user.get("email", "admin")
     )
     created = db.create_match(match.model_dump())
     return Match.model_validate(created)
 
 @app.get("/api/matches", response_model=List[Match])
-def list_matches():
+def list_matches(current_user: dict = Depends(get_current_user)):
     """Lists all match records from the database."""
     records = db.list_matches()
     return [Match.model_validate(r) for r in records]
@@ -127,7 +143,7 @@ def _enrich_match_urls(match: Match) -> dict:
     return response_data
 
 @app.get("/api/matches/{match_id}")
-def get_match(match_id: str):
+def get_match(match_id: str, current_user: dict = Depends(get_current_user)):
     """Retrieves a single match details along with temporary pre-signed playback URLs."""
     record = db.get_match(match_id)
     if not record:
@@ -142,7 +158,7 @@ def get_match(match_id: str):
 from app.render_adapter import execute_render_job
 
 @app.post("/api/matches/{match_id}/renders", status_code=status.HTTP_202_ACCEPTED)
-def create_render_job(match_id: str, render_create: RenderCreate, background_tasks: BackgroundTasks):
+def create_render_job(match_id: str, render_create: RenderCreate, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     """Triggers an asynchronous background render job for a match."""
     record = db.get_match(match_id)
     if not record:
@@ -185,7 +201,7 @@ def create_render_job(match_id: str, render_create: RenderCreate, background_tas
 
 
 @app.get("/api/matches/{match_id}/renders")
-def list_match_renders(match_id: str):
+def list_match_renders(match_id: str, current_user: dict = Depends(get_current_user)):
     """Lists all render jobs for a match along with playback/download URLs."""
     record = db.get_match(match_id)
     if not record:
@@ -197,7 +213,7 @@ def list_match_renders(match_id: str):
 
 
 @app.get("/api/matches/{match_id}/renders/{render_id}/status")
-def get_render_job_status(match_id: str, render_id: str):
+def get_render_job_status(match_id: str, render_id: str, current_user: dict = Depends(get_current_user)):
     """Returns status and progress of a specific render job."""
     record = db.get_match(match_id)
     if not record:
@@ -220,7 +236,7 @@ def get_render_job_status(match_id: str, render_id: str):
 
 
 @app.delete("/api/matches/{match_id}/renders/{render_id}")
-def delete_render_job(match_id: str, render_id: str):
+def delete_render_job(match_id: str, render_id: str, current_user: dict = Depends(get_current_user)):
     """Deletes a specific render job and its output video file from storage."""
     record = db.get_match(match_id)
     if not record:
@@ -247,7 +263,7 @@ def delete_render_job(match_id: str, render_id: str):
 
 
 @app.post("/api/matches/{match_id}/renders/{render_id}/cancel")
-def cancel_render_job_endpoint(match_id: str, render_id: str):
+def cancel_render_job_endpoint(match_id: str, render_id: str, current_user: dict = Depends(get_current_user)):
     """Cancels an active render job mid-render and terminates running processes."""
     record = db.get_match(match_id)
     if not record:
@@ -258,7 +274,7 @@ def cancel_render_job_endpoint(match_id: str, render_id: str):
     return {"status": "cancelling", "message": f"RenderJob {render_id} cancelled."}
 
 @app.put("/api/matches/{match_id}")
-def update_match(match_id: str, match_update: MatchUpdate):
+def update_match(match_id: str, match_update: MatchUpdate, current_user: dict = Depends(get_current_user)):
     """Updates match details or event logs in the database."""
     record = db.get_match(match_id)
     if not record:
@@ -289,7 +305,7 @@ def update_match(match_id: str, match_update: MatchUpdate):
 # --- S3 Direct Multipart Upload Endpoints ---
 
 @app.post("/api/matches/{match_id}/upload/initialize")
-def initialize_multipart(match_id: str, init_data: MultipartInit):
+def initialize_multipart(match_id: str, init_data: MultipartInit, current_user: dict = Depends(get_current_user)):
     """Initiates a multipart upload and generates pre-signed URLs for each chunk."""
     record = db.get_match(match_id)
     if not record:
@@ -377,7 +393,7 @@ def process_post_upload_tasks(match_id: str, remote_path: str, local_file_path: 
         logger.error(f"Background post-processing failed for match {match_id}: {e}")
 
 @app.post("/api/matches/{match_id}/upload/complete")
-def complete_multipart(match_id: str, complete_data: MultipartComplete, background_tasks: BackgroundTasks):
+def complete_multipart(match_id: str, complete_data: MultipartComplete, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     """Completes the multipart upload by assembling the chunks and queuing post-processing tasks."""
     record = db.get_match(match_id)
     if not record:
@@ -431,7 +447,7 @@ def complete_multipart(match_id: str, complete_data: MultipartComplete, backgrou
     }
 
 @app.get("/api/matches/{match_id}/upload/parts")
-def list_parts(match_id: str, upload_id: str, original_filename: str):
+def list_parts(match_id: str, upload_id: str, original_filename: str, current_user: dict = Depends(get_current_user)):
     """Lists already uploaded parts for an active multipart upload session."""
     ext = os.path.splitext(original_filename)[1].lower() or ".mp4"
     unique_storage_name = f"{match_id}{ext}"
@@ -562,7 +578,7 @@ async def upload_local_part(upload_id: str, part_number: int, request: Request):
     return {"status": "success", "PartNumber": part_number, "ETag": f"local-etag-{part_number}"}
 
 @app.delete("/api/matches/{match_id}")
-def delete_match(match_id: str):
+def delete_match(match_id: str, current_user: dict = Depends(get_current_user)):
     """Deletes a match and cleans up its video files from storage."""
     record = db.get_match(match_id)
     if not record:

@@ -1,21 +1,29 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Match } from './types';
-import { fetchMatches, fetchMatch, deleteMatch } from './services/api';
+import { fetchMatches, fetchMatch, deleteMatch, verifyAuthToken } from './services/api';
 import { DashboardView } from './components/DashboardView';
 import { WorkspaceView } from './components/WorkspaceView';
+import { GoogleLoginModal } from './components/GoogleLoginModal';
 import './index.css';
 
 export function App() {
     const [matches, setMatches] = useState<Match[]>([]);
     const [currentMatch, setCurrentMatch] = useState<Match | null>(null);
     const [loading, setLoading] = useState(true);
+    const [needsAuth, setNeedsAuth] = useState(false);
+    const [authError, setAuthError] = useState<string | null>(null);
 
     const loadMatchesList = useCallback(async () => {
         try {
             const data = await fetchMatches();
             setMatches(data);
-        } catch (err) {
+            setNeedsAuth(false);
+            setAuthError(null);
+        } catch (err: any) {
             console.error('Failed to load matches:', err);
+            if (err.message && (err.message.includes('Authentication required') || err.message.includes('Access Denied') || err.message.includes('fetch matches'))) {
+                setNeedsAuth(true);
+            }
         } finally {
             setLoading(false);
         }
@@ -24,6 +32,19 @@ export function App() {
     useEffect(() => {
         loadMatchesList();
     }, [loadMatchesList]);
+
+    const handleLoginSuccess = async (idToken: string) => {
+        try {
+            sessionStorage.setItem('beta_id_token', idToken);
+            localStorage.setItem('beta_id_token', idToken);
+            setAuthError(null);
+            await verifyAuthToken(idToken);
+            setNeedsAuth(false);
+            await loadMatchesList();
+        } catch (err: any) {
+            setAuthError(err.message || 'Access Denied: Your email is not authorized for this Beta.');
+        }
+    };
 
     const handleSelectMatch = async (matchId: string) => {
         try {
@@ -57,7 +78,6 @@ export function App() {
     };
 
     if (loading) {
-        className: "loading-screen";
         return (
             <div className="loading-screen">
                 <div className="spinner" />
@@ -68,7 +88,12 @@ export function App() {
 
     return (
         <div className={`app-container ${currentMatch ? 'workspace-active' : ''}`}>
-            {currentMatch ? (
+            {needsAuth ? (
+                <GoogleLoginModal
+                    onLoginSuccess={handleLoginSuccess}
+                    errorMessage={authError}
+                />
+            ) : currentMatch ? (
                 <WorkspaceView
                     currentMatch={currentMatch}
                     onBack={() => {
