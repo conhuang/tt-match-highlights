@@ -54,7 +54,6 @@ from fastapi.responses import HTMLResponse, FileResponse
 
 @app.get("/")
 @app.get("/login")
-@app.get("/home")
 @app.get("/matches")
 @app.get("/matches/{match_id}")
 def serve_spa_frontend(match_id: Optional[str] = None):
