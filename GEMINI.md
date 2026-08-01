@@ -1,4 +1,4 @@
-# Engineering Rules & Guidelines
+ok # Engineering Rules & Guidelines
 
 ## 1. Visual Verification via Playwright Before Pushing
 - **Rule**: ALWAYS test all UI and full-stack changes visually in the browser using Playwright (`browser_navigate`, `browser_click`, `browser_take_screenshot`) **BEFORE** committing or pushing to Git.

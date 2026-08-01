@@ -16,7 +16,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({ onLoginSucce
     const [scriptLoaded, setScriptLoaded] = useState(false);
     const [localError, setLocalError] = useState<string | null>(null);
 
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || (window as any).GOOGLE_CLIENT_ID || '';
 
     useEffect(() => {
         // Dynamically load Google Identity Services SDK script

@@ -14,7 +14,7 @@ def get_allowed_emails() -> Set[str]:
     raw = os.getenv("ALLOWED_BETA_EMAILS", "")
     if not raw.strip():
         return set()
-    return {email.strip().lower() for email in raw.split(",") if email.strip()}
+    return {email.strip().strip('"').strip("'").lower() for email in raw.split(",") if email.strip()}
 
 def verify_google_id_token(id_token: str) -> Optional[dict]:
     """

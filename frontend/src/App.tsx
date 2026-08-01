@@ -88,13 +88,12 @@ export function App() {
 
     return (
         <div className={`app-container ${currentMatch ? 'workspace-active' : ''}`}>
-            {needsAuth && (
+            {needsAuth ? (
                 <GoogleLoginModal
                     onLoginSuccess={handleLoginSuccess}
                     errorMessage={authError}
                 />
-            )}
-            {currentMatch ? (
+            ) : currentMatch ? (
                 <WorkspaceView
                     currentMatch={currentMatch}
                     onBack={() => {

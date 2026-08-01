@@ -50,11 +50,19 @@ local_storage_dir = os.getenv("LOCAL_STORAGE_DIR", "storage")
 if os.path.exists(local_storage_dir):
     app.mount("/static/videos", StaticFiles(directory=local_storage_dir), name="videos")
 
+from fastapi.responses import HTMLResponse, FileResponse
+
 @app.get("/")
 def read_root():
     index_file = os.path.join("app", "static", "index.html")
     if os.path.exists(index_file):
-        return FileResponse(index_file)
+        with open(index_file, "r", encoding="utf-8") as f:
+            html = f.read()
+        google_client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip().strip('"').strip("'")
+        if google_client_id:
+            script_tag = f"<script>window.GOOGLE_CLIENT_ID = '{google_client_id}';</script>"
+            html = html.replace("<head>", f"<head>{script_tag}")
+        return HTMLResponse(content=html)
     return {"message": "Hello World from FastAPI Backend!"}
 
 
