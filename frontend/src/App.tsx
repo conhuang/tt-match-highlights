@@ -13,17 +13,78 @@ export function App() {
     const [needsAuth, setNeedsAuth] = useState(false);
     const [authError, setAuthError] = useState<string | null>(null);
 
+    const navigateTo = (path: string) => {
+        if (window.location.pathname !== path) {
+            window.history.pushState({}, '', path);
+        }
+    };
+
+    const handleLogout = () => {
+        sessionStorage.removeItem('beta_id_token');
+        localStorage.removeItem('beta_id_token');
+        setNeedsAuth(true);
+        setCurrentMatch(null);
+        setMatches([]);
+        navigateTo('/login');
+    };
+
+    const syncRouteFromPath = useCallback(async () => {
+        const path = window.location.pathname;
+
+        if (needsAuth) {
+            if (path !== '/login') navigateTo('/login');
+            return;
+        }
+
+        if (path.startsWith('/matches/')) {
+            const matchId = path.split('/matches/')[1];
+            if (matchId) {
+                try {
+                    const match = await fetchMatch(matchId);
+                    setCurrentMatch(match);
+                    setNeedsAuth(false);
+                    return;
+                } catch (err: any) {
+                    console.error('Failed to load deep-linked match:', err);
+                    if (err.message && (err.message.includes('Authentication required') || err.message.includes('Access Denied'))) {
+                        setNeedsAuth(true);
+                        navigateTo('/login');
+                        return;
+                    }
+                }
+            }
+        }
+
+        if (path === '/login') {
+            if (!needsAuth) {
+                navigateTo('/matches');
+            }
+        } else if (path === '/' || path === '/home') {
+            navigateTo('/matches');
+        }
+    }, [needsAuth]);
+
     const loadMatchesList = useCallback(async () => {
         try {
             const data = await fetchMatches();
             setMatches(data);
             setNeedsAuth(false);
             setAuthError(null);
+            
+            const path = window.location.pathname;
+            if (path === '/' || path === '/home' || path === '/login') {
+                navigateTo('/matches');
+            } else if (path.startsWith('/matches/')) {
+                const matchId = path.split('/matches/')[1];
+                if (matchId) {
+                    const match = data.find(m => m.id === matchId);
+                    if (match) setCurrentMatch(match);
+                }
+            }
         } catch (err: any) {
             console.error('Failed to load matches:', err);
-            if (err.message && (err.message.includes('Authentication required') || err.message.includes('Access Denied') || err.message.includes('fetch matches'))) {
-                setNeedsAuth(true);
-            }
+            setNeedsAuth(true);
+            navigateTo('/login');
         } finally {
             setLoading(false);
         }
@@ -33,6 +94,14 @@ export function App() {
         loadMatchesList();
     }, [loadMatchesList]);
 
+    useEffect(() => {
+        const handlePopState = () => {
+            syncRouteFromPath();
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [syncRouteFromPath]);
+
     const handleLoginSuccess = async (idToken: string) => {
         try {
             sessionStorage.setItem('beta_id_token', idToken);
@@ -40,6 +109,7 @@ export function App() {
             setAuthError(null);
             await verifyAuthToken(idToken);
             setNeedsAuth(false);
+            navigateTo('/matches');
             await loadMatchesList();
         } catch (err: any) {
             setAuthError(err.message || 'Access Denied: Your email is not authorized for this Beta.');
@@ -54,6 +124,7 @@ export function App() {
                 return;
             }
             setCurrentMatch(match);
+            navigateTo(`/matches/${matchId}`);
         } catch (err: any) {
             alert(err.message || 'Error entering match workspace.');
         }
@@ -66,6 +137,10 @@ export function App() {
 
         try {
             await deleteMatch(matchId);
+            if (currentMatch?.id === matchId) {
+                setCurrentMatch(null);
+                navigateTo('/matches');
+            }
             await loadMatchesList();
         } catch (err: any) {
             alert(err.message || 'Could not delete match.');
@@ -98,9 +173,11 @@ export function App() {
                     currentMatch={currentMatch}
                     onBack={() => {
                         setCurrentMatch(null);
+                        navigateTo('/matches');
                         loadMatchesList();
                     }}
                     onMatchUpdated={handleMatchUpdated}
+                    onLogout={handleLogout}
                 />
             ) : (
                 <DashboardView
@@ -108,6 +185,7 @@ export function App() {
                     onRefreshMatches={loadMatchesList}
                     onSelectMatch={handleSelectMatch}
                     onDeleteMatch={handleDeleteMatch}
+                    onLogout={handleLogout}
                 />
             )}
         </div>

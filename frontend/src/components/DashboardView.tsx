@@ -11,20 +11,22 @@ import {
     runUploadQueue,
     deleteMatch
 } from '../services/api';
-import { PlusCircle, List, RefreshCw } from 'lucide-react';
+import { PlusCircle, List, RefreshCw, LogOut } from 'lucide-react';
 
 interface DashboardViewProps {
     matches: Match[];
     onRefreshMatches: () => void;
     onSelectMatch: (matchId: string) => void;
     onDeleteMatch: (matchId: string) => void;
+    onLogout?: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
     matches,
     onRefreshMatches,
     onSelectMatch,
-    onDeleteMatch
+    onDeleteMatch,
+    onLogout
 }) => {
     const [formData, setFormData] = useState<CreateMatchInput>({
         name: '',
@@ -151,9 +153,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     return (
         <div className="dashboard-view">
-            <header className="header">
-                <h1>Matches Dashboard</h1>
-                <p className="subtitle">Upload and score table tennis match videos with automated highlight generation</p>
+            <header className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                    <h1>Matches Dashboard</h1>
+                    <p className="subtitle">Upload and score table tennis match videos with automated highlight generation</p>
+                </div>
+                {onLogout && (
+                    <button
+                        onClick={onLogout}
+                        className="btn-secondary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 0.9rem', fontSize: '0.85rem' }}
+                    >
+                        <LogOut size={16} />
+                        <span>Sign Out</span>
+                    </button>
+                )}
             </header>
 
             <section className={`card form-card ${resumeSession ? 'card-resume' : ''}`}>
