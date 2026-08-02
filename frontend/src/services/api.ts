@@ -71,7 +71,7 @@ export async function deleteMatch(matchId: string): Promise<void> {
 export async function saveMatchEvents(matchId: string, events: MatchEvent[]): Promise<Match> {
     const response = await fetch(`/api/matches/${matchId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ events })
     });
     if (!response.ok) {
@@ -82,7 +82,9 @@ export async function saveMatchEvents(matchId: string, events: MatchEvent[]): Pr
 
 export async function fetchUploadedParts(matchId: string, uploadId: string, originalFilename: string): Promise<{ PartNumber: number; ETag: string }[]> {
     try {
-        const response = await fetch(`/api/matches/${matchId}/upload/parts?upload_id=${uploadId}&original_filename=${encodeURIComponent(originalFilename)}`);
+        const response = await fetch(`/api/matches/${matchId}/upload/parts?upload_id=${uploadId}&original_filename=${encodeURIComponent(originalFilename)}`, {
+            headers: { ...getAuthHeaders() }
+        });
         if (!response.ok) return [];
         const data = await response.json();
         return data.parts || [];
@@ -94,7 +96,8 @@ export async function fetchUploadedParts(matchId: string, uploadId: string, orig
 export async function abortUpload(matchId: string, uploadId: string, originalFilename: string): Promise<void> {
     try {
         await fetch(`/api/matches/${matchId}/upload/abort?upload_id=${uploadId}&original_filename=${encodeURIComponent(originalFilename)}`, {
-            method: 'POST'
+            method: 'POST',
+            headers: { ...getAuthHeaders() }
         });
     } catch {
         // Ignored
@@ -261,7 +264,7 @@ async function finalizeUpload(
 ): Promise<void> {
     const completeResponse = await fetch(`/api/matches/${matchId}/upload/complete`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
             upload_id: uploadId,
             parts: completedParts,
@@ -295,7 +298,7 @@ export async function uploadVideoMultipart(
 
     const initResponse = await fetch(`/api/matches/${matchId}/upload/initialize`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
             filename: file.name,
             file_size: file.size
@@ -332,7 +335,7 @@ export async function createRenderJob(
 ): Promise<RenderJob> {
     const response = await fetch(`/api/matches/${matchId}/renders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
             type,
             label,
@@ -359,7 +362,9 @@ export async function createRenderJob(
 }
 
 export async function fetchMatchRenders(matchId: string): Promise<RenderJob[]> {
-    const response = await fetch(`/api/matches/${matchId}/renders`);
+    const response = await fetch(`/api/matches/${matchId}/renders`, {
+        headers: { ...getAuthHeaders() }
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch render jobs.');
     }
@@ -367,7 +372,9 @@ export async function fetchMatchRenders(matchId: string): Promise<RenderJob[]> {
 }
 
 export async function fetchRenderStatus(matchId: string, renderId: string): Promise<RenderJob> {
-    const response = await fetch(`/api/matches/${matchId}/renders/${renderId}/status`);
+    const response = await fetch(`/api/matches/${matchId}/renders/${renderId}/status`, {
+        headers: { ...getAuthHeaders() }
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch render status.');
     }
@@ -376,7 +383,8 @@ export async function fetchRenderStatus(matchId: string, renderId: string): Prom
 
 export async function deleteRenderJob(matchId: string, renderId: string): Promise<void> {
     const response = await fetch(`/api/matches/${matchId}/renders/${renderId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { ...getAuthHeaders() }
     });
     if (!response.ok) {
         throw new Error('Failed to delete render job.');
@@ -385,7 +393,8 @@ export async function deleteRenderJob(matchId: string, renderId: string): Promis
 
 export async function cancelRenderJob(matchId: string, renderId: string): Promise<void> {
     const response = await fetch(`/api/matches/${matchId}/renders/${renderId}/cancel`, {
-        method: 'POST'
+        method: 'POST',
+        headers: { ...getAuthHeaders() }
     });
     if (!response.ok) {
         throw new Error('Failed to cancel render job.');

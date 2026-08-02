@@ -76,7 +76,8 @@ class Match(MatchBase):
     Represents a full Match record stored in the database.
     """
     id: str = Field(default_factory=lambda: shortuuid.uuid(), description="Unique ShortUUID identifier for the match")
-    owner_username: Optional[str] = Field("admin", description="The username of the account that uploaded this match")
+    owner_username: Optional[str] = Field("admin", description="The email address of the account that uploaded this match")
+    owner_id: Optional[str] = Field(None, description="The permanent Google sub ID of the owner")
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z", description="ISO timestamp of match creation")
     video_filename: Optional[str] = Field(None, description="Filename of the uploaded raw video")
     original_filename: Optional[str] = Field(None, description="Original human-readable filename uploaded by the user")

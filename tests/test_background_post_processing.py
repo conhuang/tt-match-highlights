@@ -93,7 +93,7 @@ class TestBackgroundPostProcessing(unittest.TestCase):
         )
 
         self.assertEqual(response["status"], "upload_successful")
-        self.assertEqual(response["video_filename"], f"{self.match_id}.mp4")
+        self.assertEqual(response["video_filename"], f"admin/{self.match_id}.mp4")
 
         # Verify background_tasks.add_task was called with process_post_upload_tasks
         mock_bg_tasks.add_task.assert_called_once()

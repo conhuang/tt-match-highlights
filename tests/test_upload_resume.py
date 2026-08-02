@@ -173,7 +173,7 @@ class TestUploadResume(unittest.TestCase):
 
         self.assertEqual(response, {"parts": [{"PartNumber": 1, "ETag": "etag-1"}]})
         mock_storage.list_parts.assert_called_once_with(
-            remote_name="uploads/test_match_id.mp4",
+            remote_name="uploads/admin/test_match_id.mp4",
             upload_id="mock_upload_id"
         )
 

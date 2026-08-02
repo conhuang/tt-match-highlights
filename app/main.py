@@ -105,6 +105,20 @@ class MultipartComplete(BaseModel):
 
 # --- Matches API Endpoints ---
 
+def _verify_match_owner(match: Match, current_user: dict):
+    """Enforces strict ownership authorization for match access."""
+    if not isinstance(current_user, dict):
+        return
+    if current_user.get("authenticated") is False:
+        return
+    user_email = current_user.get("email", "").strip().lower()
+    owner_email = (match.owner_username or "").strip().lower()
+    if user_email and owner_email and user_email != owner_email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: You do not have permission to access this match record."
+        )
+
 @app.post("/api/matches", response_model=Match, status_code=status.HTTP_201_CREATED)
 def create_match(match_in: MatchCreate, current_user: dict = Depends(get_current_user)):
     """Creates a new match metadata record in the database."""
@@ -112,16 +126,21 @@ def create_match(match_in: MatchCreate, current_user: dict = Depends(get_current
         name=match_in.name,
         player1=match_in.player1,
         player2=match_in.player2,
-        owner_username=current_user.get("email", "admin")
+        owner_username=current_user.get("email", "admin"),
+        owner_id=current_user.get("sub")
     )
     created = db.create_match(match.model_dump())
     return Match.model_validate(created)
 
 @app.get("/api/matches", response_model=List[Match])
 def list_matches(current_user: dict = Depends(get_current_user)):
-    """Lists all match records from the database."""
+    """Lists all match records belonging to the authenticated user."""
     records = db.list_matches()
-    return [Match.model_validate(r) for r in records]
+    matches = [Match.model_validate(r) for r in records]
+    if current_user.get("authenticated") is False:
+        return matches
+    user_email = current_user.get("email", "").strip().lower()
+    return [m for m in matches if (m.owner_username or "").strip().lower() == user_email]
 
 def _enrich_match_urls(match: Match) -> dict:
     """Generates temporary pre-signed S3 playback URLs (or local paths) for a match and its renders."""
@@ -157,6 +176,7 @@ def get_match(match_id: str, current_user: dict = Depends(get_current_user)):
         )
     
     match = Match.model_validate(record)
+    _verify_match_owner(match, current_user)
     return _enrich_match_urls(match)
 
 from app.render_adapter import execute_render_job
@@ -169,6 +189,7 @@ def create_render_job(match_id: str, render_create: RenderCreate, background_tas
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Match with ID {match_id} not found.")
 
     match = Match.model_validate(record)
+    _verify_match_owner(match, current_user)
     if not match.events:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot render a match without logged events.")
     if not match.video_filename:
@@ -212,6 +233,7 @@ def list_match_renders(match_id: str, current_user: dict = Depends(get_current_u
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Match with ID {match_id} not found.")
 
     match = Match.model_validate(record)
+    _verify_match_owner(match, current_user)
     enriched = _enrich_match_urls(match)
     return enriched.get("renders", [])
 
@@ -224,6 +246,7 @@ def get_render_job_status(match_id: str, render_id: str, current_user: dict = De
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Match with ID {match_id} not found.")
 
     match = Match.model_validate(record)
+    _verify_match_owner(match, current_user)
     target_job = None
     for r in match.renders:
         if r.id == render_id:
@@ -247,6 +270,7 @@ def delete_render_job(match_id: str, render_id: str, current_user: dict = Depend
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Match with ID {match_id} not found.")
 
     match = Match.model_validate(record)
+    _verify_match_owner(match, current_user)
     target_job = None
     remaining_renders = []
     for r in match.renders:
@@ -273,6 +297,9 @@ def cancel_render_job_endpoint(match_id: str, render_id: str, current_user: dict
     if not record:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Match with ID {match_id} not found.")
 
+    match = Match.model_validate(record)
+    _verify_match_owner(match, current_user)
+
     from app.render_adapter import cancel_render_job
     cancel_render_job(match_id, render_id, db)
     return {"status": "cancelling", "message": f"RenderJob {render_id} cancelled."}
@@ -288,6 +315,7 @@ def update_match(match_id: str, match_update: MatchUpdate, current_user: dict = 
         )
     
     match = Match.model_validate(record)
+    _verify_match_owner(match, current_user)
     update_data = match_update.model_dump(exclude_unset=True)
     
     # Update matching fields directly from match_update object, preserving Pydantic classes (eliminates serialization warnings)
@@ -308,6 +336,16 @@ def update_match(match_id: str, match_update: MatchUpdate, current_user: dict = 
 
 # --- S3 Direct Multipart Upload Endpoints ---
 
+def _get_user_storage_prefix(target) -> str:
+    """Returns user-scoped directory prefix (owner_id or owner_username)."""
+    if isinstance(target, Match):
+        prefix = target.owner_id or target.owner_username or "admin"
+    elif isinstance(target, dict):
+        prefix = target.get("sub") or target.get("email") or "admin"
+    else:
+        prefix = "admin"
+    return prefix.strip().lower()
+
 @app.post("/api/matches/{match_id}/upload/initialize")
 def initialize_multipart(match_id: str, init_data: MultipartInit, current_user: dict = Depends(get_current_user)):
     """Initiates a multipart upload and generates pre-signed URLs for each chunk."""
@@ -317,6 +355,8 @@ def initialize_multipart(match_id: str, init_data: MultipartInit, current_user: 
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Match with ID {match_id} not found."
         )
+    match = Match.model_validate(record)
+    _verify_match_owner(match, current_user)
         
     ext = os.path.splitext(init_data.filename)[1].lower() or ".mp4"
     if ext not in [".mp4", ".mov", ".mkv", ".avi"]:
@@ -325,7 +365,8 @@ def initialize_multipart(match_id: str, init_data: MultipartInit, current_user: 
             detail="Unsupported video format. Please upload MP4, MOV, MKV, or AVI."
         )
         
-    unique_storage_name = f"{match_id}{ext}"
+    user_prefix = _get_user_storage_prefix(match)
+    unique_storage_name = f"{user_prefix}/{match_id}{ext}"
     remote_path = f"uploads/{unique_storage_name}"
     
     try:
@@ -407,10 +448,12 @@ def complete_multipart(match_id: str, complete_data: MultipartComplete, backgrou
         )
         
     match = Match.model_validate(record)
+    _verify_match_owner(match, current_user)
     
     orig_filename = complete_data.original_filename
     ext = os.path.splitext(orig_filename)[1].lower() or ".mp4"
-    unique_storage_name = f"{match_id}{ext}"
+    user_prefix = _get_user_storage_prefix(match)
+    unique_storage_name = f"{user_prefix}/{match_id}{ext}"
     remote_path = f"uploads/{unique_storage_name}"
     
     # Convert Pydantic parts to raw dict list for boto3/local uploader
@@ -453,8 +496,14 @@ def complete_multipart(match_id: str, complete_data: MultipartComplete, backgrou
 @app.get("/api/matches/{match_id}/upload/parts")
 def list_parts(match_id: str, upload_id: str, original_filename: str, current_user: dict = Depends(get_current_user)):
     """Lists already uploaded parts for an active multipart upload session."""
+    try:
+        record = db.get_match(match_id)
+        match = Match.model_validate(record) if record else None
+    except Exception:
+        match = None
+    user_prefix = _get_user_storage_prefix(match or current_user)
     ext = os.path.splitext(original_filename)[1].lower() or ".mp4"
-    unique_storage_name = f"{match_id}{ext}"
+    unique_storage_name = f"{user_prefix}/{match_id}{ext}"
     remote_path = f"uploads/{unique_storage_name}"
     
     try:
@@ -549,8 +598,11 @@ def get_match_thumbnail(match_id: str, time: float = 0.0):
 @app.post("/api/matches/{match_id}/upload/abort")
 def abort_multipart(match_id: str, upload_id: str, original_filename: str):
     """Aborts a multipart upload and deletes all uploaded temporary chunks."""
+    record = db.get_match(match_id)
+    match = Match.model_validate(record) if record else None
+    user_prefix = _get_user_storage_prefix(match)
     ext = os.path.splitext(original_filename)[1].lower() or ".mp4"
-    unique_storage_name = f"{match_id}{ext}"
+    unique_storage_name = f"{user_prefix}/{match_id}{ext}"
     remote_path = f"uploads/{unique_storage_name}"
     
     success = storage.abort_multipart_upload(
@@ -590,6 +642,8 @@ def delete_match(match_id: str, current_user: dict = Depends(get_current_user)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Match with ID {match_id} not found."
         )
+    match = Match.model_validate(record)
+    _verify_match_owner(match, current_user)
         
     match = Match.model_validate(record)
     
