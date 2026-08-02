@@ -435,7 +435,8 @@ def execute_render_job(
             status="rendering", progress=90, stage="Concatenating final output video"
         )
 
-        output_filename = f"{match_id}_{render_id}.mp4"
+        user_prefix = (match.owner_id or match.owner_username or "admin").strip().lower()
+        output_filename = f"{user_prefix}/{match_id}_{render_id}.mp4"
         local_output_path = os.path.join(local_base, "renders", output_filename)
         os.makedirs(os.path.dirname(local_output_path), exist_ok=True)
 

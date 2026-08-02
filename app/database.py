@@ -54,6 +54,7 @@ class SQLiteRepository(DatabaseRepository):
                 CREATE TABLE IF NOT EXISTS matches (
                     id TEXT PRIMARY KEY,
                     owner_username TEXT DEFAULT 'admin',
+                    owner_id TEXT,
                     name TEXT NOT NULL,
                     player1 TEXT NOT NULL,
                     player2 TEXT NOT NULL,
@@ -76,7 +77,8 @@ class SQLiteRepository(DatabaseRepository):
                 ("width", "INTEGER"),
                 ("height", "INTEGER"),
                 ("rendered_video_filename", "TEXT"),
-                ("renders", "TEXT DEFAULT '[]'")
+                ("renders", "TEXT DEFAULT '[]'"),
+                ("owner_id", "TEXT")
             ]:
                 if col not in existing_cols:
                     conn.execute(f"ALTER TABLE matches ADD COLUMN {col} {col_type}")
@@ -90,15 +92,16 @@ class SQLiteRepository(DatabaseRepository):
             conn.execute(
                 """
                 INSERT OR REPLACE INTO matches (
-                    id, owner_username, name, player1, player2, created_at,
+                    id, owner_username, owner_id, name, player1, player2, created_at,
                     video_filename, original_filename, events, renders,
                     fps, duration, width, height, rendered_video_filename
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     match_data["id"],
                     match_data.get("owner_username", "admin"),
+                    match_data.get("owner_id"),
                     match_data["name"],
                     match_data["player1"],
                     match_data["player2"],
@@ -161,15 +164,17 @@ def _to_dynamo_item(val):
     if isinstance(val, float):
         return Decimal(str(val))
     elif isinstance(val, dict):
-        return {k: _to_dynamo_item(v) for k, v in val.items() if v is not None}
+        return {k: _to_dynamo_item(v) for k, v in val.items()}
     elif isinstance(val, list):
         return [_to_dynamo_item(v) for v in val]
     return val
 
 def _from_dynamo_item(val):
-    """Recursively converts boto3 Decimal types back to float/int for API responses."""
+    """Recursively converts Decimal types back to floats/ints for JSON serialization."""
     if isinstance(val, Decimal):
-        return float(val) if val % 1 != 0 else int(val)
+        if val % 1 == 0:
+            return int(val)
+        return float(val)
     elif isinstance(val, dict):
         return {k: _from_dynamo_item(v) for k, v in val.items()}
     elif isinstance(val, list):
@@ -203,6 +208,7 @@ class DynamoDBRepository(DatabaseRepository):
             "video_filename": match_data.get("video_filename", ""),
             "original_filename": match_data.get("original_filename", ""),
             "owner_username": match_data.get("owner_username", "admin"),
+            "owner_id": match_data.get("owner_id"),
             "events": match_data.get("events", []),
             "renders": match_data.get("renders", [])
         }
