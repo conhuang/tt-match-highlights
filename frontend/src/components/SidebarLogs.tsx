@@ -40,7 +40,7 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     return (
         <div className="workspace-right">
             <div className="sidebar-header">
-                <h2>Point Logs</h2>
+                <h2>Point Logs ({events.length})</h2>
                 <div className="game-selector">
                     <label htmlFor="active-game">Game:</label>
                     <input

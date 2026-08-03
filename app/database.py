@@ -77,26 +77,28 @@ class SQLiteRepository(DatabaseRepository):
                 ("width", "INTEGER"),
                 ("height", "INTEGER"),
                 ("rendered_video_filename", "TEXT"),
+                ("events", "TEXT DEFAULT '[]'"),
                 ("renders", "TEXT DEFAULT '[]'"),
-                ("owner_id", "TEXT")
+                ("owner_id", "TEXT"),
+                ("first_server", "TEXT DEFAULT 'player1'")
             ]:
                 if col not in existing_cols:
                     conn.execute(f"ALTER TABLE matches ADD COLUMN {col} {col_type}")
             conn.commit()
 
     def create_match(self, match_data: dict) -> dict:
-        events = match_data.get("events", [])
-        renders = match_data.get("renders", [])
+        events = match_data.get("events") or []
+        renders = match_data.get("renders") or []
         
         with self._get_connection() as conn:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO matches (
-                    id, owner_username, owner_id, name, player1, player2, created_at,
+                    id, owner_username, owner_id, name, player1, player2, first_server, created_at,
                     video_filename, original_filename, events, renders,
                     fps, duration, width, height, rendered_video_filename
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     match_data["id"],
@@ -105,6 +107,7 @@ class SQLiteRepository(DatabaseRepository):
                     match_data["name"],
                     match_data["player1"],
                     match_data["player2"],
+                    match_data.get("first_server", "player1"),
                     match_data.get("created_at", datetime.utcnow().isoformat()),
                     match_data.get("video_filename"),
                     match_data.get("original_filename"),
@@ -204,13 +207,14 @@ class DynamoDBRepository(DatabaseRepository):
             "name": match_data["name"],
             "player1": match_data["player1"],
             "player2": match_data["player2"],
+            "first_server": match_data.get("first_server", "player1"),
             "created_at": match_data.get("created_at", datetime.utcnow().isoformat()),
             "video_filename": match_data.get("video_filename", ""),
             "original_filename": match_data.get("original_filename", ""),
             "owner_username": match_data.get("owner_username", "admin"),
             "owner_id": match_data.get("owner_id"),
-            "events": match_data.get("events", []),
-            "renders": match_data.get("renders", [])
+            "events": match_data.get("events") or [],
+            "renders": match_data.get("renders") or []
         }
         for attr in ("fps", "duration", "width", "height", "rendered_video_filename"):
             if attr in match_data and match_data[attr] is not None:

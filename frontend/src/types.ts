@@ -31,12 +31,45 @@ export interface RenderJob {
     video_url?: string | null;
 }
 
+export interface PlayerServeStat {
+    served_total: number;
+    served_won: number;
+    serve_win_pct: number;
+    return_won: number;
+}
+
+export interface DurationBucketStat {
+    total: number;
+    p1_won: number;
+    p2_won: number;
+    p1_win_pct: number;
+    p2_win_pct: number;
+    label: string;
+}
+
+export interface MatchStats {
+    first_server: 'player1' | 'player2';
+    serve_stats: Record<string, PlayerServeStat>;
+    duration_stats: {
+        short: DurationBucketStat;
+        medium: DurationBucketStat;
+        long: DurationBucketStat;
+    };
+    momentum: {
+        max_streak: Record<string, number>;
+        avg_duration_sec: number;
+        longest_rally_sec: number;
+        longest_rally_start: number;
+    };
+}
+
 export interface Match {
     id: string;
     owner_username?: string;
     name: string;
     player1: string;
     player2: string;
+    first_server?: 'player1' | 'player2';
     created_at: string;
     video_filename?: string | null;
     original_filename?: string | null;
@@ -45,6 +78,7 @@ export interface Match {
     rendered_video_url?: string | null;
     events: MatchEvent[];
     renders?: RenderJob[];
+    stats?: MatchStats;
     fps?: number | null;
     duration?: number | null;
     width?: number | null;

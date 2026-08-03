@@ -160,11 +160,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 {onLogout && (
                     <button
+                        type="button"
                         onClick={onLogout}
-                        className="btn-secondary"
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 0.9rem', fontSize: '0.85rem' }}
+                        className="signout-btn"
+                        title="Sign Out of Beta Session"
                     >
-                        <LogOut size={16} />
+                        <LogOut size={15} />
                         <span>Sign Out</span>
                     </button>
                 )}

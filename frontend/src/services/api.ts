@@ -80,6 +80,18 @@ export async function saveMatchEvents(matchId: string, events: MatchEvent[]): Pr
     return response.json();
 }
 
+export async function updateMatch(matchId: string, updates: Partial<Match>): Promise<Match> {
+    const response = await fetch(`/api/matches/${matchId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(updates)
+    });
+    if (!response.ok) {
+        throw new Error('Failed to update match.');
+    }
+    return response.json();
+}
+
 export async function fetchUploadedParts(matchId: string, uploadId: string, originalFilename: string): Promise<{ PartNumber: number; ETag: string }[]> {
     try {
         const response = await fetch(`/api/matches/${matchId}/upload/parts?upload_id=${uploadId}&original_filename=${encodeURIComponent(originalFilename)}`, {
