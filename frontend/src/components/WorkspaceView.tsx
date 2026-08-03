@@ -7,6 +7,7 @@ import { ShortcutSheet } from './ShortcutSheet';
 import { SidebarLogs } from './SidebarLogs';
 import { RenderModal } from './RenderModal';
 import { RenderHistory } from './RenderHistory';
+import { MatchStatsView } from './MatchStatsView';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { saveMatchEvents, createRenderJob, fetchMatchRenders, deleteRenderJob, cancelRenderJob } from '../services/api';
 
@@ -218,6 +219,20 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                         onCancelRender={handleCancelRender}
                         activePreviewUrl={activePreviewUrl}
                         onResetToOriginalVideo={handleResetToOriginalVideo}
+                    />
+                    <MatchStatsView
+                        match={currentMatch}
+                        firstServer={currentMatch.first_server || 'player1'}
+                        onFirstServerChange={async (fs) => {
+                            try {
+                                const { updateMatch } = await import('../services/api');
+                                const updated = await updateMatch(currentMatch.id, { first_server: fs });
+                                onMatchUpdated(updated);
+                            } catch (err) {
+                                console.error('Failed to update first server:', err);
+                            }
+                        }}
+                        onJumpToTime={handleSeek}
                     />
                 </div>
 

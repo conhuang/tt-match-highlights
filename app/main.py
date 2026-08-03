@@ -175,6 +175,14 @@ def _enrich_match_urls(match: Match) -> dict:
     response_data["video_url"] = video_url
     response_data["rendered_video_url"] = rendered_url
     response_data["renders"] = enriched_renders
+    
+    from app.scoring import compute_match_analytics
+    response_data["stats"] = compute_match_analytics(
+        events=match.events or [],
+        player1=match.player1,
+        player2=match.player2,
+        first_server=match.first_server or "player1"
+    )
     return response_data
 
 @app.get("/api/matches/{match_id}")
@@ -330,10 +338,11 @@ def update_match(match_id: str, match_update: MatchUpdate, current_user: dict = 
     _verify_match_owner(match, current_user)
     update_data = match_update.model_dump(exclude_unset=True)
     
-    # Update matching fields directly from match_update object, preserving Pydantic classes (eliminates serialization warnings)
+    # Update matching fields directly from match_update object, preserving Pydantic classes
     for field in update_data.keys():
         value = getattr(match_update, field)
-        setattr(match, field, value)
+        if value is not None:
+            setattr(match, field, value)
         
     # Recalculate scores and game numbers if events list was modified
     if "events" in update_data and match.events:

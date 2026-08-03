@@ -50,6 +50,7 @@ class MatchBase(BaseModel):
     name: str = Field(..., description="Descriptive name of the match (e.g. 'Jonsen vs. Ryan Lin')")
     player1: str = Field(..., description="Name of Player 1")
     player2: str = Field(..., description="Name of Player 2")
+    first_server: Optional[str] = Field("player1", description="Player who served first in Game 1 ('player1' or 'player2')")
 
 
 class MatchCreate(MatchBase):
@@ -60,6 +61,7 @@ class MatchUpdate(BaseModel):
     name: Optional[str] = None
     player1: Optional[str] = None
     player2: Optional[str] = None
+    first_server: Optional[str] = None
     events: Optional[List[Event]] = None
     renders: Optional[List[RenderJob]] = None
     video_filename: Optional[str] = None
