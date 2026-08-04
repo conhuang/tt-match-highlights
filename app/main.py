@@ -380,10 +380,12 @@ def initialize_multipart(match_id: str, init_data: MultipartInit, current_user: 
     user_prefix = _get_user_storage_prefix(match)
     unique_storage_name = f"{user_prefix}/{match_id}{ext}"
     remote_path = f"uploads/{unique_storage_name}"
+    media_types = {".mp4": "video/mp4", ".mov": "video/quicktime", ".mkv": "video/x-matroska", ".avi": "video/x-msvideo"}
+    content_type = media_types.get(ext, "video/mp4")
     
     try:
         # 1. Start the upload session on S3 or local mock
-        upload_id = storage.initiate_multipart_upload(remote_path)
+        upload_id = storage.initiate_multipart_upload(remote_path, content_type=content_type)
         
         # 2. Determine chunk size (default: 50MB per chunk)
         chunk_size = 50 * 1024 * 1024
