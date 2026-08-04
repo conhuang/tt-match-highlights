@@ -545,14 +545,13 @@ def stream_match_video(match_id: str, request: Request):
 
     remote_name = f"uploads/{record['video_filename']}"
 
-    # 1. If using S3 and request has no Range header, redirect directly to S3 pre-signed URL for native S3 streaming
+    # 1. If using S3, ALWAYS redirect directly to S3 pre-signed URL for native S3 byte-range streaming
     from app.storage import S3StorageProvider
     if isinstance(storage, S3StorageProvider) or os.getenv("STORAGE_TYPE") == "s3":
-        if not request.headers.get("range"):
-            presigned_url = storage.get_download_url(remote_name)
-            if presigned_url:
-                from fastapi.responses import RedirectResponse
-                return RedirectResponse(url=presigned_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+        presigned_url = storage.get_download_url(remote_name)
+        if presigned_url:
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url=presigned_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     # 2. Stream requested range directly from storage (S3 boto3 stream or Local iterator) without downloading file to disk
     range_header = request.headers.get("range")

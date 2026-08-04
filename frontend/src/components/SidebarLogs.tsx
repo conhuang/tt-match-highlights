@@ -1,6 +1,7 @@
 import React from 'react';
 import { Match } from '../types';
 import { Trash2, Star, Save, Film } from 'lucide-react';
+import { Button } from './ui';
 
 interface SidebarLogsProps {
     currentMatch: Match;
@@ -123,24 +124,24 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
             </div>
 
             <div className="workspace-actions">
-                <button
-                    type="button"
-                    className="primary-btn"
+                <Button
+                    variant="primary"
+                    icon={<Save size={16} />}
                     onClick={onSaveEvents}
                     disabled={saveStatus === 'saving'}
+                    style={{ flex: 1.4 }}
                 >
-                    <Save size={16} />
                     {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Events'}
-                </button>
-                <button
-                    type="button"
-                    className="secondary-btn render-trigger-btn"
+                </Button>
+                <Button
+                    variant="render"
+                    icon={<Film size={16} />}
                     onClick={onOpenRenderModal}
                     title="Render scored match or highlights reel"
+                    style={{ flex: 1 }}
                 >
-                    <Film size={16} />
                     Render Highlights
-                </button>
+                </Button>
             </div>
         </div>
     );

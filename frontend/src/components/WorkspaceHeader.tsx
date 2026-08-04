@@ -1,6 +1,7 @@
 import React from 'react';
 import { Match } from '../types';
 import { ArrowLeft, LogOut } from 'lucide-react';
+import { Button } from './ui';
 
 interface WorkspaceHeaderProps {
     currentMatch: Match;
@@ -11,9 +12,14 @@ interface WorkspaceHeaderProps {
 export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ currentMatch, onBack, onLogout }) => {
     return (
         <header className="workspace-header">
-            <button className="back-btn" onClick={onBack}>
-                <ArrowLeft size={16} /> Matches
-            </button>
+            <Button
+                variant="secondary"
+                size="sm"
+                icon={<ArrowLeft size={16} />}
+                onClick={onBack}
+            >
+                Matches
+            </Button>
             <div className="title-wrapper">
                 <h1 className="workspace-title">{currentMatch.name} Workspace</h1>
                 <span className="workspace-subtitle">
@@ -21,10 +27,15 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ currentMatch, 
                 </span>
             </div>
             {onLogout && (
-                <button type="button" onClick={onLogout} className="signout-btn" title="Sign Out of Beta Session">
-                    <LogOut size={15} />
-                    <span>Sign Out</span>
-                </button>
+                <Button
+                    variant="signout"
+                    size="sm"
+                    icon={<LogOut size={15} />}
+                    onClick={onLogout}
+                    title="Sign Out of Beta Session"
+                >
+                    Sign Out
+                </Button>
             )}
         </header>
     );
