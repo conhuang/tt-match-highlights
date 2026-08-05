@@ -152,7 +152,18 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                         <div className="timestamp-edit-controls">
                                             <div className="edit-controls-row">
                                                 <div className="edit-time-group">
-                                                    <label>Start:</label>
+                                                    {getCurrentVideoTime ? (
+                                                        <button
+                                                            type="button"
+                                                            className="capture-time-btn"
+                                                            onClick={handleSetStartCurrentTime}
+                                                            title="Set Start to Current Video Time"
+                                                        >
+                                                            <Clock size={10} /> Start
+                                                        </button>
+                                                    ) : (
+                                                        <span className="time-btn-label">Start</span>
+                                                    )}
                                                     <input
                                                         type="text"
                                                         value={editStart}
@@ -160,20 +171,21 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                                         className="timestamp-input"
                                                         placeholder="MM:SS.s"
                                                     />
-                                                    {getCurrentVideoTime && (
-                                                        <button
-                                                            type="button"
-                                                            className="capture-time-btn"
-                                                            onClick={handleSetStartCurrentTime}
-                                                            title="Set to Current Video Time"
-                                                        >
-                                                            <Clock size={10} /> Start
-                                                        </button>
-                                                    )}
                                                 </div>
 
                                                 <div className="edit-time-group">
-                                                    <label>End:</label>
+                                                    {getCurrentVideoTime ? (
+                                                        <button
+                                                            type="button"
+                                                            className="capture-time-btn"
+                                                            onClick={handleSetEndCurrentTime}
+                                                            title="Set End to Current Video Time"
+                                                        >
+                                                            <Clock size={10} /> End
+                                                        </button>
+                                                    ) : (
+                                                        <span className="time-btn-label">End</span>
+                                                    )}
                                                     <input
                                                         type="text"
                                                         value={editEnd}
@@ -181,16 +193,6 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                                         className="timestamp-input"
                                                         placeholder="MM:SS.s"
                                                     />
-                                                    {getCurrentVideoTime && (
-                                                        <button
-                                                            type="button"
-                                                            className="capture-time-btn"
-                                                            onClick={handleSetEndCurrentTime}
-                                                            title="Set to Current Video Time"
-                                                        >
-                                                            <Clock size={10} /> End
-                                                        </button>
-                                                    )}
                                                 </div>
                                             </div>
 
