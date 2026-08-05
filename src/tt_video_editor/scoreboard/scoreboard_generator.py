@@ -25,6 +25,7 @@ class ScoreboardGenerator:
 
         # Resolve bundled font paths in tt_video_editor package
         pkg_fonts_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "fonts"))
+        self.pkg_fonts_dir = pkg_fonts_dir
         bundled_bold = os.path.join(pkg_fonts_dir, "Scoreboard-Bold.ttf")
         bundled_regular = os.path.join(pkg_fonts_dir, "Scoreboard-Regular.ttf")
 
@@ -93,32 +94,109 @@ class ScoreboardGenerator:
                 
         return self._load_font(font_path, min_size)
 
+    THEME_PALETTES = {
+        "dark-blue": {"fill": (10, 25, 60, 215), "outline": (255, 255, 255, 60)},
+        "classic-black": {"fill": (15, 15, 18, 225), "outline": (255, 255, 255, 75)},
+        "vibrant-red": {"fill": (80, 12, 18, 220), "outline": (255, 120, 120, 85)},
+        "emerald-green": {"fill": (8, 48, 30, 220), "outline": (100, 220, 160, 85)},
+        "cyber-purple": {"fill": (45, 15, 75, 220), "outline": (180, 100, 255, 85)},
+    }
+
+    SETS_COLOR_PALETTES = {
+        "gold": (255, 200, 50),
+        "silver": (220, 220, 220),
+        "cyan": (90, 215, 255),
+        "green": (50, 230, 140),
+        "red": (255, 100, 100),
+    }
+
+    SETS_BG_PALETTES = {
+        "transparent": None,
+        "solid-dark": (0, 0, 0, 140),
+        "gold-badge": (180, 135, 10, 130),
+        "accent-blue": (30, 80, 180, 130),
+        "subtle-glass": (255, 255, 255, 35),
+    }
+
     def create_scoreboard_image(
-        self, p1_score, p2_score, p1_sets, p2_sets, output_path, p1_timeout=False, p2_timeout=False
+        self,
+        p1_score,
+        p2_score,
+        p1_sets,
+        p2_sets,
+        output_path,
+        p1_timeout=False,
+        p2_timeout=False,
+        position="bottom-left",
+        theme="dark-blue",
+        scale_factor=1.0,
+        sets_color="gold",
+        border_style="rounded",
+        font_style="modern",
+        sets_bg="transparent",
     ):
         # Create transparent image
         img = Image.new("RGBA", (self.width, self.height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
 
-        # Scale all dimensions
-        s = self.scale
-        col_widths = [self.name_col_width, int(80 * s), int(80 * s)]
+        # Resolve Set Score Color
+        parsed_sets_color = self.SETS_COLOR_PALETTES.get(sets_color, (255, 200, 50))
+        if isinstance(sets_color, str) and sets_color.startswith("#"):
+            try:
+                hex_val = sets_color.lstrip('#')
+                parsed_sets_color = tuple(int(hex_val[i:i+2], 16) for i in (0, 2, 4))
+            except Exception:
+                parsed_sets_color = (255, 200, 50)
+
+        # Scale all dimensions by base scale and custom scale_factor
+        s = self.scale * max(0.6, min(float(scale_factor or 1.0), 1.6))
+        col_widths = [int(self.name_col_width * max(0.6, min(float(scale_factor or 1.0), 1.6))), int(80 * s), int(80 * s)]
         row_height = int(64 * s)
         padding = int(16 * s)
         total_w = sum(col_widths)
         total_h = row_height * 2 + padding * 2
 
-        box_x = int(64 * s)
-        box_y = self.height - total_h - int(64 * s)
+        margin_x = int(64 * s)
+        margin_y = int(64 * s)
 
-        # Background: Dark Blue
+        # Calculate position coordinates
+        pos = (position or "bottom-left").lower()
+        if pos == "top-left":
+            box_x = margin_x
+            box_y = margin_y
+        elif pos == "top-right":
+            box_x = self.width - total_w - margin_x
+            box_y = margin_y
+        elif pos == "bottom-right":
+            box_x = self.width - total_w - margin_x
+            box_y = self.height - total_h - margin_y
+        else:  # bottom-left (default)
+            box_x = margin_x
+            box_y = self.height - total_h - margin_y
+
+        # Resolve Theme Colors
+        theme_colors = self.THEME_PALETTES.get(theme, self.THEME_PALETTES["dark-blue"])
+
+        # Calculate Corner Radius based on border_style (rounded vs sharp edge)
+        corner_radius = 0 if (border_style or "rounded").lower() == "sharp" else int(14 * (scale_factor or 1.0))
+
+        # Background Rectangle
         draw.rounded_rectangle(
             [box_x, box_y, box_x + total_w, box_y + total_h],
-            radius=12,
-            fill=(10, 25, 60, 210),
-            outline=(255, 255, 255, 60),
+            radius=corner_radius,
+            fill=theme_colors["fill"],
+            outline=theme_colors["outline"],
             width=2,
         )
+
+        # Draw Set Column Highlight Background if configured (Edge-to-Edge full height)
+        parsed_sets_bg = self.SETS_BG_PALETTES.get(sets_bg, None)
+        if parsed_sets_bg:
+            sep1_x = box_x + col_widths[0]
+            draw.rectangle(
+                [sep1_x + 1, box_y + 1, sep1_x + col_widths[1] - 1, box_y + total_h - 1],
+                fill=parsed_sets_bg
+            )
 
         # Draw Separator Lines
         line_color = (255, 255, 255, 40)
@@ -138,17 +216,33 @@ class ScoreboardGenerator:
             width=1,
         )
 
+        # Resolve Selected Font File from bundled package directory
+        FONT_MAP = {
+            "modern": "Scoreboard-Bold.ttf",
+            "condensed": "Scoreboard-Condensed.ttf",
+            "serif": "Scoreboard-Serif.ttf",
+            "monospace": "Scoreboard-Mono.ttf",
+        }
+        font_filename = FONT_MAP.get((font_style or "modern").lower(), "Scoreboard-Bold.ttf")
+        selected_font_path = os.path.join(self.pkg_fonts_dir, font_filename)
+        if not os.path.exists(selected_font_path):
+            selected_font_path = self.font_bold_path
+
+        custom_font_main = self._load_font(selected_font_path, int(40 * s))
+        max_text_w = col_widths[0] - int(48 * s)
+        p1_custom_font = self._find_fitting_font(self.p1_name, max_text_w, selected_font_path)
+        p2_custom_font = self._find_fitting_font(self.p2_name, max_text_w, selected_font_path)
+
         text_offset = int(16 * s)
         for i, (name, font, sets, points) in enumerate(
             [
-                (self.p1_name, self.p1_font, p1_sets, p1_score),
-                (self.p2_name, self.p2_font, p2_sets, p2_score),
+                (self.p1_name, p1_custom_font, p1_sets, p1_score),
+                (self.p2_name, p2_custom_font, p2_sets, p2_score),
             ]
         ):
             y_offset = box_y + padding + i * row_height
           
             # Draw player name (vertical middle-aligned)
-
             draw.text(
                 (box_x + text_offset + 10, y_offset + row_height / 2),
                 name,
@@ -162,8 +256,8 @@ class ScoreboardGenerator:
             draw.text(
                 (set_box_x + col_widths[1] / 2, y_offset + row_height / 2),
                 str(sets),
-                font=self.font_main,
-                fill=(220, 220, 220),
+                font=custom_font_main,
+                fill=parsed_sets_color,
                 anchor="mm",
             )
 
@@ -172,7 +266,7 @@ class ScoreboardGenerator:
             draw.text(
                 (point_box_x + col_widths[2] / 2, y_offset + row_height / 2),
                 str(points),
-                font=self.font_main,
+                font=custom_font_main,
                 fill="white",
                 anchor="mm",
             )

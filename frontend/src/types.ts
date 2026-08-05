@@ -10,6 +10,13 @@ export interface MatchEvent {
 export interface RenderOptions {
     highlights_only: boolean;
     include_scoreboard: boolean;
+    scoreboard_position?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
+    scoreboard_theme?: 'dark-blue' | 'classic-black' | 'vibrant-red' | 'emerald-green' | 'cyber-purple';
+    scoreboard_scale?: number;
+    scoreboard_sets_color?: 'gold' | 'silver' | 'cyan' | 'green' | 'red';
+    scoreboard_sets_bg?: 'transparent' | 'solid-dark' | 'gold-badge' | 'accent-blue' | 'subtle-glass';
+    scoreboard_border_style?: 'rounded' | 'sharp';
+    scoreboard_font_style?: 'modern' | 'condensed' | 'serif' | 'monospace';
     include_game_cards: boolean;
     cpu_mode: boolean;
 }

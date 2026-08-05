@@ -19,6 +19,13 @@ class Event(BaseModel):
 class RenderOptions(BaseModel):
     highlights_only: bool = Field(False, description="Whether to include only tagged highlight rallies")
     include_scoreboard: bool = Field(True, description="Whether to overlay the dynamic live scoreboards")
+    scoreboard_position: str = Field("bottom-left", description="Scoreboard quadrant position ('bottom-left', 'bottom-right', 'top-left', 'top-right')")
+    scoreboard_theme: str = Field("dark-blue", description="Visual theme ('dark-blue', 'classic-black', 'vibrant-red', 'emerald-green', 'cyber-purple')")
+    scoreboard_scale: float = Field(1.0, description="Scale multiplier (0.8 to 1.2)")
+    scoreboard_sets_color: str = Field("gold", description="Color for set score ('gold', 'silver', 'cyan', 'green', 'red')")
+    scoreboard_sets_bg: str = Field("transparent", description="Set column background style ('transparent', 'solid-dark', 'gold-badge', 'accent-blue', 'subtle-glass')")
+    scoreboard_border_style: str = Field("rounded", description="Card corner style ('rounded' or 'sharp')")
+    scoreboard_font_style: str = Field("modern", description="Typography style ('modern', 'condensed', 'serif', 'monospace')")
     include_game_cards: bool = Field(True, description="Whether to insert inter-game 'Game X' title cards")
     cpu_mode: bool = Field(True, description="Whether to use CPU software encoding (libx264) vs GPU hardware")
 

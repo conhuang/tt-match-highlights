@@ -5,7 +5,6 @@ import { VideoSection } from './VideoSection';
 import { StatusPanel } from './StatusPanel';
 import { ShortcutSheet } from './ShortcutSheet';
 import { SidebarLogs } from './SidebarLogs';
-import { RenderModal } from './RenderModal';
 import { RenderHistory } from './RenderHistory';
 import { EditMatchModal } from './EditMatchModal';
 import { MatchStatsView } from './MatchStatsView';
@@ -30,7 +29,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     const [activeGame, setActiveGame] = useState<number>(1);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
 
-    const [isRenderModalOpen, setIsRenderModalOpen] = useState<boolean>(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [isRenderingJob, setIsRenderingJob] = useState<boolean>(false);
 
@@ -156,7 +154,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 ...currentMatch,
                 renders: updatedRenders
             });
-            setIsRenderModalOpen(false);
         } catch (err: any) {
             alert(err.message || 'Failed to start render job.');
         } finally {
@@ -221,8 +218,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         onMatchUpdated(updated);
     };
 
-    const hasHighlights = currentMatch.events.some(e => e.isHighlight);
-
     return (
         <div className="workspace-view">
             <WorkspaceHeader
@@ -271,18 +266,11 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     onDeleteEvent={handleDeleteEvent}
                     onSaveEvents={() => autoSave(currentMatch.events)}
                     saveStatus={saveStatus}
-                    onOpenRenderModal={() => setIsRenderModalOpen(true)}
+                    onStartRender={handleCreateRender}
+                    isRendering={isRenderingJob}
                     getCurrentVideoTime={() => videoRef.current?.currentTime || 0}
                 />
             </div>
-
-            <RenderModal
-                isOpen={isRenderModalOpen}
-                onClose={() => setIsRenderModalOpen(false)}
-                onSubmit={handleCreateRender}
-                hasHighlights={hasHighlights}
-                isRendering={isRenderingJob}
-            />
 
             <EditMatchModal
                 isOpen={isEditModalOpen}

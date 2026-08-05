@@ -15,3 +15,10 @@ ok # Engineering Rules & Guidelines
 ## 4. Root Cause Analysis Before Fixing Bugs
 - **Rule**: When debugging an error or issue, ALWAYS identify and extract the empirical root cause FIRST.
 - Clearly explain the exact problem and your proposed fix to the user BEFORE modifying code.
+
+## 5. Frontend & UI Directives for Agents
+- **UI Primitives Mandate**: ALWAYS use the standardized UI primitive components in `frontend/src/components/ui/` (`Button`, `Card`, `Badge`) for all new UI features. NEVER write raw unstyled `<button>` tags or ad-hoc inline styles (`style={{ display: 'flex', ... }}`).
+- **CSS Design Tokens**: Reference predefined CSS variables in `index.css` (`var(--card-bg)`, `var(--card-border)`, `var(--text-primary)`, `var(--accent-blue-light)`). NEVER use arbitrary hardcoded hex colors in component files.
+- **Iconography Standard**: ALWAYS use native `lucide-react` icons (e.g., `<Activity />`, `<Target />`, `<Settings />`). NEVER use raw text emojis in UI buttons or headers.
+- **Component Seams & Modularity**: Keep components focused, reusable, and self-contained. Place modals in `components/`, sub-cards in `components/`, and shared state in `types.ts`.
+
