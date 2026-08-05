@@ -253,19 +253,17 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                     <span className="event-score-info">
                                         Game {event.game} • Score: {event.score_before}
                                     </span>
-
-                                    <div className="event-inputs">
-                                        <button
+                                    <button
                                             type="button"
                                             className={`highlight-toggle-btn ${event.isHighlight ? 'active' : ''}`}
                                             onClick={() => onToggleHighlight(index, !event.isHighlight)}
                                             title={event.isHighlight ? "Click to remove highlight" : "Click to mark this point as a highlight"}
                                         >
                                             <Star size={14} className={event.isHighlight ? 'star-active' : ''} />
-                                        </button>
-
+                                    </button>
+                                    <div className="event-inputs">
                                         <label className="timeout-label" title="Record an ITTF Timeout taken by a player">
-                                            Timeout:
+                                            <span className="timeout-sublabel">Timeout</span>
                                             <select
                                                 value={event.timeout_player || ''}
                                                 onChange={(e) => onUpdateTimeout(index, e.target.value || null)}
