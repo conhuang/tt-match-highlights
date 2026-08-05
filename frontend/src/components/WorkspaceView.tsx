@@ -112,19 +112,33 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     };
 
     const handleToggleHighlight = (index: number, isHighlight: boolean) => {
-        const updated = [...currentMatch.events];
-        updated[index] = { ...updated[index], isHighlight };
-        autoSave(updated);
+        const sorted = [...currentMatch.events].sort((a, b) => a.start - b.start || a.end - b.end);
+        if (sorted[index]) {
+            sorted[index] = { ...sorted[index], isHighlight };
+            autoSave(sorted);
+        }
     };
 
     const handleUpdateTimeout = (index: number, timeoutPlayer: string | null) => {
-        const updated = [...currentMatch.events];
-        updated[index] = { ...updated[index], timeout_player: timeoutPlayer };
-        autoSave(updated);
+        const sorted = [...currentMatch.events].sort((a, b) => a.start - b.start || a.end - b.end);
+        if (sorted[index]) {
+            sorted[index] = { ...sorted[index], timeout_player: timeoutPlayer };
+            autoSave(sorted);
+        }
+    };
+
+    const handleUpdateEventTimestamp = (index: number, newStart: number, newEnd: number) => {
+        const sorted = [...currentMatch.events].sort((a, b) => a.start - b.start || a.end - b.end);
+        if (sorted[index]) {
+            sorted[index] = { ...sorted[index], start: newStart, end: newEnd };
+            sorted.sort((a, b) => a.start - b.start || a.end - b.end);
+            autoSave(sorted);
+        }
     };
 
     const handleDeleteEvent = (index: number) => {
-        const updated = currentMatch.events.filter((_, i) => i !== index);
+        const sorted = [...currentMatch.events].sort((a, b) => a.start - b.start || a.end - b.end);
+        const updated = sorted.filter((_, i) => i !== index);
         autoSave(updated);
     };
 
@@ -243,10 +257,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     onSeek={handleSeek}
                     onToggleHighlight={handleToggleHighlight}
                     onUpdateTimeout={handleUpdateTimeout}
+                    onUpdateEventTimestamp={handleUpdateEventTimestamp}
                     onDeleteEvent={handleDeleteEvent}
                     onSaveEvents={() => autoSave(currentMatch.events)}
                     saveStatus={saveStatus}
                     onOpenRenderModal={() => setIsRenderModalOpen(true)}
+                    getCurrentVideoTime={() => videoRef.current?.currentTime || 0}
                 />
             </div>
 

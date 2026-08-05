@@ -1,11 +1,10 @@
 export interface MatchEvent {
     start: number;
     end: number;
-    winner: string;
+    winner?: string | null;
     timeout_player?: string | null;
     isHighlight: boolean;
-    game: number;
-    score_before: string;
+    game?: number;
 }
 
 export interface RenderOptions {

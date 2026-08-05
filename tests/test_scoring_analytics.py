@@ -37,13 +37,13 @@ class TestScoringAnalytics(unittest.TestCase):
         
         events = [
             # Point 1: 0-0, Server Alice, Winner Alice (Short 3.0s)
-            Event(start=10.0, end=13.0, winner=p1, game=1, score_before="0-0"),
+            Event(start=10.0, end=13.0, winner=p1, game=1),
             # Point 2: 1-0, Server Alice, Winner Bob (Medium 5.0s)
-            Event(start=20.0, end=25.0, winner=p2, game=1, score_before="1-0"),
+            Event(start=20.0, end=25.0, winner=p2, game=1),
             # Point 3: 1-1, Server Bob, Winner Alice (Long 10.0s)
-            Event(start=30.0, end=40.0, winner=p1, game=1, score_before="1-1"),
+            Event(start=30.0, end=40.0, winner=p1, game=1),
             # Point 4: 2-1, Server Bob, Winner Alice (Short 2.0s)
-            Event(start=50.0, end=52.0, winner=p1, game=1, score_before="2-1"),
+            Event(start=50.0, end=52.0, winner=p1, game=1),
         ]
 
         stats = compute_match_analytics(events, player1=p1, player2=p2, first_server="player1")

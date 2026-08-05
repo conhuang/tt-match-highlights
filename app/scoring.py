@@ -3,8 +3,8 @@ from app.models import Event
 
 def compute_scores_and_games(events: List[Event], player1: str, player2: str) -> List[Event]:
     """
-    Sorts events chronologically and computes the correct 'score_before' 
-    and 'game' number for each point, handling table tennis rules:
+    Sorts events chronologically and computes the correct 'game' number
+    for each point, handling table tennis rules:
     - Game goes up to 11.
     - Must win by 2 points (deuce rules).
     - Game count increments and score resets to 0-0 once a game is won.
@@ -17,8 +17,7 @@ def compute_scores_and_games(events: List[Event], player1: str, player2: str) ->
     current_game = 1
     
     for event in sorted_events:
-        # 1. Assign the state BEFORE this point was played
-        event.score_before = f"{p1_score}-{p2_score}"
+        # 1. Assign the game state for this point
         event.game = current_game
         
         # 2. Update scores based on the winner of this point
@@ -96,22 +95,17 @@ def compute_match_analytics(events: List[Event], player1: str, player2: str, fir
     longest_rally_sec = 0.0
     longest_rally_start = 0.0
 
+    p1_score = 0
+    p2_score = 0
+    current_game = 1
+
     for event in sorted_events:
         if not event.winner:
             continue
 
-        # Parse score before point
-        p1_score, p2_score = 0, 0
-        if event.score_before and "-" in event.score_before:
-            try:
-                parts = event.score_before.split("-")
-                p1_score = int(parts[0])
-                p2_score = int(parts[1])
-            except ValueError:
-                pass
-
-        # Determine server
-        server_key = determine_server(p1_score, p2_score, event.game or 1, first_server)
+        # Determine server from running score before point
+        game_num = event.game or current_game
+        server_key = determine_server(p1_score, p2_score, game_num, first_server)
         server_name = player1 if server_key == "player1" else player2
         receiver_name = player2 if server_key == "player1" else player1
 
@@ -138,8 +132,15 @@ def compute_match_analytics(events: List[Event], player1: str, player2: str, fir
         duration_buckets[b_key]["total"] += 1
         if event.winner == player1:
             duration_buckets[b_key]["p1_won"] += 1
+            p1_score += 1
         elif event.winner == player2:
             duration_buckets[b_key]["p2_won"] += 1
+            p2_score += 1
+
+        if (p1_score >= 11 or p2_score >= 11) and abs(p1_score - p2_score) >= 2:
+            p1_score = 0
+            p2_score = 0
+            current_game += 1
 
         # Streak tracking
         if event.winner == player1:

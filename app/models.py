@@ -13,8 +13,7 @@ class Event(BaseModel):
     winner: Optional[str] = Field(None, description="Name of the winning player for this point, or None if no score change")
     timeout_player: Optional[str] = Field(None, description="Name of the player who called a timeout after this point, or None")
     isHighlight: bool = Field(False, description="Whether this clip should be included in the highlights compilation")
-    game: int = Field(1, description="The game number (1-indexed) this point belongs to")
-    score_before: str = Field("0-0", description="The match score before this point played (e.g. '3-5')")
+    game: Optional[int] = Field(None, description="Dynamically computed game number (1-indexed)")
 
 
 class RenderOptions(BaseModel):
@@ -109,8 +108,7 @@ class Match(MatchBase):
                         "winner": "Jonsen",
                         "timeout_player": None,
                         "isHighlight": True,
-                        "game": 1,
-                        "score_before": "0-0"
+                        "game": 1
                     },
                     {
                         "start": 25.0,
@@ -118,8 +116,7 @@ class Match(MatchBase):
                         "winner": "Ryan Lin",
                         "timeout_player": "Jonsen",
                         "isHighlight": False,
-                        "game": 1,
-                        "score_before": "1-0"
+                        "game": 1
                     }
                 ]
             }

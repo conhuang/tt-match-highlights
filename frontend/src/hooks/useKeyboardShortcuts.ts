@@ -75,8 +75,7 @@ export function useKeyboardShortcuts({
                     winner: winnerName,
                     timeout_player: null,
                     isHighlight: false,
-                    game: activeGame,
-                    score_before: "0-0"
+                    game: activeGame
                 };
 
                 onAddEvent(newEvent);

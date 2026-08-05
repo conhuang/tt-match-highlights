@@ -709,6 +709,114 @@ kbd {
     border-color: var(--accent-blue);
 }
 
+.time-link-container {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.edit-timestamp-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.2rem;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    transition: var(--transition);
+}
+
+.edit-timestamp-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.timestamp-edit-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 0.35rem 0.5rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--card-border);
+}
+
+.edit-time-group {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.timestamp-input {
+    width: 78px;
+    background: #181820;
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    font-family: monospace;
+    font-size: 0.78rem;
+    padding: 0.15rem 0.3rem;
+    border-radius: 4px;
+}
+
+.capture-time-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: var(--accent-blue-light);
+    font-size: 0.7rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.capture-time-btn:hover {
+    background: rgba(59, 130, 246, 0.3);
+    border-color: var(--accent-blue);
+}
+
+.save-timestamp-btn {
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: var(--accent-green-light);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+.save-timestamp-btn:hover {
+    background: rgba(16, 185, 129, 0.35);
+    border-color: var(--accent-green);
+}
+
+.cancel-timestamp-btn {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: var(--accent-red-light);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+.cancel-timestamp-btn:hover {
+    background: rgba(239, 68, 68, 0.3);
+    border-color: var(--accent-red);
+}
+
 .event-winner {
     font-size: 0.85rem;
     font-weight: 600;
