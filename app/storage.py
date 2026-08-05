@@ -114,7 +114,7 @@ class LocalStorageProvider(StorageProvider):
         return False
 
     # --- Multipart Local Mock ---
-    def initiate_multipart_upload(self, remote_name: str) -> str:
+    def initiate_multipart_upload(self, remote_name: str, content_type: str = "video/mp4") -> str:
         upload_id = str(uuid.uuid4())
         upload_dir = os.path.join(self.temp_dir, upload_id)
         os.makedirs(upload_dir, exist_ok=True)
@@ -303,10 +303,11 @@ class S3StorageProvider(StorageProvider):
             return False
 
     # --- S3 Multipart Upload Implementation ---
-    def initiate_multipart_upload(self, remote_name: str) -> str:
+    def initiate_multipart_upload(self, remote_name: str, content_type: str = "video/mp4") -> str:
         response = self.s3_client.create_multipart_upload(
             Bucket=self.bucket_name,
-            Key=remote_name
+            Key=remote_name,
+            ContentType=content_type
         )
         return response["UploadId"]
 
