@@ -126,10 +126,15 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         }
     };
 
-    const handleUpdateEventTimestamp = (index: number, newStart: number, newEnd: number) => {
+    const handleUpdateEventTimestamp = (index: number, newStart: number, newEnd: number, newWinner?: string | null) => {
         const sorted = [...currentMatch.events].sort((a, b) => a.start - b.start || a.end - b.end);
         if (sorted[index]) {
-            sorted[index] = { ...sorted[index], start: newStart, end: newEnd };
+            sorted[index] = {
+                ...sorted[index],
+                start: newStart,
+                end: newEnd,
+                winner: newWinner !== undefined ? newWinner : sorted[index].winner
+            };
             sorted.sort((a, b) => a.start - b.start || a.end - b.end);
             autoSave(sorted);
         }
