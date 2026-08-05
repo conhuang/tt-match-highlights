@@ -54,27 +54,31 @@ graph TD
 
 ### 3.1 Frontend (`frontend/`)
 - **Technology**: React 18, TypeScript, Vite, Vanilla CSS.
+- **Client-Side Routing**: SPA URL routing (`/login`, `/matches`, `/matches/:matchId`) with session persistence.
 - **Key Components**:
-  - **`DashboardView`**: Upload match videos, create match records, view match cards.
-  - **`WorkspaceView`**: Interactive rally tagging video player, score event logger, 2.5s live polling render status loop.
+  - **`DashboardView`**: Upload match videos, create match records, view user-scoped match cards.
+  - **`WorkspaceView`**: Interactive rally tagging video player, score event logger, 2.5s live polling render status loop, and hotkeys (`±2.0s` seek via `ArrowLeft/Right` and `,/.`).
+  - **`MatchStatsView`**: Zero-extra-input Table Tennis Match Analytics UI (Serve/Return Win %, Tactical Rally Duration Buckets `<4s`, `4-8s`, `>8s`, Max Point Streaks, and 1-click jump to longest rally).
+  - **`SidebarLogs`**: Dual-tab sidebar switching between **Point Logs** and **Match Analytics**.
   - **`RenderHistory`**: List rendered video outputs with live status badges and execution duration pills (e.g. `⚡ 14.2s`).
   - **`GoogleLoginModal`**: Modal gating unauthenticated or unwhitelisted visitors.
 
 ### 3.2 Backend API (`app/`)
 - **Technology**: Python 3.11, FastAPI, Uvicorn, Pydantic v2.
 - **Key Modules**:
-  - **`app/main.py`**: REST API endpoints for matches, video uploads, render jobs, and authorization.
-  - **`app/auth.py`**: Verifies Google OAuth ID tokens and enforces `ALLOWED_BETA_EMAILS` whitelist checks.
+  - **`app/main.py`**: REST API endpoints for matches, direct S3 multipart uploads, 307 pre-signed S3 streaming redirects, render jobs, and authorization.
+  - **`app/scoring.py`**: Automated scoring engine & ITTF service rotation analytics (`determine_server`, `compute_match_analytics`).
+  - **`app/auth.py`**: Verifies Google OAuth ID tokens, enforces `ALLOWED_BETA_EMAILS` whitelist checks, and extracts user sub IDs for strict multi-tenant match isolation.
   - **`app/render_adapter.py`**: Background worker triggering FFmpeg highlight rendering, tracking start/end execution timestamps, and platform-aware encoder selection (`libx264` on Linux EC2 vs `h264_videotoolbox` on macOS).
   - **`app/database.py`**: Polymorphic repository supporting `DynamoDBRepository` (production) and `SQLiteRepository` (local dev).
-  - **`app/storage.py`**: Polymorphic storage engine supporting `S3StorageProvider` (production range-streaming & direct multipart) and `LocalStorageProvider` (local dev).
+  - **`app/storage.py`**: Polymorphic storage engine supporting `S3StorageProvider` (production user-scoped keys `uploads/{user_id}/{match_id}.mp4`, explicit `video/mp4` MIME headers, & direct multipart) and `LocalStorageProvider` (local dev).
 
 ### 3.3 Scoreboard & Video Processing Engine (`src/tt_video_editor/`)
 - **Core Processing**:
   - **`ScoreboardGenerator`**: Renders custom high-definition 1080p table tennis score overlays.
   - **Bundled Fonts (`src/tt_video_editor/fonts/`)**: Includes `Scoreboard-Bold.ttf` and `Scoreboard-Regular.ttf` to guarantee 1080p typography rendering across Linux EC2 and macOS.
-- **Direct S3 Range Streaming**:
-  - Bypasses full local file downloads by streaming S3 byte ranges directly into FFmpeg pipelines via presigned URLs.
+- **Direct S3 Range Streaming & Pre-Signed Redirects**:
+  - Direct 307 temporary redirects to S3 pre-signed URLs with explicit `video/mp4` MIME headers enable GPU hardware video decoding and progressive range buffering in browsers while streaming directly from AWS S3 CDN infrastructure.
 
 ---
 
@@ -82,25 +86,31 @@ graph TD
 
 | Service | Environment / Resource | Purpose | Monthly Cost |
 | :--- | :--- | :--- | :--- |
+| **Domain & CDN** | `jonsentt.site` (Cloudflare) | HTTPS SSL termination, DNS management, and 300+ Tbps DDoS protection | Free / ~$10/yr |
 | **AWS EC2** | `t4g.small` (ARM64 Graviton2) | Live application server running Docker container `tt_app` on Port 80 | ~$12.26/mo |
-| **Amazon S3** | `tt-video-editor-storage` | Production video storage for raw uploads and rendered MP4 outputs | ~$0.023/GB |
-| **Amazon DynamoDB** | `tt_video_editor_matches` | NoSQL match metadata, logged rally events, and render history | Free Tier |
+| **Amazon S3** | `tt-video-editor-storage` | Production video storage (user-scoped keys `uploads/{user_id}/...`) | ~$0.023/GB |
+| **Amazon DynamoDB** | `tt_video_editor_matches` | Multi-tenant NoSQL match metadata, logged rally events, and render history | Free Tier |
 | **Amazon ECR** | `tt_video_editor` | Private Docker container registry for GitHub Actions deployments | < $0.50/mo |
 | **Google OAuth** | Google Cloud Console | Identity authentication & beta whitelist security | Free |
 
 ---
 
-## 5. Security & Cost Protection Guardrails
+## 5. Security & Multi-Tenant Guardrails
 
-1. **Google OAuth + Email Whitelist**:
+1. **Strict Multi-Tenant Match Isolation**:
+   - Matches and video assets are scoped strictly by user (`owner_id` / `owner_username`).
+   - S3 objects are isolated under `uploads/{user_id_or_email}/{match_id}.mp4` and `renders/{user_id_or_email}/{match_id}_{render_id}.mp4`.
+2. **Google OAuth + Email Whitelist**:
    - Environment variable `ALLOWED_BETA_EMAILS="email1@gmail.com,email2@gmail.com"`.
    - API routes return `401 Unauthorized` for missing tokens and `403 Forbidden` for unapproved email addresses.
-2. **Direct S3 Multipart Uploads**:
+3. **Direct S3 Multipart Uploads & 307 Pre-Signed Streaming**:
    - Browser uploads 8MB chunks directly to AWS S3, consuming 0 MB of RAM/disk on the EC2 server.
-3. **S3 Storage Lifecycle Rules**:
+   - Video streaming routes return HTTP 307 redirects directly to S3 pre-signed URLs with `ContentType: video/mp4`.
+4. **S3 Storage Lifecycle Rules**:
    - 7-day automatic expiration rule for raw unrendered match uploads to prevent storage cost accumulation.
-4. **EC2 Image Pruning**:
-   - Automatic `docker image prune -a -f` on every deployment and weekly Sunday 3 AM cron job to keep EBS disk usage below 30%.
+5. **EC2 Image Pruning & GHA Caching**:
+   - Automatic `docker image prune -a -f` on every deployment and weekly Sunday 3 AM cron job.
+   - GitHub Actions `type=gha` Docker layer caching for 5x faster deployments (~60s).
 
 ---
 
@@ -111,14 +121,14 @@ sequenceDiagram
     autonumber
     actor Developer
     participant GitHub as GitHub Repository (main)
-    participant Actions as GitHub Actions Runner
+    participant Actions as GitHub Actions Runner (GitHub Environment: production)
     participant ECR as Amazon ECR Registry
     participant EC2 as AWS EC2 Instance (i-0ddbb277eaf3c1889)
 
-    Developer->>GitHub: git push origin main
+    Developer->>GitHub: git push origin main (or merge PR)
     GitHub->>Actions: Trigger `.github/workflows/deploy.yml`
-    Actions->>Actions: Run `pytest` test suite (23 tests)
-    Actions->>Actions: Build ARM64 Docker Image (`Dockerfile`)
+    Actions->>Actions: Run `pytest` test suite (31 tests)
+    Actions->>Actions: Build ARM64 Docker Image with `type=gha` layer caching
     Actions->>ECR: Push Image `.../tt_video_editor:latest`
     Actions->>EC2: Submit AWS SSM Command (`deploy.sh`)
     EC2->>ECR: Login & `docker pull ...:latest`
@@ -127,3 +137,31 @@ sequenceDiagram
     Actions->>Actions: Verify SSM Invocation Status == "Success"
     Actions-->>Developer: Deployment Complete ✅
 ```
+
+---
+
+## 7. Local Development & Testing Workflows
+
+### 7.1 Local Development (`./start_dev.sh`)
+- **Single Command Launch**: Running `./start_dev.sh` automatically builds the React frontend bundle (`frontend/`), loads environment variables from `.env.dev`, and starts the FastAPI backend server on `http://localhost:8000/`.
+- **Dev Configuration (`.env.dev`)**:
+  - `STORAGE_TYPE=s3` (or `local` for offline development)
+  - `S3_BUCKET_NAME=tt-video-editor-storage-test` (isolated AWS test bucket)
+  - `DYNAMODB_TABLE_NAME=tt_video_editor_matches_dev` (isolated AWS test table)
+  - `AWS_REGION=us-east-2`
+
+### 7.2 Testing & Quality Assurance
+1. **Automated Backend Pytest Suite**:
+   ```bash
+   PYTHONPATH=src:app .venv/bin/pytest tests/
+   ```
+   Contains 31 automated unit tests covering scoring calculations, ITTF serve rotations, multi-tenant isolation, Google OAuth authentication, S3 multipart uploads, 307 pre-signed redirects, and background FFmpeg rendering.
+
+2. **Frontend React Production Build**:
+   ```bash
+   cd frontend && npm run build
+   ```
+   Runs TypeScript type-checking (`tsc -b`) and Vite production bundle compilation (`vite build`).
+
+3. **Visual & Browser Verification (Rule 1)**:
+   All UI and full-stack changes are visually verified in the browser using Playwright (`browser_navigate`, `browser_take_screenshot`) before committing or opening a PR.
