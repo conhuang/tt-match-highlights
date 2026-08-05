@@ -165,3 +165,14 @@ sequenceDiagram
 
 3. **Visual & Browser Verification (Rule 1)**:
    All UI and full-stack changes are visually verified in the browser using Playwright (`browser_navigate`, `browser_take_screenshot`) before committing or opening a PR.
+
+### 7.3 Git Worktree Workflow & Environment Configuration
+- **Isolated Feature Branches**: When developing features in parallel, use Git worktrees (`git worktree add -b feature/<name> .worktrees/<name> main`).
+- **`.env.dev` Symlinking**: Because Git worktrees do not automatically copy untracked `.gitignore` files, symlink `.env.dev` into the worktree directory so local dev servers (`./start_dev.sh`) and test runners have access to dev environment secrets while staying automatically in sync:
+  ```bash
+  ln -s $(pwd)/.env.dev .worktrees/<feature-name>/.env.dev
+  ```
+- **Cleanup**: Remove worktrees when feature branches are merged:
+  ```bash
+  git worktree remove --force .worktrees/<feature-name>
+  ```
