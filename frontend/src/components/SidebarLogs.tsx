@@ -264,8 +264,8 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                             <Star size={14} className={event.isHighlight ? 'star-active' : ''} />
                                         </button>
 
-                                        <label className="timeout-label">
-                                            TO:
+                                        <label className="timeout-label" title="Record an ITTF Timeout taken by a player">
+                                            Timeout:
                                             <select
                                                 value={event.timeout_player || ''}
                                                 onChange={(e) => onUpdateTimeout(index, e.target.value || null)}
