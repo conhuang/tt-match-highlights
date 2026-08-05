@@ -918,13 +918,25 @@ kbd {
     gap: 0.3rem;
 }
 
-.timeout-label select {
+.timeout-label select,
+.edit-winner-select {
     background: rgba(0, 0, 0, 0.4);
     border: 1px solid var(--card-border);
     color: var(--text-primary);
     border-radius: 3px;
-    padding: 0.1rem 0.3rem;
+    padding: 0.15rem 0.4rem;
     font-size: 0.75rem;
+    outline: none;
+    cursor: pointer;
+}
+
+.edit-winner-select:focus {
+    border-color: var(--accent-blue-light);
+}
+
+.edit-winner-select option {
+    background: #181820;
+    color: var(--text-primary);
 }
 
 .event-delete-btn {
