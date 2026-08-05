@@ -157,7 +157,7 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                                             type="button"
                                                             className="capture-time-btn"
                                                             onClick={handleSetStartCurrentTime}
-                                                            title="Set Start to Current Video Time"
+                                                            title="Click to set Start time to current video playback time"
                                                         >
                                                             <Clock size={10} /> Start
                                                         </button>
@@ -179,7 +179,7 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                                             type="button"
                                                             className="capture-time-btn"
                                                             onClick={handleSetEndCurrentTime}
-                                                            title="Set End to Current Video Time"
+                                                            title="Click to set End time to current video playback time"
                                                         >
                                                             <Clock size={10} /> End
                                                         </button>
