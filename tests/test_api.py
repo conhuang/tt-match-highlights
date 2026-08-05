@@ -192,6 +192,58 @@ class TestFastAPIBackend(unittest.TestCase):
         # Clean up
         self.client.delete(f"/api/matches/{match_id}")
 
+    def test_player_name_propagation_in_events(self):
+        """
+        Verify that updating player1 or player2 names propagates to winner/timeout_player in event history.
+        """
+        # 1. Create match
+        create_res = self.client.post("/api/matches", json={
+            "name": "Propagation Test",
+            "player1": "Alice",
+            "player2": "Bob"
+        })
+        match_id = create_res.json()["id"]
+
+        # 2. Add events with winners & timeouts matching old names
+        events_payload = {
+            "events": [
+                {
+                    "start": 5.0,
+                    "end": 8.0,
+                    "winner": "Alice",
+                    "timeout_player": "Bob",
+                    "isHighlight": False
+                },
+                {
+                    "start": 10.0,
+                    "end": 14.0,
+                    "winner": "Bob",
+                    "timeout_player": None,
+                    "isHighlight": True
+                }
+            ]
+        }
+        self.client.put(f"/api/matches/{match_id}", json=events_payload)
+
+        # 3. Update player names
+        update_names_payload = {
+            "player1": "Alice Cooper",
+            "player2": "Bob Marley"
+        }
+        update_res = self.client.put(f"/api/matches/{match_id}", json=update_names_payload)
+        self.assertEqual(update_res.status_code, 200)
+        updated_match = update_res.json()
+
+        # 4. Verify propagation occurred in the events list
+        events = updated_match["events"]
+        self.assertEqual(events[0]["winner"], "Alice Cooper")
+        self.assertEqual(events[0]["timeout_player"], "Bob Marley")
+        self.assertEqual(events[1]["winner"], "Bob Marley")
+        self.assertEqual(events[1]["timeout_player"], None)
+
+        # Clean up
+        self.client.delete(f"/api/matches/{match_id}")
+
     def test_video_streaming_and_metadata(self):
         """
         Verify video stream endpoint with HTTP 206 Partial Content Range Headers.
