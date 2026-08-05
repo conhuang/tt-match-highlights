@@ -7,9 +7,10 @@ import { ShortcutSheet } from './ShortcutSheet';
 import { SidebarLogs } from './SidebarLogs';
 import { RenderModal } from './RenderModal';
 import { RenderHistory } from './RenderHistory';
+import { EditMatchModal } from './EditMatchModal';
 import { MatchStatsView } from './MatchStatsView';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
-import { saveMatchEvents, createRenderJob, fetchMatchRenders, deleteRenderJob, cancelRenderJob } from '../services/api';
+import { saveMatchEvents, updateMatch, createRenderJob, fetchMatchRenders, deleteRenderJob, cancelRenderJob } from '../services/api';
 
 interface WorkspaceViewProps {
     currentMatch: Match;
@@ -29,8 +30,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     const [activeGame, setActiveGame] = useState<number>(1);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
 
-    // Render Modal & History state
     const [isRenderModalOpen, setIsRenderModalOpen] = useState<boolean>(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [isRenderingJob, setIsRenderingJob] = useState<boolean>(false);
 
     // Initial raw video URL
@@ -215,11 +216,21 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         onBack();
     };
 
+    const handleSaveMetadata = async (updates: { name?: string; player1?: string; player2?: string; first_server?: 'player1' | 'player2' }) => {
+        const updated = await updateMatch(currentMatch.id, updates);
+        onMatchUpdated(updated);
+    };
+
     const hasHighlights = currentMatch.events.some(e => e.isHighlight);
 
     return (
         <div className="workspace-view">
-            <WorkspaceHeader currentMatch={currentMatch} onBack={handleBackClick} onLogout={onLogout} />
+            <WorkspaceHeader
+                currentMatch={currentMatch}
+                onBack={handleBackClick}
+                onLogout={onLogout}
+                onOpenEditModal={() => setIsEditModalOpen(true)}
+            />
 
             <div className="workspace-grid">
                 <div className="workspace-left">
@@ -237,9 +248,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     <MatchStatsView
                         match={currentMatch}
                         firstServer={currentMatch.first_server || 'player1'}
-                        onFirstServerChange={async (fs) => {
+                        onFirstServerChange={async (fs: 'player1' | 'player2') => {
                             try {
-                                const { updateMatch } = await import('../services/api');
                                 const updated = await updateMatch(currentMatch.id, { first_server: fs });
                                 onMatchUpdated(updated);
                             } catch (err) {
@@ -272,6 +282,13 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 onSubmit={handleCreateRender}
                 hasHighlights={hasHighlights}
                 isRendering={isRenderingJob}
+            />
+
+            <EditMatchModal
+                isOpen={isEditModalOpen}
+                currentMatch={currentMatch}
+                onClose={() => setIsEditModalOpen(false)}
+                onSave={handleSaveMetadata}
             />
         </div>
     );

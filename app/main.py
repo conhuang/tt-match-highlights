@@ -93,9 +93,10 @@ def get_auth_config():
     """Returns public authentication configuration (Google Client ID and whether beta whitelist auth is active)."""
     from app.auth import get_allowed_emails
     google_client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip().strip('"').strip("'")
+    disable_auth = os.getenv("DISABLE_AUTH", "false").lower() in ("true", "1", "yes")
     return {
         "google_client_id": google_client_id,
-        "auth_enabled": bool(get_allowed_emails())
+        "auth_enabled": bool(get_allowed_emails()) and not disable_auth
     }
 
 
@@ -336,6 +337,10 @@ def update_match(match_id: str, match_update: MatchUpdate, current_user: dict = 
     
     match = Match.model_validate(record)
     _verify_match_owner(match, current_user)
+    
+    old_p1 = match.player1
+    old_p2 = match.player2
+    
     update_data = match_update.model_dump(exclude_unset=True)
     
     # Update matching fields directly from match_update object, preserving Pydantic classes
@@ -343,9 +348,25 @@ def update_match(match_id: str, match_update: MatchUpdate, current_user: dict = 
         value = getattr(match_update, field)
         if value is not None:
             setattr(match, field, value)
+            
+    # Propagate player name changes to existing events list
+    p1_changed = match.player1 != old_p1
+    p2_changed = match.player2 != old_p2
+    if (p1_changed or p2_changed) and match.events:
+        for event in match.events:
+            if p1_changed:
+                if event.winner == old_p1:
+                    event.winner = match.player1
+                if event.timeout_player == old_p1:
+                    event.timeout_player = match.player1
+            if p2_changed:
+                if event.winner == old_p2:
+                    event.winner = match.player2
+                if event.timeout_player == old_p2:
+                    event.timeout_player = match.player2
         
-    # Recalculate scores and game numbers if events list was modified
-    if "events" in update_data and match.events:
+    # Recalculate scores and game numbers if events list was modified or player names changed
+    if ("events" in update_data or p1_changed or p2_changed) and match.events:
         from app.scoring import compute_scores_and_games
         match.events = compute_scores_and_games(match.events, match.player1, match.player2)
             
