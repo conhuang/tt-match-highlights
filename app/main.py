@@ -93,9 +93,10 @@ def get_auth_config():
     """Returns public authentication configuration (Google Client ID and whether beta whitelist auth is active)."""
     from app.auth import get_allowed_emails
     google_client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip().strip('"').strip("'")
+    disable_auth = os.getenv("DISABLE_AUTH", "false").lower() in ("true", "1", "yes")
     return {
         "google_client_id": google_client_id,
-        "auth_enabled": bool(get_allowed_emails())
+        "auth_enabled": bool(get_allowed_emails()) and not disable_auth
     }
 
 
