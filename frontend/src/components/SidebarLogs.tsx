@@ -12,7 +12,7 @@ interface SidebarLogsProps {
     onSeek: (time: number) => void;
     onToggleHighlight: (index: number, isHighlight: boolean) => void;
     onUpdateTimeout: (index: number, timeoutPlayer: string | null) => void;
-    onUpdateEventTimestamp?: (index: number, newStart: number, newEnd: number) => void;
+    onUpdateEventTimestamp?: (index: number, newStart: number, newEnd: number, newWinner?: string | null) => void;
     onDeleteEvent: (index: number) => void;
     onSaveEvents: () => void;
     saveStatus: 'idle' | 'saving' | 'saved' | 'failed';
@@ -69,11 +69,13 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [editStart, setEditStart] = useState<string>('');
     const [editEnd, setEditEnd] = useState<string>('');
+    const [editWinner, setEditWinner] = useState<string | null>(null);
 
-    const startEditing = (index: number, start: number, end: number) => {
+    const startEditing = (index: number, start: number, end: number, winner?: string | null) => {
         setEditingIndex(index);
         setEditStart(formatTime(start));
         setEditEnd(formatTime(end));
+        setEditWinner(winner || null);
     };
 
     const cancelEditing = () => {
@@ -88,7 +90,7 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
             return;
         }
         if (onUpdateEventTimestamp) {
-            onUpdateEventTimestamp(index, s, e);
+            onUpdateEventTimestamp(index, s, e, editWinner);
         }
         setEditingIndex(null);
     };
@@ -130,6 +132,7 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                 ) : (
                     events.map((event, index) => {
                         const isP1 = event.winner === currentMatch.player1;
+                        const isP2 = event.winner === currentMatch.player2;
                         const isEditing = editingIndex === index;
 
                         return (
@@ -147,8 +150,8 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                             <button
                                                 type="button"
                                                 className="icon-btn edit-timestamp-btn"
-                                                onClick={() => startEditing(index, event.start, event.end)}
-                                                title="Edit Event Timestamps"
+                                                onClick={() => startEditing(index, event.start, event.end, event.winner)}
+                                                title="Edit Event Details"
                                             >
                                                 <Edit2 size={12} />
                                             </button>
@@ -197,11 +200,24 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                                 )}
                                             </div>
 
+                                            <div className="edit-time-group edit-winner-select-group">
+                                                <label>Winner:</label>
+                                                <select
+                                                    value={editWinner || ''}
+                                                    onChange={(e) => setEditWinner(e.target.value || null)}
+                                                    className="edit-winner-select"
+                                                >
+                                                    <option value={currentMatch.player1}>{currentMatch.player1} (P1)</option>
+                                                    <option value={currentMatch.player2}>{currentMatch.player2} (P2)</option>
+                                                    <option value="">No Winner (Clip Only)</option>
+                                                </select>
+                                            </div>
+
                                             <button
                                                 type="button"
                                                 className="save-timestamp-btn"
                                                 onClick={() => saveEditing(index)}
-                                                title="Save Timestamps"
+                                                title="Save Details"
                                             >
                                                 <Check size={14} />
                                             </button>
@@ -216,8 +232,8 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                         </div>
                                     )}
 
-                                    <span className={`event-winner ${isP1 ? 'p1' : 'p2'}`}>
-                                        {event.winner} Wins Point
+                                    <span className={`event-winner ${isP1 ? 'p1' : isP2 ? 'p2' : 'none'}`}>
+                                        {event.winner ? `${event.winner} Wins Point` : 'No Winner'}
                                     </span>
                                 </div>
 

@@ -18,9 +18,36 @@ def save_events(events, filepath):
     except Exception as e:
         logger.error(f"Failed to save events to {filepath}: {e}")
 
-def load_events(filepath):
+def derive_event_scores(events, p1_name=None, p2_name=None):
     """
-    Loads a list of event dictionaries from a JSON file.
+    Re-derives `score_before` and `game` fields sequentially for a list of events.
+    """
+    if not events:
+        return events
+        
+    p1_score, p2_score = 0, 0
+    game_num = 1
+
+    for event in events:
+        event["score_before"] = f"{p1_score}-{p2_score}"
+        event["game"] = game_num
+        
+        w = event.get("winner")
+        if w is not None and p1_name and p2_name:
+            if w == p1_name:
+                p1_score += 1
+            elif w == p2_name:
+                p2_score += 1
+
+            if (p1_score >= 11 or p2_score >= 11) and abs(p1_score - p2_score) >= 2:
+                p1_score, p2_score = 0, 0
+                game_num += 1
+
+    return events
+
+def load_events(filepath, p1_name=None, p2_name=None):
+    """
+    Loads a list of event dictionaries from a JSON file and re-derives scores/games.
     """
     if not os.path.exists(filepath):
         logger.error(f"Event file not found: {filepath}")
@@ -30,6 +57,8 @@ def load_events(filepath):
         with open(filepath, 'r') as f:
             events = json.load(f)
         print(f"Loaded {len(events)} events from: {filepath}")
+        if p1_name and p2_name:
+            events = derive_event_scores(events, p1_name, p2_name)
         return events
     except Exception as e:
         logger.error(f"Failed to load events from {filepath}: {e}")
