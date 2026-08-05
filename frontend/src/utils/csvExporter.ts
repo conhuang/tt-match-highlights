@@ -1,4 +1,5 @@
 import { Match } from '../types';
+import { computeScoresAndGames } from './scoring';
 
 export function determineServerName(
     p1Score: number,
@@ -34,7 +35,7 @@ export function formatTime(seconds: number): string {
 }
 
 export function exportEventsToCSV(match: Match): void {
-    const sortedEvents = [...match.events].sort((a, b) => a.start - b.start);
+    const scoredEvents = computeScoresAndGames(match.events, match.player1, match.player2);
     const firstServer = match.first_server || 'player1';
 
     const headers = [
@@ -53,7 +54,7 @@ export function exportEventsToCSV(match: Match): void {
 
     const rows: string[][] = [headers];
 
-    sortedEvents.forEach((event) => {
+    scoredEvents.forEach((event) => {
         const duration = (event.end - event.start).toFixed(2);
         const [p1ScoreStr, p2ScoreStr] = (event.score_before || '0-0').split('-').map(Number);
         const serverName = determineServerName(
