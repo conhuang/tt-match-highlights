@@ -72,8 +72,7 @@ class TestFastAPIBackend(unittest.TestCase):
                     "winner": "Alice",
                     "timeout_player": None,
                     "isHighlight": True,
-                    "game": 1,
-                    "score_before": "0-0"
+                    "game": 1
                 },
                 {
                     "start": 22.1,
@@ -81,8 +80,7 @@ class TestFastAPIBackend(unittest.TestCase):
                     "winner": "Bob",
                     "timeout_player": "Alice",
                     "isHighlight": False,
-                    "game": 1,
-                    "score_before": "1-0"
+                    "game": 1
                 }
             ]
         }
@@ -147,16 +145,13 @@ class TestFastAPIBackend(unittest.TestCase):
         self.assertEqual(update_res.status_code, 200)
         result = update_res.json()["events"]
 
-        # First point should start at 0-0 in Game 1
-        self.assertEqual(result[0]["score_before"], "0-0")
+        # First point should start in Game 1
         self.assertEqual(result[0]["game"], 1)
 
-        # 11th point should start at 10-0 in Game 1
-        self.assertEqual(result[10]["score_before"], "10-0")
+        # 11th point should start in Game 1
         self.assertEqual(result[10]["game"], 1)
 
-        # 12th point should start at 0-0 in Game 2 (because Alice won Game 1 11-0)
-        self.assertEqual(result[11]["score_before"], "0-0")
+        # 12th point should start in Game 2 (because Alice won Game 1 11-0)
         self.assertEqual(result[11]["game"], 2)
 
         # 2. Test Deuce / Win-by-Two rules
@@ -179,22 +174,19 @@ class TestFastAPIBackend(unittest.TestCase):
         deuce_events.append({"start": float(t), "end": float(t+1), "winner": "Alice"})
         t += 2
 
-        # One more point to check if game 2 starts at 0-0
+        # One more point to check if game 2 starts
         deuce_events.append({"start": float(t), "end": float(t+1), "winner": "Bob"})
 
         update_res2 = self.client.put(f"/api/matches/{match_id}", json={"events": deuce_events})
         result2 = update_res2.json()["events"]
 
         # Check deuce state (point 20 in 0-indexed list is the 21st point, representing Alice's serve at 10-10)
-        self.assertEqual(result2[20]["score_before"], "10-10")
         self.assertEqual(result2[20]["game"], 1)
 
         # Point 21 represents Alice's serve at 11-10 (no win yet)
-        self.assertEqual(result2[21]["score_before"], "11-10")
         self.assertEqual(result2[21]["game"], 1)
 
-        # Point 22 should start at 0-0 in Game 2 (because Alice won 12-10)
-        self.assertEqual(result2[22]["score_before"], "0-0")
+        # Point 22 should start in Game 2 (because Alice won 12-10)
         self.assertEqual(result2[22]["game"], 2)
 
         # Clean up
@@ -273,6 +265,49 @@ class TestFastAPIBackend(unittest.TestCase):
         self.assertIsInstance(restored["duration"], float)
         self.assertEqual(restored["fps"], 29.97)
         self.assertEqual(restored["events"][0]["start"], 10.5)
+
+    def test_event_out_of_order_and_edited_timestamps(self):
+        """
+        Verify that when events are sent out of chronological order or timestamps are edited,
+        the backend automatically sorts them chronologically and recomputes game numbers.
+        """
+        create_res = self.client.post("/api/matches", json={
+            "name": "Timestamp Edit Test",
+            "player1": "Alice",
+            "player2": "Bob"
+        })
+        match_id = create_res.json()["id"]
+
+        # Send events out of order: t=40s first, then t=10s
+        events_unordered = [
+            {"start": 40.0, "end": 45.0, "winner": "Bob"},
+            {"start": 10.0, "end": 15.0, "winner": "Alice"}
+        ]
+        update_res = self.client.put(f"/api/matches/{match_id}", json={"events": events_unordered})
+        self.assertEqual(update_res.status_code, 200)
+        res_events = update_res.json()["events"]
+
+        # Verify sorted chronologically
+        self.assertEqual(res_events[0]["start"], 10.0)
+        self.assertEqual(res_events[0]["winner"], "Alice")
+        self.assertEqual(res_events[1]["start"], 40.0)
+        self.assertEqual(res_events[1]["winner"], "Bob")
+
+        # Edit start time of Bob's event to 5.0s (now earlier than Alice's event)
+        res_events[1]["start"] = 5.0
+        res_events[1]["end"] = 8.0
+        update_res2 = self.client.put(f"/api/matches/{match_id}", json={"events": res_events})
+        self.assertEqual(update_res2.status_code, 200)
+        res_events2 = update_res2.json()["events"]
+
+        # Verify Bob's event is now first
+        self.assertEqual(res_events2[0]["start"], 5.0)
+        self.assertEqual(res_events2[0]["winner"], "Bob")
+        self.assertEqual(res_events2[1]["start"], 10.0)
+        self.assertEqual(res_events2[1]["winner"], "Alice")
+
+        # Clean up
+        self.client.delete(f"/api/matches/{match_id}")
 
 if __name__ == "__main__":
     unittest.main()

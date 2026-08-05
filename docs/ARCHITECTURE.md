@@ -59,7 +59,7 @@ graph TD
   - **`DashboardView`**: Upload match videos, create match records, view user-scoped match cards.
   - **`WorkspaceView`**: Interactive rally tagging video player, score event logger, 2.5s live polling render status loop, and hotkeys (`±2.0s` seek via `ArrowLeft/Right` and `,/.`).
   - **`MatchStatsView`**: Zero-extra-input Table Tennis Match Analytics UI (Serve/Return Win %, Tactical Rally Duration Buckets `<4s`, `4-8s`, `>8s`, Max Point Streaks, and 1-click jump to longest rally).
-  - **`SidebarLogs`**: Dual-tab sidebar switching between **Point Logs** and **Match Analytics**.
+  - **`SidebarLogs`**: Point event log management with inline timestamp editing (accepting `MM:SS.s` formatted strings or seconds, with 1-click video position capture) and dynamic chronological score calculation. Dual-tab sidebar switching between Point Logs and Match Analytics.
   - **`RenderHistory`**: List rendered video outputs with live status badges and execution duration pills (e.g. `⚡ 14.2s`).
   - **`GoogleLoginModal`**: Modal gating unauthenticated or unwhitelisted visitors.
 
@@ -67,7 +67,7 @@ graph TD
 - **Technology**: Python 3.11, FastAPI, Uvicorn, Pydantic v2.
 - **Key Modules**:
   - **`app/main.py`**: REST API endpoints for matches, direct S3 multipart uploads, 307 pre-signed S3 streaming redirects, render jobs, and authorization.
-  - **`app/scoring.py`**: Automated scoring engine & ITTF service rotation analytics (`determine_server`, `compute_match_analytics`).
+  - **`app/scoring.py`**: Automated dynamic scoring engine & ITTF service rotation analytics (`compute_scores_and_games`, `determine_server`, `compute_match_analytics`). Eliminates hardcoded `score_before` state; scores and game transitions are calculated dynamically on the fly based on chronological event order.
   - **`app/auth.py`**: Verifies Google OAuth ID tokens, enforces `ALLOWED_BETA_EMAILS` whitelist checks, and extracts user sub IDs for strict multi-tenant match isolation.
   - **`app/render_adapter.py`**: Background worker triggering FFmpeg highlight rendering, tracking start/end execution timestamps, and platform-aware encoder selection (`libx264` on Linux EC2 vs `h264_videotoolbox` on macOS).
   - **`app/database.py`**: Polymorphic repository supporting `DynamoDBRepository` (production) and `SQLiteRepository` (local dev).

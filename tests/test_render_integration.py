@@ -34,8 +34,8 @@ class TestRenderIntegration(unittest.TestCase):
             player2="Bob",
             video_filename=f"{self.match_id}.mp4",
             events=[
-                Event(start=1.0, end=5.0, winner="Alice", isHighlight=True, game=1, score_before="0-0"),
-                Event(start=6.0, end=10.0, winner="Bob", isHighlight=False, game=1, score_before="1-0")
+                Event(start=1.0, end=5.0, winner="Alice", isHighlight=True, game=1),
+                Event(start=6.0, end=10.0, winner="Bob", isHighlight=False, game=1)
             ]
         )
         db.create_match(self.match.model_dump())

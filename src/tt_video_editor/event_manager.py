@@ -317,7 +317,6 @@ def collect_events(video: Video, args, existing_events=None):
                     "timeout_player": None,
                     "isHighlight": pending_highlight,
                     "game": game_num,
-                    "score_before": f"{p1_score}-{p2_score}",
                 }
             )
 

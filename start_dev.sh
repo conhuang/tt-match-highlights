@@ -22,6 +22,7 @@ export STORAGE_TYPE="${STORAGE_TYPE:-s3}"
 export S3_BUCKET_NAME="${S3_BUCKET_NAME:-tt-video-editor-storage-test}"
 export AWS_REGION="${AWS_REGION:-us-east-2}"
 export VITE_GOOGLE_CLIENT_ID="${VITE_GOOGLE_CLIENT_ID:-$GOOGLE_CLIENT_ID}"
+export DISABLE_AUTH="${DISABLE_AUTH:-true}"
 
 # 2. Build React frontend static assets
 echo "📦 Building React frontend..."

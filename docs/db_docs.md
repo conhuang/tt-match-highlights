@@ -46,11 +46,11 @@ Your data model is defined in [app/models.py](file:///Users/conniehuang/code/tt/
   - `original_filename`: The original human-readable uploaded file name (for display in UI).
   - `events`: List of points/events.
 * **`Event`**: Individual points/timeouts inside a match.
-  - `start` / `end`: Timestamps in seconds.
+  - `start` / `end`: Timestamps in seconds (editable via UI in `MM:SS.s` or seconds format).
   - `winner` / `timeout_player`: Associated player names.
   - `isHighlight`: Toggle flag for compile inclusion.
-  - `game`: The game number.
-  - `score_before`: Score before the point played.
+  - `game`: Dynamically computed game number (`Optional[int]`).
+  - *(Note: `score_before` is completely unpersisted and derived dynamically on the fly from chronological event order)*.
 
 ### 🎥 S3 File Naming & Uniqueness Conventions
 To prevent file name collisions (e.g., if two users upload files named `match.mp4`), we isolate the storage naming from the human-readable naming:
