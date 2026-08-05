@@ -88,9 +88,9 @@ export function useKeyboardShortcuts({
                     e.preventDefault();
                     let delta = 0;
                     if (e.key === 'ArrowLeft' || key === ',') {
-                        delta = e.shiftKey ? -0.1 : -1.0;
+                        delta = e.shiftKey ? -0.1 : -2.0;
                     } else if (e.key === 'ArrowRight' || key === '.') {
-                        delta = e.shiftKey ? 0.1 : 1.0;
+                        delta = e.shiftKey ? 0.1 : 2.0;
                     } else if (e.key === 'ArrowUp') {
                         delta = 60.0;
                     } else if (e.key === 'ArrowDown') {
