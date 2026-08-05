@@ -150,85 +150,91 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                         </div>
                                     ) : (
                                         <div className="timestamp-edit-controls">
-                                            <div className="edit-time-group">
-                                                <label>Start:</label>
-                                                <input
-                                                    type="text"
-                                                    value={editStart}
-                                                    onChange={(e) => setEditStart(e.target.value)}
-                                                    className="timestamp-input"
-                                                    placeholder="MM:SS.s"
-                                                />
-                                                {getCurrentVideoTime && (
+                                            <div className="edit-controls-row">
+                                                <div className="edit-time-group">
+                                                    <label>Start:</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editStart}
+                                                        onChange={(e) => setEditStart(e.target.value)}
+                                                        className="timestamp-input"
+                                                        placeholder="MM:SS.s"
+                                                    />
+                                                    {getCurrentVideoTime && (
+                                                        <button
+                                                            type="button"
+                                                            className="capture-time-btn"
+                                                            onClick={handleSetStartCurrentTime}
+                                                            title="Set to Current Video Time"
+                                                        >
+                                                            <Clock size={10} /> Start
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="edit-time-group">
+                                                    <label>End:</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editEnd}
+                                                        onChange={(e) => setEditEnd(e.target.value)}
+                                                        className="timestamp-input"
+                                                        placeholder="MM:SS.s"
+                                                    />
+                                                    {getCurrentVideoTime && (
+                                                        <button
+                                                            type="button"
+                                                            className="capture-time-btn"
+                                                            onClick={handleSetEndCurrentTime}
+                                                            title="Set to Current Video Time"
+                                                        >
+                                                            <Clock size={10} /> End
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="edit-controls-row">
+                                                <div className="edit-time-group edit-winner-select-group">
+                                                    <label>Winner:</label>
+                                                    <select
+                                                        value={editWinner || ''}
+                                                        onChange={(e) => setEditWinner(e.target.value || null)}
+                                                        className="edit-winner-select"
+                                                    >
+                                                        <option value={currentMatch.player1}>{currentMatch.player1} (P1)</option>
+                                                        <option value={currentMatch.player2}>{currentMatch.player2} (P2)</option>
+                                                        <option value="">No Winner (Clip Only)</option>
+                                                    </select>
+                                                </div>
+
+                                                <div className="edit-action-btns">
                                                     <button
                                                         type="button"
-                                                        className="capture-time-btn"
-                                                        onClick={handleSetStartCurrentTime}
-                                                        title="Set to Current Video Time"
+                                                        className="save-timestamp-btn"
+                                                        onClick={() => saveEditing(index)}
+                                                        title="Save Details"
                                                     >
-                                                        <Clock size={10} /> Start
+                                                        <Check size={14} />
                                                     </button>
-                                                )}
-                                            </div>
-
-                                            <div className="edit-time-group">
-                                                <label>End:</label>
-                                                <input
-                                                    type="text"
-                                                    value={editEnd}
-                                                    onChange={(e) => setEditEnd(e.target.value)}
-                                                    className="timestamp-input"
-                                                    placeholder="MM:SS.s"
-                                                />
-                                                {getCurrentVideoTime && (
                                                     <button
                                                         type="button"
-                                                        className="capture-time-btn"
-                                                        onClick={handleSetEndCurrentTime}
-                                                        title="Set to Current Video Time"
+                                                        className="cancel-timestamp-btn"
+                                                        onClick={cancelEditing}
+                                                        title="Cancel Editing"
                                                     >
-                                                        <Clock size={10} /> End
+                                                        <X size={14} />
                                                     </button>
-                                                )}
+                                                </div>
                                             </div>
-
-                                            <div className="edit-time-group edit-winner-select-group">
-                                                <label>Winner:</label>
-                                                <select
-                                                    value={editWinner || ''}
-                                                    onChange={(e) => setEditWinner(e.target.value || null)}
-                                                    className="edit-winner-select"
-                                                >
-                                                    <option value={currentMatch.player1}>{currentMatch.player1} (P1)</option>
-                                                    <option value={currentMatch.player2}>{currentMatch.player2} (P2)</option>
-                                                    <option value="">No Winner (Clip Only)</option>
-                                                </select>
-                                            </div>
-
-                                            <button
-                                                type="button"
-                                                className="save-timestamp-btn"
-                                                onClick={() => saveEditing(index)}
-                                                title="Save Details"
-                                            >
-                                                <Check size={14} />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="cancel-timestamp-btn"
-                                                onClick={cancelEditing}
-                                                title="Cancel Editing"
-                                            >
-                                                <X size={14} />
-                                            </button>
                                         </div>
                                     )}
 
-                                    <div className="event-winner-wrapper">
-                                        <span className={`event-winner ${isP1 ? 'p1' : isP2 ? 'p2' : 'none'}`}>
-                                            {event.winner ? `${event.winner} Wins Point` : 'No Winner'}
-                                        </span>
-                                        {!isEditing && (
+                                    {!isEditing && (
+                                        <div className="event-winner-wrapper">
+                                            <span className={`event-winner ${isP1 ? 'p1' : isP2 ? 'p2' : 'none'}`}>
+                                                {event.winner ? `${event.winner} Wins Point` : 'No Winner'}
+                                            </span>
                                             <button
                                                 type="button"
                                                 className="icon-btn edit-timestamp-btn"
@@ -237,8 +243,8 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                             >
                                                 <Edit2 size={12} />
                                             </button>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="event-details">
