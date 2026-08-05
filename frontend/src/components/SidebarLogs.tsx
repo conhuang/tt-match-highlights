@@ -204,8 +204,8 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                                         onChange={(e) => setEditWinner(e.target.value || null)}
                                                         className="edit-winner-select"
                                                     >
-                                                        <option value={currentMatch.player1}>{currentMatch.player1} (P1)</option>
-                                                        <option value={currentMatch.player2}>{currentMatch.player2} (P2)</option>
+                                                        <option value={currentMatch.player1}>{currentMatch.player1}</option>
+                                                        <option value={currentMatch.player2}>{currentMatch.player2}</option>
                                                         <option value="">No Winner (Clip Only)</option>
                                                     </select>
                                                 </div>
@@ -272,8 +272,8 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                                 onChange={(e) => onUpdateTimeout(index, e.target.value || null)}
                                             >
                                                 <option value="">None</option>
-                                                <option value={currentMatch.player1}>P1</option>
-                                                <option value={currentMatch.player2}>P2</option>
+                                                <option value={currentMatch.player1}>{currentMatch.player1}</option>
+                                                <option value={currentMatch.player2}>{currentMatch.player2}</option>
                                             </select>
                                         </label>
 
