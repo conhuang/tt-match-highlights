@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Match } from '../types';
-import { Trash2, Star, Save, Film, Edit2, Check, Clock, X } from 'lucide-react';
+import { Trash2, Star, Save, Film, Download, Edit2, Check, Clock, X } from 'lucide-react';
 import { Button } from './ui';
 import { computeScoresAndGames } from '../utils/scoring';
+import { exportEventsToCSV } from '../utils/csvExporter';
 
 interface SidebarLogsProps {
     currentMatch: Match;
@@ -273,6 +274,17 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                     style={{ flex: 1.4 }}
                 >
                     {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Events'}
+                </Button>
+                <Button
+                    variant="secondary"
+                    icon={<Download size={16} />}
+                    className="download-csv-btn"
+                    onClick={() => exportEventsToCSV(currentMatch)}
+                    disabled={events.length === 0}
+                    title="Export point logs and rally details to CSV"
+                    style={{ flex: 1 }}
+                >
+                    Export CSV
                 </Button>
                 <Button
                     variant="render"
