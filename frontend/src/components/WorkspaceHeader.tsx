@@ -40,15 +40,17 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ currentMatch, 
                 </span>
             </div>
             {onLogout && (
-                <Button
-                    variant="signout"
-                    size="sm"
-                    icon={<LogOut size={15} />}
-                    onClick={onLogout}
-                    title="Sign Out of Beta Session"
-                >
-                    Sign Out
-                </Button>
+                <div className="header-actions">
+                    <Button
+                        variant="signout"
+                        size="sm"
+                        icon={<LogOut size={15} />}
+                        onClick={onLogout}
+                        title="Sign Out of Beta Session"
+                    >
+                        Sign Out
+                    </Button>
+                </div>
             )}
         </header>
     );
