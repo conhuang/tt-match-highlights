@@ -899,12 +899,23 @@ kbd {
     gap: 0.85rem;
 }
 
-.checkbox-label {
+.highlight-toggle-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.2rem 0.35rem;
     display: flex;
     align-items: center;
-    gap: 0.3rem;
-    cursor: pointer;
-    user-select: none;
+    justify-content: center;
+    border-radius: 4px;
+    color: var(--text-muted);
+    transition: var(--transition);
+}
+
+.highlight-toggle-btn:hover {
+    color: var(--accent-amber);
+    background: rgba(245, 158, 11, 0.15);
+    transform: scale(1.15);
 }
 
 .star-active {

@@ -255,15 +255,14 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                     </span>
 
                                     <div className="event-inputs">
-                                        <label className="checkbox-label">
-                                            <input
-                                                type="checkbox"
-                                                checked={event.isHighlight}
-                                                onChange={(e) => onToggleHighlight(index, e.target.checked)}
-                                            />
-                                            <Star size={12} className={event.isHighlight ? 'star-active' : ''} />
-                                            Highlight
-                                        </label>
+                                        <button
+                                            type="button"
+                                            className={`highlight-toggle-btn ${event.isHighlight ? 'active' : ''}`}
+                                            onClick={() => onToggleHighlight(index, !event.isHighlight)}
+                                            title={event.isHighlight ? "Click to remove highlight" : "Click to mark this point as a highlight"}
+                                        >
+                                            <Star size={14} className={event.isHighlight ? 'star-active' : ''} />
+                                        </button>
 
                                         <label className="timeout-label">
                                             TO:
