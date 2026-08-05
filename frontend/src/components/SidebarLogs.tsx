@@ -147,14 +147,6 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                             >
                                                 {formatTime(event.start)} - {formatTime(event.end)}
                                             </button>
-                                            <button
-                                                type="button"
-                                                className="icon-btn edit-timestamp-btn"
-                                                onClick={() => startEditing(index, event.start, event.end, event.winner)}
-                                                title="Edit Event Details"
-                                            >
-                                                <Edit2 size={12} />
-                                            </button>
                                         </div>
                                     ) : (
                                         <div className="timestamp-edit-controls">
@@ -232,9 +224,21 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                         </div>
                                     )}
 
-                                    <span className={`event-winner ${isP1 ? 'p1' : isP2 ? 'p2' : 'none'}`}>
-                                        {event.winner ? `${event.winner} Wins Point` : 'No Winner'}
-                                    </span>
+                                    <div className="event-winner-wrapper">
+                                        <span className={`event-winner ${isP1 ? 'p1' : isP2 ? 'p2' : 'none'}`}>
+                                            {event.winner ? `${event.winner} Wins Point` : 'No Winner'}
+                                        </span>
+                                        {!isEditing && (
+                                            <button
+                                                type="button"
+                                                className="icon-btn edit-timestamp-btn"
+                                                onClick={() => startEditing(index, event.start, event.end, event.winner)}
+                                                title="Edit Event Details"
+                                            >
+                                                <Edit2 size={12} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="event-details">
