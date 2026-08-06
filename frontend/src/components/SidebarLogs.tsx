@@ -1,21 +1,15 @@
 import React, { useState } from 'react';
 import { Match } from '../types';
-import { Trash2, Star, Save, Download, Edit2, Check, Clock, X } from 'lucide-react';
-import { Button } from './ui';
+import { Trash2, Star, Edit3, Check, Clock, X, ArrowUpDown } from 'lucide-react';
 import { computeScoresAndGames } from '../utils/scoring';
-import { exportEventsToCSV } from '../utils/csvExporter';
 
 interface SidebarLogsProps {
     currentMatch: Match;
-    activeGame: number;
-    onChangeActiveGame: (game: number) => void;
     onSeek: (time: number) => void;
     onToggleHighlight: (index: number, isHighlight: boolean) => void;
     onUpdateTimeout: (index: number, timeoutPlayer: string | null) => void;
     onUpdateEventTimestamp?: (index: number, newStart: number, newEnd: number, newWinner?: string | null) => void;
     onDeleteEvent: (index: number) => void;
-    onSaveEvents: () => void;
-    saveStatus: 'idle' | 'saving' | 'saved' | 'failed';
     getCurrentVideoTime?: () => number;
 }
 
@@ -52,22 +46,24 @@ function parseTimeString(str: string): number {
 
 export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     currentMatch,
-    activeGame,
-    onChangeActiveGame,
     onSeek,
     onToggleHighlight,
     onUpdateTimeout,
     onUpdateEventTimestamp,
     onDeleteEvent,
-    onSaveEvents,
-    saveStatus,
     getCurrentVideoTime
 }) => {
-    const events = computeScoresAndGames(currentMatch.events, currentMatch.player1, currentMatch.player2);
+    const rawEvents = computeScoresAndGames(currentMatch.events, currentMatch.player1, currentMatch.player2);
+    const [isReversed, setIsReversed] = useState<boolean>(false);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [editStart, setEditStart] = useState<string>('');
     const [editEnd, setEditEnd] = useState<string>('');
     const [editWinner, setEditWinner] = useState<string | null>(null);
+
+    const displayEvents = rawEvents.map((event, originalIndex) => ({ event, originalIndex }));
+    if (isReversed) {
+        displayEvents.reverse();
+    }
 
     const startEditing = (index: number, start: number, end: number, winner?: string | null) => {
         setEditingIndex(index);
@@ -81,14 +77,21 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     };
 
     const saveEditing = (index: number) => {
-        const s = parseTimeString(editStart);
-        const e = parseTimeString(editEnd);
-        if (isNaN(s) || isNaN(e) || s < 0 || e <= s) {
-            alert('End time must be greater than start time. Enter formatted MM:SS.s (e.g. 01:15.5) or seconds.');
+        const startSec = parseTimeString(editStart);
+        const endSec = parseTimeString(editEnd);
+
+        if (isNaN(startSec) || isNaN(endSec)) {
+            alert('Please enter valid timestamps in MM:SS.s format.');
             return;
         }
+
+        if (endSec <= startSec) {
+            alert('End timestamp must be strictly after Start timestamp.');
+            return;
+        }
+
         if (onUpdateEventTimestamp) {
-            onUpdateEventTimestamp(index, s, e, editWinner);
+            onUpdateEventTimestamp(index, startSec, endSec, editWinner);
         }
         setEditingIndex(null);
     };
@@ -108,54 +111,67 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     return (
         <div className="sidebar-logs-card">
             <div className="sidebar-header">
-                <h2>Point Logs ({events.length})</h2>
-                <div className="game-selector">
-                    <label htmlFor="active-game">Game:</label>
-                    <input
-                        type="number"
-                        id="active-game"
-                        min="1"
-                        max="9"
-                        value={activeGame}
-                        onChange={(e) => onChangeActiveGame(parseInt(e.target.value) || 1)}
-                    />
-                </div>
+                <h2>Point Logs ({rawEvents.length})</h2>
+                <button
+                    type="button"
+                    className={`reverse-order-btn ${isReversed ? 'active' : ''}`}
+                    onClick={() => setIsReversed(!isReversed)}
+                    title={isReversed ? "Click to view Oldest First" : "Click to view Newest First"}
+                >
+                    <ArrowUpDown size={13} />
+                    <span>{isReversed ? 'Newest First' : 'Oldest First'}</span>
+                </button>
             </div>
 
             <div className="events-list">
-                {events.length === 0 ? (
+                {displayEvents.length === 0 ? (
                     <p className="empty-state">
                         No points logged yet. Use <strong>E</strong>/<strong>D</strong> to mark start time, then <strong>1</strong>/<strong>2</strong> to log point winners.
                     </p>
                 ) : (
-                    events.map((event, index) => {
+                    displayEvents.map(({ event, originalIndex }) => {
                         const isP1 = event.winner === currentMatch.player1;
                         const isP2 = event.winner === currentMatch.player2;
-                        const isEditing = editingIndex === index;
+                        const isEditing = editingIndex === originalIndex;
 
                         return (
-                            <div key={`${event.start}-${index}`} className="event-card">
+                            <div key={`${event.start}-${originalIndex}`} className="event-card">
                                 <div className="event-card-header">
                                     {!isEditing ? (
-                                        <div className="time-link-container">
-                                            <button
-                                                type="button"
-                                                className="time-link-btn"
-                                                onClick={() => onSeek(event.start)}
-                                            >
-                                                {formatTime(event.start)} - {formatTime(event.end)}
-                                            </button>
-                                        </div>
+                                        <>
+                                            <div className="time-link-container">
+                                                <button
+                                                    type="button"
+                                                    className="time-link-btn"
+                                                    onClick={() => onSeek(event.start)}
+                                                >
+                                                    {formatTime(event.start)} - {formatTime(event.end)}
+                                                </button>
+                                            </div>
+                                            <div className="event-winner-wrapper">
+                                                <span className={`event-winner ${isP1 ? 'p1' : isP2 ? 'p2' : 'none'}`}>
+                                                    {event.winner ? `${event.winner} Wins Point` : 'No Winner'}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    className="icon-btn-base edit-timestamp-btn"
+                                                    onClick={() => startEditing(originalIndex, event.start, event.end, event.winner)}
+                                                    title="Edit Event Details"
+                                                >
+                                                    <Edit3 size={12} />
+                                                </button>
+                                            </div>
+                                        </>
                                     ) : (
-                                        <div className="timestamp-edit-controls">
-                                            <div className="edit-controls-row">
+                                        <div className="timestamp-edit-controls stacked">
+                                            <div className="edit-time-stack">
                                                 <div className="edit-time-group">
                                                     {getCurrentVideoTime ? (
                                                         <button
                                                             type="button"
                                                             className="capture-time-btn"
                                                             onClick={handleSetStartCurrentTime}
-                                                            title="Click to set Start time to current video playback time"
+                                                            title="Set Start time to current video playback time"
                                                         >
                                                             <Clock size={10} /> Start
                                                         </button>
@@ -177,7 +193,7 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                                             type="button"
                                                             className="capture-time-btn"
                                                             onClick={handleSetEndCurrentTime}
-                                                            title="Click to set End time to current video playback time"
+                                                            title="Set End time to current video playback time"
                                                         >
                                                             <Clock size={10} /> End
                                                         </button>
@@ -194,7 +210,7 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                                 </div>
                                             </div>
 
-                                            <div className="edit-controls-row">
+                                            <div className="edit-right-column">
                                                 <div className="edit-time-group edit-winner-select-group">
                                                     <label>Winner:</label>
                                                     <select
@@ -204,7 +220,7 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                                     >
                                                         <option value={currentMatch.player1}>{currentMatch.player1}</option>
                                                         <option value={currentMatch.player2}>{currentMatch.player2}</option>
-                                                        <option value="">No Winner (Clip Only)</option>
+                                                        <option value="">No Winner</option>
                                                     </select>
                                                 </div>
 
@@ -212,7 +228,7 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                                     <button
                                                         type="button"
                                                         className="save-timestamp-btn"
-                                                        onClick={() => saveEditing(index)}
+                                                        onClick={() => saveEditing(originalIndex)}
                                                         title="Save Details"
                                                     >
                                                         <Check size={14} />
@@ -229,22 +245,6 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                             </div>
                                         </div>
                                     )}
-
-                                    {!isEditing && (
-                                        <div className="event-winner-wrapper">
-                                            <span className={`event-winner ${isP1 ? 'p1' : isP2 ? 'p2' : 'none'}`}>
-                                                {event.winner ? `${event.winner} Wins Point` : 'No Winner'}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                className="icon-btn edit-timestamp-btn"
-                                                onClick={() => startEditing(index, event.start, event.end, event.winner)}
-                                                title="Edit Event Details"
-                                            >
-                                                <Edit2 size={12} />
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
 
                                 <div className="event-details">
@@ -252,19 +252,20 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                         Game {event.game} • Score: {event.score_before}
                                     </span>
                                     <button
-                                            type="button"
-                                            className={`highlight-toggle-btn ${event.isHighlight ? 'active' : ''}`}
-                                            onClick={() => onToggleHighlight(index, !event.isHighlight)}
-                                            title={event.isHighlight ? "Click to remove highlight" : "Click to mark this point as a highlight"}
-                                        >
-                                            <Star size={14} className={event.isHighlight ? 'star-active' : ''} />
+                                        type="button"
+                                        className={`icon-btn-base highlight-toggle-btn ${event.isHighlight ? 'active' : ''}`}
+                                        onClick={() => onToggleHighlight(originalIndex, !event.isHighlight)}
+                                        title={event.isHighlight ? "Click to remove highlight" : "Click to mark this point as a highlight"}
+                                    >
+                                        <Star size={14} className={event.isHighlight ? 'star-active' : ''} />
                                     </button>
                                     <div className="event-inputs">
                                         <label className="timeout-label" title="Record an ITTF Timeout taken by a player">
                                             <span className="timeout-sublabel">Timeout</span>
                                             <select
                                                 value={event.timeout_player || ''}
-                                                onChange={(e) => onUpdateTimeout(index, e.target.value || null)}
+                                                onChange={(e) => onUpdateTimeout(originalIndex, e.target.value || null)}
+                                                className="timeout-select-inline"
                                             >
                                                 <option value="">None</option>
                                                 <option value={currentMatch.player1}>{currentMatch.player1}</option>
@@ -274,11 +275,11 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
 
                                         <button
                                             type="button"
-                                            className="event-delete-btn"
-                                            onClick={() => onDeleteEvent(index)}
+                                            className="icon-btn-base delete-event-btn"
+                                            onClick={() => onDeleteEvent(originalIndex)}
                                             title="Delete Point Log"
                                         >
-                                            <Trash2 size={14} />
+                                            <Trash2 size={13} />
                                         </button>
                                     </div>
                                 </div>
@@ -286,29 +287,6 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                         );
                     })
                 )}
-            </div>
-
-            <div className="workspace-actions">
-                <Button
-                    variant="primary"
-                    icon={<Save size={16} />}
-                    onClick={onSaveEvents}
-                    disabled={saveStatus === 'saving'}
-                    style={{ flex: 1.4 }}
-                >
-                    {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Events'}
-                </Button>
-                <Button
-                    variant="secondary"
-                    icon={<Download size={16} />}
-                    className="download-csv-btn"
-                    onClick={() => exportEventsToCSV(currentMatch)}
-                    disabled={events.length === 0}
-                    title="Export point logs and rally details to CSV"
-                    style={{ flex: 1 }}
-                >
-                    Export CSV
-                </Button>
             </div>
         </div>
     );
