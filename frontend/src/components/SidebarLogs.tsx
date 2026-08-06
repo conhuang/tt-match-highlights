@@ -7,8 +7,6 @@ import { exportEventsToCSV } from '../utils/csvExporter';
 
 interface SidebarLogsProps {
     currentMatch: Match;
-    activeGame: number;
-    onChangeActiveGame: (game: number) => void;
     onSeek: (time: number) => void;
     onToggleHighlight: (index: number, isHighlight: boolean) => void;
     onUpdateTimeout: (index: number, timeoutPlayer: string | null) => void;
@@ -52,8 +50,6 @@ function parseTimeString(str: string): number {
 
 export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     currentMatch,
-    activeGame,
-    onChangeActiveGame,
     onSeek,
     onToggleHighlight,
     onUpdateTimeout,
@@ -109,17 +105,6 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
         <div className="sidebar-logs-card">
             <div className="sidebar-header">
                 <h2>Point Logs ({events.length})</h2>
-                <div className="game-selector">
-                    <label htmlFor="active-game">Game:</label>
-                    <input
-                        type="number"
-                        id="active-game"
-                        min="1"
-                        max="9"
-                        value={activeGame}
-                        onChange={(e) => onChangeActiveGame(parseInt(e.target.value) || 1)}
-                    />
-                </div>
             </div>
 
             <div className="events-list">

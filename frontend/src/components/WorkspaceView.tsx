@@ -28,7 +28,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [pendingStartTime, setPendingStartTime] = useState<number | null>(null);
-    const [activeGame, setActiveGame] = useState<number>(1);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
 
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
@@ -98,7 +97,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         videoRef,
         pendingStartTime,
         setPendingStartTime,
-        activeGame,
+        activeGame: 1,
         onAddEvent: handleAddEvent,
         onUndoEvent: handleUndoEvent
     });
@@ -266,8 +265,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     />
                     <SidebarLogs
                         currentMatch={currentMatch}
-                        activeGame={activeGame}
-                        onChangeActiveGame={setActiveGame}
                         onSeek={handleSeek}
                         onToggleHighlight={handleToggleHighlight}
                         onUpdateTimeout={handleUpdateTimeout}
