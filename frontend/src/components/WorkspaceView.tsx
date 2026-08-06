@@ -3,7 +3,7 @@ import { Match, MatchEvent, RenderOptions } from '../types';
 import { WorkspaceHeader } from './WorkspaceHeader';
 import { VideoSection } from './VideoSection';
 import { StatusPanel } from './StatusPanel';
-import { ShortcutSheet } from './ShortcutSheet';
+import { ShortcutModal } from './ShortcutModal';
 import { SidebarLogs } from './SidebarLogs';
 import { RenderHistory } from './RenderHistory';
 import { MatchStatsView } from './MatchStatsView';
@@ -28,6 +28,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     const videoRef = useRef<HTMLVideoElement>(null);
     const [pendingStartTime, setPendingStartTime] = useState<number | null>(null);
     const [isRenderingJob, setIsRenderingJob] = useState<boolean>(false);
+    const [isShortcutsOpen, setIsShortcutsOpen] = useState<boolean>(false);
 
     // Initial raw video URL
     const rawVideoUrl = currentMatch.video_url || `/static/videos/uploads/${currentMatch.video_filename}`;
@@ -223,13 +224,13 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 onBack={handleBackClick}
                 onSaveMetadata={handleSaveMetadata}
                 onLogout={onLogout}
+                onOpenShortcuts={() => setIsShortcutsOpen(true)}
             />
 
             <div className="workspace-grid">
                 <div className="workspace-left">
                     <VideoSection ref={videoRef} src={activeVideoSrc} />
                     <StatusPanel pendingStartTime={pendingStartTime} />
-                    <ShortcutSheet />
                     <RenderHistory
                         renders={currentMatch.renders || []}
                         onPreviewRender={handlePreviewRender}
@@ -273,6 +274,11 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     />
                 </div>
             </div>
+
+            <ShortcutModal
+                isOpen={isShortcutsOpen}
+                onClose={() => setIsShortcutsOpen(false)}
+            />
         </div>
     );
 };
