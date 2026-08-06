@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Match } from '../types';
-import { ArrowLeft, LogOut, Edit3, Check, X, Keyboard } from 'lucide-react';
+import { ArrowLeft, LogOut, Edit3, Check, X } from 'lucide-react';
 import { Button } from './ui';
 
 interface WorkspaceHeaderProps {
@@ -8,10 +8,9 @@ interface WorkspaceHeaderProps {
     onBack: () => void;
     onSaveMetadata: (updates: { name?: string; player1?: string; player2?: string }) => Promise<void>;
     onLogout?: () => void;
-    onOpenShortcuts?: () => void;
 }
 
-export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ currentMatch, onBack, onSaveMetadata, onLogout, onOpenShortcuts }) => {
+export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ currentMatch, onBack, onSaveMetadata, onLogout }) => {
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [name, setName] = useState<string>(currentMatch.name || '');
     const [player1, setPlayer1] = useState<string>(currentMatch.player1 || '');
@@ -143,19 +142,8 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ currentMatch, 
                     </div>
                 )}
             </div>
-            <div className="header-actions">
-                {onOpenShortcuts && (
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={<Keyboard size={15} />}
-                        onClick={onOpenShortcuts}
-                        title="View Keyboard Shortcuts"
-                    >
-                        Shortcuts
-                    </Button>
-                )}
-                {onLogout && (
+            {onLogout && (
+                <div className="header-actions">
                     <Button
                         variant="signout"
                         size="sm"
@@ -165,8 +153,8 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ currentMatch, 
                     >
                         Sign Out
                     </Button>
-                )}
-            </div>
+                </div>
+            )}
         </header>
     );
 };

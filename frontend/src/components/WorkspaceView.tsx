@@ -224,7 +224,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 onBack={handleBackClick}
                 onSaveMetadata={handleSaveMetadata}
                 onLogout={onLogout}
-                onOpenShortcuts={() => setIsShortcutsOpen(true)}
             />
 
             <div className="workspace-grid">
