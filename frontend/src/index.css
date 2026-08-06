@@ -710,6 +710,7 @@ body {
     padding: 1rem 1.25rem;
     display: flex;
     align-items: center;
+    justify-content: space-between;
 }
 
 .status-item {

@@ -230,7 +230,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             <div className="workspace-grid">
                 <div className="workspace-left">
                     <VideoSection ref={videoRef} src={activeVideoSrc} />
-                    <StatusPanel pendingStartTime={pendingStartTime} />
+                    <StatusPanel
+                        pendingStartTime={pendingStartTime}
+                        onOpenShortcuts={() => setIsShortcutsOpen(true)}
+                    />
                     <RenderHistory
                         renders={currentMatch.renders || []}
                         onPreviewRender={handlePreviewRender}
