@@ -1,6 +1,6 @@
 import React from 'react';
 import { RenderJob } from '../types';
-import { Play, Download, Trash2, Film, AlertCircle, RefreshCw, Star, Clock } from 'lucide-react';
+import { Play, Download, Trash2, Film, AlertCircle, XCircle, RefreshCw, Star, Clock } from 'lucide-react';
 
 interface RenderHistoryProps {
     renders: RenderJob[];
@@ -139,7 +139,7 @@ export const RenderHistory: React.FC<RenderHistoryProps> = ({
                                         title="Cancel active rendering job"
                                         style={{ backgroundColor: '#ef4444', color: '#ffffff', borderColor: '#dc2626' }}
                                     >
-                                        <AlertCircle size={13} />
+                                        <XCircle size={13} />
                                         Cancel Render
                                     </button>
                                 )}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Match } from '../types';
-import { Trash2, Star, Edit2, Check, Clock, X, ArrowUpDown } from 'lucide-react';
+import { Trash2, Star, Edit3, Check, Clock, X, ArrowUpDown } from 'lucide-react';
 import { computeScoresAndGames } from '../utils/scoring';
 
 interface SidebarLogsProps {
@@ -154,11 +154,11 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                                 </span>
                                                 <button
                                                     type="button"
-                                                    className="icon-btn edit-timestamp-btn"
+                                                    className="icon-btn-base edit-timestamp-btn"
                                                     onClick={() => startEditing(originalIndex, event.start, event.end, event.winner)}
                                                     title="Edit Event Details"
                                                 >
-                                                    <Edit2 size={12} />
+                                                    <Edit3 size={12} />
                                                 </button>
                                             </div>
                                         </>
@@ -253,7 +253,7 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                     </span>
                                     <button
                                         type="button"
-                                        className={`highlight-toggle-btn ${event.isHighlight ? 'active' : ''}`}
+                                        className={`icon-btn-base highlight-toggle-btn ${event.isHighlight ? 'active' : ''}`}
                                         onClick={() => onToggleHighlight(originalIndex, !event.isHighlight)}
                                         title={event.isHighlight ? "Click to remove highlight" : "Click to mark this point as a highlight"}
                                     >
@@ -275,7 +275,7 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
 
                                         <button
                                             type="button"
-                                            className="delete-event-btn"
+                                            className="icon-btn-base delete-event-btn"
                                             onClick={() => onDeleteEvent(originalIndex)}
                                             title="Delete Point Log"
                                         >
