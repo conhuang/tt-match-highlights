@@ -23,9 +23,9 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({ pendingStartTime, onOp
                     size="sm"
                     icon={<Keyboard size={14} />}
                     onClick={onOpenShortcuts}
-                    title="View Keyboard Shortcuts"
+                    title="View Keyboard Keystrokes"
                 >
-                    Shortcuts
+                    Keystrokes
                 </Button>
             )}
         </div>
