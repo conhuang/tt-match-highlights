@@ -505,10 +505,101 @@ body {
     font-weight: 700;
 }
 
+.header-text-block {
+    display: flex;
+    flex-direction: column;
+}
+
 .title-with-edit {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.inline-header-editor {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+}
+
+.inline-editor-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.inline-name-input {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--accent-blue-light);
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.6rem;
+}
+
+.inline-players-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.inline-player-input {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    padding: 0.2rem 0.5rem;
+    width: 135px;
+}
+
+.inline-player-input:focus, .inline-name-input:focus {
+    border-color: var(--accent-blue-light);
+    outline: none;
+}
+
+.inline-editor-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.save-inline-btn, .cancel-inline-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem 0.55rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.save-inline-btn {
+    background: var(--accent-blue);
+    color: #ffffff;
+}
+
+.save-inline-btn:hover {
+    background: var(--accent-blue-light);
+}
+
+.cancel-inline-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+}
+
+.cancel-inline-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--text-primary);
+}
+
+.header-inline-error {
+    font-size: 0.75rem;
+    color: #ef4444;
+    margin-bottom: 0.2rem;
 }
 
 .edit-metadata-btn {
@@ -664,12 +755,38 @@ kbd {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: var(--radius-md);
-    padding: 1.5rem;
+    padding: 1.25rem 1.5rem;
     display: flex;
     flex-direction: column;
-    min-height: 520px;
-    max-height: 780px;
-    height: auto;
+    height: 520px;
+    max-height: 520px;
+}
+
+.reverse-order-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--card-border);
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.reverse-order-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--accent-blue-light);
+}
+
+.reverse-order-btn.active {
+    color: #ffffff;
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--accent-blue-light);
 }
 
 .section-title-row.clickable {
@@ -822,6 +939,28 @@ kbd {
     padding: 0.5rem 0.6rem;
     border-radius: var(--radius-sm);
     border: 1px solid var(--card-border);
+}
+
+.timestamp-edit-controls.stacked {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.75rem;
+}
+
+.edit-time-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.edit-right-column {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.4rem;
 }
 
 .edit-controls-row {

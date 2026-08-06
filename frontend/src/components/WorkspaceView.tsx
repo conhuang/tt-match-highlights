@@ -6,7 +6,6 @@ import { StatusPanel } from './StatusPanel';
 import { ShortcutSheet } from './ShortcutSheet';
 import { SidebarLogs } from './SidebarLogs';
 import { RenderHistory } from './RenderHistory';
-import { EditMatchModal } from './EditMatchModal';
 import { MatchStatsView } from './MatchStatsView';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { saveMatchEvents, updateMatch, createRenderJob, fetchMatchRenders, deleteRenderJob, cancelRenderJob } from '../services/api';
@@ -28,9 +27,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [pendingStartTime, setPendingStartTime] = useState<number | null>(null);
-    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
-
-    const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [isRenderingJob, setIsRenderingJob] = useState<boolean>(false);
 
     // Initial raw video URL
@@ -61,7 +57,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     }, [currentMatch.id, currentMatch.renders, onMatchUpdated]);
 
     const autoSave = useCallback(async (updatedEvents: MatchEvent[]) => {
-        setSaveStatus('saving');
         try {
             const result = await saveMatchEvents(currentMatch.id, updatedEvents);
             const mergedMatch: Match = {
@@ -70,11 +65,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 rendered_video_url: result.rendered_video_url || currentMatch.rendered_video_url
             };
             onMatchUpdated(mergedMatch);
-            setSaveStatus('saved');
-            setTimeout(() => setSaveStatus('idle'), 1500);
         } catch (err) {
             console.error('Save failed:', err);
-            setSaveStatus('failed');
         }
     }, [currentMatch.id, currentMatch.video_url, currentMatch.rendered_video_url, onMatchUpdated]);
 
@@ -229,8 +221,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             <WorkspaceHeader
                 currentMatch={currentMatch}
                 onBack={handleBackClick}
+                onSaveMetadata={handleSaveMetadata}
                 onLogout={onLogout}
-                onOpenEditModal={() => setIsEditModalOpen(true)}
             />
 
             <div className="workspace-grid">
@@ -270,8 +262,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                         onUpdateTimeout={handleUpdateTimeout}
                         onUpdateEventTimestamp={handleUpdateEventTimestamp}
                         onDeleteEvent={handleDeleteEvent}
-                        onSaveEvents={() => autoSave(currentMatch.events)}
-                        saveStatus={saveStatus}
                         getCurrentVideoTime={() => videoRef.current?.currentTime || 0}
                     />
                     <RenderOptionsForm
@@ -283,12 +273,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     />
                 </div>
             </div>
-            <EditMatchModal
-                isOpen={isEditModalOpen}
-                currentMatch={currentMatch}
-                onClose={() => setIsEditModalOpen(false)}
-                onSave={handleSaveMetadata}
-            />
         </div>
     );
 };
