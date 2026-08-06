@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Match } from '../types';
-import { Trash2, Star, Save, Film, Download, Edit2, Check, Clock, X } from 'lucide-react';
+import { Trash2, Star, Save, Download, Edit2, Check, Clock, X } from 'lucide-react';
 import { Button } from './ui';
 import { computeScoresAndGames } from '../utils/scoring';
 import { exportEventsToCSV } from '../utils/csvExporter';
@@ -16,7 +16,6 @@ interface SidebarLogsProps {
     onDeleteEvent: (index: number) => void;
     onSaveEvents: () => void;
     saveStatus: 'idle' | 'saving' | 'saved' | 'failed';
-    onOpenRenderModal: () => void;
     getCurrentVideoTime?: () => number;
 }
 
@@ -62,7 +61,6 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     onDeleteEvent,
     onSaveEvents,
     saveStatus,
-    onOpenRenderModal,
     getCurrentVideoTime
 }) => {
     const events = computeScoresAndGames(currentMatch.events, currentMatch.player1, currentMatch.player2);
@@ -108,7 +106,7 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     };
 
     return (
-        <div className="workspace-right">
+        <div className="sidebar-logs-card">
             <div className="sidebar-header">
                 <h2>Point Logs ({events.length})</h2>
                 <div className="game-selector">
@@ -310,15 +308,6 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                     style={{ flex: 1 }}
                 >
                     Export CSV
-                </Button>
-                <Button
-                    variant="render"
-                    icon={<Film size={16} />}
-                    onClick={onOpenRenderModal}
-                    title="Render scored match or highlights reel"
-                    style={{ flex: 1 }}
-                >
-                    Render Highlights
                 </Button>
             </div>
         </div>

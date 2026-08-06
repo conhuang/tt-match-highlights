@@ -5,12 +5,13 @@ import { VideoSection } from './VideoSection';
 import { StatusPanel } from './StatusPanel';
 import { ShortcutSheet } from './ShortcutSheet';
 import { SidebarLogs } from './SidebarLogs';
-import { RenderModal } from './RenderModal';
 import { RenderHistory } from './RenderHistory';
 import { EditMatchModal } from './EditMatchModal';
 import { MatchStatsView } from './MatchStatsView';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { saveMatchEvents, updateMatch, createRenderJob, fetchMatchRenders, deleteRenderJob, cancelRenderJob } from '../services/api';
+import { RenderOptionsForm } from './RenderOptionsForm';
+import { FirstServerCard } from './FirstServerCard';
 
 interface WorkspaceViewProps {
     currentMatch: Match;
@@ -30,7 +31,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     const [activeGame, setActiveGame] = useState<number>(1);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
 
-    const [isRenderModalOpen, setIsRenderModalOpen] = useState<boolean>(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [isRenderingJob, setIsRenderingJob] = useState<boolean>(false);
 
@@ -161,7 +161,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 ...currentMatch,
                 renders: updatedRenders
             });
-            setIsRenderModalOpen(false);
         } catch (err: any) {
             alert(err.message || 'Failed to start render job.');
         } finally {
@@ -226,8 +225,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         onMatchUpdated(updated);
     };
 
-    const hasHighlights = currentMatch.events.some(e => e.isHighlight);
-
     return (
         <div className="workspace-view">
             <WorkspaceHeader
@@ -252,7 +249,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     />
                     <MatchStatsView
                         match={currentMatch}
-                        firstServer={currentMatch.first_server || 'player1'}
+                        onJumpToTime={handleSeek}
+                    />
+                </div>
+                <div className="workspace-right">
+                    <FirstServerCard
+                        currentMatch={currentMatch}
                         onFirstServerChange={async (fs: 'player1' | 'player2') => {
                             try {
                                 const updated = await updateMatch(currentMatch.id, { first_server: fs });
@@ -261,34 +263,29 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                                 console.error('Failed to update first server:', err);
                             }
                         }}
-                        onJumpToTime={handleSeek}
+                    />
+                    <SidebarLogs
+                        currentMatch={currentMatch}
+                        activeGame={activeGame}
+                        onChangeActiveGame={setActiveGame}
+                        onSeek={handleSeek}
+                        onToggleHighlight={handleToggleHighlight}
+                        onUpdateTimeout={handleUpdateTimeout}
+                        onUpdateEventTimestamp={handleUpdateEventTimestamp}
+                        onDeleteEvent={handleDeleteEvent}
+                        onSaveEvents={() => autoSave(currentMatch.events)}
+                        saveStatus={saveStatus}
+                        getCurrentVideoTime={() => videoRef.current?.currentTime || 0}
+                    />
+                    <RenderOptionsForm
+                        onSubmit={handleCreateRender}
+                        hasHighlights={currentMatch.events.some(e => e.isHighlight)}
+                        isRendering={isRenderingJob}
+                        player1={currentMatch.player1}
+                        player2={currentMatch.player2}
                     />
                 </div>
-
-                <SidebarLogs
-                    currentMatch={currentMatch}
-                    activeGame={activeGame}
-                    onChangeActiveGame={setActiveGame}
-                    onSeek={handleSeek}
-                    onToggleHighlight={handleToggleHighlight}
-                    onUpdateTimeout={handleUpdateTimeout}
-                    onUpdateEventTimestamp={handleUpdateEventTimestamp}
-                    onDeleteEvent={handleDeleteEvent}
-                    onSaveEvents={() => autoSave(currentMatch.events)}
-                    saveStatus={saveStatus}
-                    onOpenRenderModal={() => setIsRenderModalOpen(true)}
-                    getCurrentVideoTime={() => videoRef.current?.currentTime || 0}
-                />
             </div>
-
-            <RenderModal
-                isOpen={isRenderModalOpen}
-                onClose={() => setIsRenderModalOpen(false)}
-                onSubmit={handleCreateRender}
-                hasHighlights={hasHighlights}
-                isRendering={isRenderingJob}
-            />
-
             <EditMatchModal
                 isOpen={isEditModalOpen}
                 currentMatch={currentMatch}

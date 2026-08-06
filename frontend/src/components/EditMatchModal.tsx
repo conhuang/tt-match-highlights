@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Match } from '../types';
-import { X, Save, Edit3, User, Trophy, Disc } from 'lucide-react';
+import { X, Save, Edit3, User, Trophy } from 'lucide-react';
 
 interface EditMatchModalProps {
     isOpen: boolean;
@@ -123,28 +123,6 @@ export const EditMatchModal: React.FC<EditMatchModalProps> = ({
                                 placeholder="Player 2"
                                 required
                             />
-                        </div>
-                    </div>
-
-                    <div className="form-group">
-                        <label>
-                            <Disc size={14} /> Game 1 First Server
-                        </label>
-                        <div className="first-server-toggle-group">
-                            <button
-                                type="button"
-                                className={`server-toggle-btn ${firstServer === 'player1' ? 'active' : ''}`}
-                                onClick={() => setFirstServer('player1')}
-                            >
-                                🏓 {player1 || 'Player 1'} Serves First
-                            </button>
-                            <button
-                                type="button"
-                                className={`server-toggle-btn ${firstServer === 'player2' ? 'active' : ''}`}
-                                onClick={() => setFirstServer('player2')}
-                            >
-                                🏓 {player2 || 'Player 2'} Serves First
-                            </button>
                         </div>
                     </div>
 
