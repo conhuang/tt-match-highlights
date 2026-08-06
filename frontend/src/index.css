@@ -703,6 +703,12 @@ body {
     object-fit: contain;
 }
 
+.status-panel-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
 .status-panel {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
@@ -710,6 +716,40 @@ body {
     padding: 1rem 1.25rem;
     display: flex;
     align-items: center;
+    justify-content: space-between;
+}
+
+.collapsible-keystrokes-card {
+    width: 100%;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    padding: 1.25rem 1.5rem;
+    animation: modalSlide 0.2s ease-out;
+}
+
+.collapsible-keystrokes-card .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.collapsible-keystrokes-card .card-header h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.modal-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
 }
 
 .status-item {
@@ -1699,6 +1739,123 @@ kbd {
 @keyframes modalSlide {
     from { opacity: 0; transform: translateY(12px) scale(0.98); }
     to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Keyboard Shortcuts Modal Styling */
+.shortcuts-modal {
+    width: 100%;
+    max-width: 500px;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    padding: 1.75rem;
+    animation: modalSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.shortcuts-modal-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
+
+.shortcut-category-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.shortcut-category-block.full-width {
+    grid-column: 1 / -1;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.shortcut-category-block.full-width .shortcut-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem 1.25rem;
+}
+
+.shortcut-category-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent-blue-light);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.15rem;
+}
+
+.shortcut-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.shortcut-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.28rem 0.6rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-sm);
+}
+
+.shortcut-label {
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.shortcut-keys {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.key-separator {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.key-plus {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin: 0 1px;
+}
+
+kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4rem;
+    height: 1.4rem;
+    padding: 0 0.35rem;
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #ffffff;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.35);
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    user-select: none;
+}
+
+.shortcuts-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 1rem;
+    border-top: 1px solid var(--card-border);
 }
 
 .modal-header {

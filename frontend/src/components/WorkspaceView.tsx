@@ -3,7 +3,6 @@ import { Match, MatchEvent, RenderOptions } from '../types';
 import { WorkspaceHeader } from './WorkspaceHeader';
 import { VideoSection } from './VideoSection';
 import { StatusPanel } from './StatusPanel';
-import { ShortcutSheet } from './ShortcutSheet';
 import { SidebarLogs } from './SidebarLogs';
 import { RenderHistory } from './RenderHistory';
 import { MatchStatsView } from './MatchStatsView';
@@ -82,6 +81,24 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         autoSave(newEvents);
     }, [currentMatch.events, autoSave]);
 
+    const handleToggleHighlightLastEvent = useCallback(() => {
+        if (currentMatch.events.length === 0) return;
+        const sorted = [...currentMatch.events].sort((a, b) => a.start - b.start || a.end - b.end);
+        const lastIndex = sorted.length - 1;
+        sorted[lastIndex] = { ...sorted[lastIndex], isHighlight: !sorted[lastIndex].isHighlight };
+        autoSave(sorted);
+    }, [currentMatch.events, autoSave]);
+
+    const handleSetTimeoutLastEvent = useCallback((player: 'player1' | 'player2') => {
+        if (currentMatch.events.length === 0) return;
+        const sorted = [...currentMatch.events].sort((a, b) => a.start - b.start || a.end - b.end);
+        const lastIndex = sorted.length - 1;
+        const targetPlayer = player === 'player1' ? currentMatch.player1 : currentMatch.player2;
+        const newTimeout = sorted[lastIndex].timeout_player === targetPlayer ? null : targetPlayer;
+        sorted[lastIndex] = { ...sorted[lastIndex], timeout_player: newTimeout };
+        autoSave(sorted);
+    }, [currentMatch.events, currentMatch.player1, currentMatch.player2, autoSave]);
+
     // Attach shortcuts hook
     useKeyboardShortcuts({
         isActive: true,
@@ -91,7 +108,9 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         setPendingStartTime,
         activeGame: 1,
         onAddEvent: handleAddEvent,
-        onUndoEvent: handleUndoEvent
+        onUndoEvent: handleUndoEvent,
+        onToggleHighlightLastEvent: handleToggleHighlightLastEvent,
+        onSetTimeoutLastEvent: handleSetTimeoutLastEvent
     });
 
     const handleSeek = (time: number) => {
@@ -229,7 +248,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 <div className="workspace-left">
                     <VideoSection ref={videoRef} src={activeVideoSrc} />
                     <StatusPanel pendingStartTime={pendingStartTime} />
-                    <ShortcutSheet />
                     <RenderHistory
                         renders={currentMatch.renders || []}
                         onPreviewRender={handlePreviewRender}
