@@ -1078,6 +1078,24 @@ kbd {
     gap: 0.85rem;
 }
 
+.delete-event-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.2rem 0.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: var(--text-muted);
+    transition: var(--transition);
+}
+
+.delete-event-btn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
+}
+
 .highlight-toggle-btn {
     background: transparent;
     border: none;
