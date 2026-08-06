@@ -18,6 +18,7 @@ temp_overlays/
 temp_overlays*/
 concat_list.txt
 concat_list*.txt
+preview_scoreboard/
 
 # Installer and package files
 *.pkg

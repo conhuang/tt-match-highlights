@@ -27,6 +27,7 @@ export const RenderOptionsForm: React.FC<RenderOptionsFormProps> = ({
     player2
 }) => {
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
+    const [isFineTuneExpanded, setIsFineTuneExpanded] = useState<boolean>(false);
     const [renderType, setRenderType] = useState<'full_match' | 'highlights'>('full_match');
     const [label, setLabel] = useState<string>('Full Scored Match');
     const [includeScoreboard, setIncludeScoreboard] = useState<boolean>(true);
@@ -129,6 +130,11 @@ export const RenderOptionsForm: React.FC<RenderOptionsFormProps> = ({
         { label: 'Top Left', val: 'top-left' },
         { label: 'Top Right', val: 'top-right' }
     ];
+
+    const p1Name = player1 || 'Jonathan Li';
+    const p2Name = player2 || 'Simeon Martin';
+    const maxNameLen = Math.max(p1Name.length, p2Name.length);
+    const nameMinWidth = `${Math.max(65, Math.min(maxNameLen * 7.5, 140))}px`;
 
     const activeTheme = THEME_PREVIEWS[scoreboardTheme];
     const resolvedSetBg = scoreboardSetsBg !== 'transparent'
@@ -274,177 +280,182 @@ export const RenderOptionsForm: React.FC<RenderOptionsFormProps> = ({
                                             </div>
                                         </div>
 
-                                        <div className="customizer-header">
-                                            <Palette size={15} />
-                                            <span>Fine-Tune Appearance</span>
+                                        <div className="customizer-header" onClick={() => setIsFineTuneExpanded(!isFineTuneExpanded)}>
+                                            <div className="customizer-header-title">
+                                                <Palette size={15} />
+                                                <span>Fine-Tune Appearance</span>
+                                            </div>
+                                            {isFineTuneExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                         </div>
 
-                                        <div className="customizer-grid">
-                                            {/* Position Selector */}
-                                            <div className="customizer-block">
-                                                <div className="block-title">
-                                                    <Move size={13} />
-                                                    <span>Position</span>
-                                                </div>
-                                                <div className="theme-chips-list">
-                                                    {POSITION_PREVIEWS.map((posOpt) => (
-                                                        <button
-                                                            key={posOpt.val}
-                                                            type="button"
-                                                            className={`theme-chip ${scoreboardPosition === posOpt.val ? 'active' : ''}`}
-                                                            onClick={() => setScoreboardPosition(posOpt.val)}
-                                                        >
-                                                            <span>{posOpt.label}</span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            {/* Theme Selector */}
-                                            <div className="customizer-block">
-                                                <div className="block-title">
-                                                    <Palette size={13} />
-                                                    <span>Card Theme</span>
-                                                </div>
-                                                <div className="theme-chips-list">
-                                                    {(Object.keys(THEME_PREVIEWS) as ScoreboardTheme[]).map((tKey) => {
-                                                        const themeInfo = THEME_PREVIEWS[tKey];
-                                                        return (
-                                                            <button
-                                                                key={tKey}
-                                                                type="button"
-                                                                className={`theme-chip ${scoreboardTheme === tKey ? 'active' : ''}`}
-                                                                onClick={() => setScoreboardTheme(tKey)}
-                                                            >
-                                                                <span className="color-dot" style={{ backgroundColor: themeInfo.accentColor, borderColor: themeInfo.outline }} />
-                                                                <span>{themeInfo.name}</span>
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-
-                                            {/* Set Score Color Selector */}
-                                            <div className="customizer-block">
-                                                <div className="block-title">
-                                                    <Trophy size={13} />
-                                                    <span>Set Score Color</span>
-                                                </div>
-                                                <div className="theme-chips-list">
-                                                    {(Object.keys(SETS_COLOR_PREVIEWS) as ScoreboardSetsColor[]).map((cKey) => {
-                                                        const colorInfo = SETS_COLOR_PREVIEWS[cKey];
-                                                        return (
-                                                            <button
-                                                                key={cKey}
-                                                                type="button"
-                                                                className={`theme-chip ${scoreboardSetsColor === cKey ? 'active' : ''}`}
-                                                                onClick={() => setScoreboardSetsColor(cKey)}
-                                                            >
-                                                                <span className="color-dot" style={{ backgroundColor: colorInfo.hex }} />
-                                                                <span>{colorInfo.name}</span>
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-
-                                            {/* Set Column Fill Selector */}
-                                            {scoreboardArtwork === 'classic' && (
+                                        {isFineTuneExpanded && (
+                                            <div className="customizer-grid">
+                                                {/* Position Selector */}
                                                 <div className="customizer-block">
                                                     <div className="block-title">
-                                                        <Layout size={13} />
-                                                        <span>Set Column Fill</span>
+                                                        <Move size={13} />
+                                                        <span>Position</span>
                                                     </div>
                                                     <div className="theme-chips-list">
-                                                        {(Object.keys(SETS_BG_PREVIEWS) as ScoreboardSetsBg[]).map((bgKey) => {
-                                                            const bgInfo = SETS_BG_PREVIEWS[bgKey];
+                                                        {POSITION_PREVIEWS.map((posOpt) => (
+                                                            <button
+                                                                key={posOpt.val}
+                                                                type="button"
+                                                                className={`theme-chip ${scoreboardPosition === posOpt.val ? 'active' : ''}`}
+                                                                onClick={() => setScoreboardPosition(posOpt.val)}
+                                                            >
+                                                                <span>{posOpt.label}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Theme Selector */}
+                                                <div className="customizer-block">
+                                                    <div className="block-title">
+                                                        <Palette size={13} />
+                                                        <span>Card Theme</span>
+                                                    </div>
+                                                    <div className="theme-chips-list">
+                                                        {(Object.keys(THEME_PREVIEWS) as ScoreboardTheme[]).map((tKey) => {
+                                                            const themeInfo = THEME_PREVIEWS[tKey];
                                                             return (
                                                                 <button
-                                                                    key={bgKey}
+                                                                    key={tKey}
                                                                     type="button"
-                                                                    className={`theme-chip ${scoreboardSetsBg === bgKey ? 'active' : ''}`}
-                                                                    onClick={() => setScoreboardSetsBg(bgKey)}
+                                                                    className={`theme-chip ${scoreboardTheme === tKey ? 'active' : ''}`}
+                                                                    onClick={() => setScoreboardTheme(tKey)}
                                                                 >
-                                                                    <span className="color-dot" style={{ backgroundColor: bgInfo.bg === 'transparent' ? activeTheme.setBg : bgInfo.bg }} />
-                                                                    <span>{bgInfo.name}</span>
+                                                                    <span className="color-dot" style={{ backgroundColor: themeInfo.accentColor, borderColor: themeInfo.outline }} />
+                                                                    <span>{themeInfo.name}</span>
                                                                 </button>
                                                             );
                                                         })}
                                                     </div>
                                                 </div>
-                                            )}
 
-                                            {/* Corners / Edge Style */}
-                                            <div className="customizer-block">
-                                                <div className="block-title">
-                                                    <CornerUpRight size={13} />
-                                                    <span>Card Corners</span>
+                                                {/* Set Score Color Selector */}
+                                                <div className="customizer-block">
+                                                    <div className="block-title">
+                                                        <Trophy size={13} />
+                                                        <span>Set Score Color</span>
+                                                    </div>
+                                                    <div className="theme-chips-list">
+                                                        {(Object.keys(SETS_COLOR_PREVIEWS) as ScoreboardSetsColor[]).map((cKey) => {
+                                                            const colorInfo = SETS_COLOR_PREVIEWS[cKey];
+                                                            return (
+                                                                <button
+                                                                    key={cKey}
+                                                                    type="button"
+                                                                    className={`theme-chip ${scoreboardSetsColor === cKey ? 'active' : ''}`}
+                                                                    onClick={() => setScoreboardSetsColor(cKey)}
+                                                                >
+                                                                    <span className="color-dot" style={{ backgroundColor: colorInfo.hex }} />
+                                                                    <span>{colorInfo.name}</span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
-                                                <div className="scale-pills">
-                                                    {[
-                                                        { label: 'Rounded (10px)', val: 'rounded' as ScoreboardBorderStyle },
-                                                        { label: 'Sharp (0px)', val: 'sharp' as ScoreboardBorderStyle }
-                                                    ].map((styleOpt) => (
-                                                        <button
-                                                            key={styleOpt.val}
-                                                            type="button"
-                                                            className={`scale-pill ${scoreboardBorderStyle === styleOpt.val ? 'active' : ''}`}
-                                                            onClick={() => setScoreboardBorderStyle(styleOpt.val)}
-                                                        >
-                                                            {styleOpt.label}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
 
-                                            {/* Font Family Selector */}
-                                            <div className="customizer-block">
-                                                <div className="block-title">
-                                                    <Type size={13} />
-                                                    <span>Typography Font</span>
-                                                </div>
-                                                <div className="theme-chips-list">
-                                                    {(Object.keys(FONT_PREVIEWS) as ScoreboardFontStyle[]).map((fKey) => {
-                                                        const fontInfo = FONT_PREVIEWS[fKey];
-                                                        return (
+                                                {/* Set Column Fill Selector */}
+                                                {scoreboardArtwork === 'classic' && (
+                                                    <div className="customizer-block">
+                                                        <div className="block-title">
+                                                            <Layout size={13} />
+                                                            <span>Set Column Fill</span>
+                                                        </div>
+                                                        <div className="theme-chips-list">
+                                                            {(Object.keys(SETS_BG_PREVIEWS) as ScoreboardSetsBg[]).map((bgKey) => {
+                                                                const bgInfo = SETS_BG_PREVIEWS[bgKey];
+                                                                return (
+                                                                    <button
+                                                                        key={bgKey}
+                                                                        type="button"
+                                                                        className={`theme-chip ${scoreboardSetsBg === bgKey ? 'active' : ''}`}
+                                                                        onClick={() => setScoreboardSetsBg(bgKey)}
+                                                                    >
+                                                                        <span className="color-dot" style={{ backgroundColor: bgInfo.bg === 'transparent' ? activeTheme.setBg : bgInfo.bg }} />
+                                                                        <span>{bgInfo.name}</span>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Corners / Edge Style */}
+                                                <div className="customizer-block">
+                                                    <div className="block-title">
+                                                        <CornerUpRight size={13} />
+                                                        <span>Card Corners</span>
+                                                    </div>
+                                                    <div className="scale-pills">
+                                                        {[
+                                                            { label: 'Rounded (10px)', val: 'rounded' as ScoreboardBorderStyle },
+                                                            { label: 'Sharp (0px)', val: 'sharp' as ScoreboardBorderStyle }
+                                                        ].map((styleOpt) => (
                                                             <button
-                                                                key={fKey}
+                                                                key={styleOpt.val}
                                                                 type="button"
-                                                                className={`theme-chip ${scoreboardFontStyle === fKey ? 'active' : ''}`}
-                                                                onClick={() => setScoreboardFontStyle(fKey)}
-                                                                style={{ fontFamily: fontInfo.fontFamily }}
+                                                                className={`scale-pill ${scoreboardBorderStyle === styleOpt.val ? 'active' : ''}`}
+                                                                onClick={() => setScoreboardBorderStyle(styleOpt.val)}
                                                             >
-                                                                <span>{fontInfo.name}</span>
+                                                                {styleOpt.label}
                                                             </button>
-                                                        );
-                                                    })}
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            {/* Scale Selector */}
-                                            <div className="customizer-block">
-                                                <div className="block-title">
-                                                    <Maximize2 size={13} />
-                                                    <span>Size / Scale</span>
+                                                {/* Font Family Selector */}
+                                                <div className="customizer-block">
+                                                    <div className="block-title">
+                                                        <Type size={13} />
+                                                        <span>Typography Font</span>
+                                                    </div>
+                                                    <div className="theme-chips-list">
+                                                        {(Object.keys(FONT_PREVIEWS) as ScoreboardFontStyle[]).map((fKey) => {
+                                                            const fontInfo = FONT_PREVIEWS[fKey];
+                                                            return (
+                                                                <button
+                                                                    key={fKey}
+                                                                    type="button"
+                                                                    className={`theme-chip ${scoreboardFontStyle === fKey ? 'active' : ''}`}
+                                                                    onClick={() => setScoreboardFontStyle(fKey)}
+                                                                    style={{ fontFamily: fontInfo.fontFamily }}
+                                                                >
+                                                                    <span>{fontInfo.name}</span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
-                                                <div className="scale-pills">
-                                                    {[
-                                                        { label: 'Compact (80%)', val: 0.8 },
-                                                        { label: 'Standard (100%)', val: 1.0 },
-                                                        { label: 'Large (120%)', val: 1.2 }
-                                                    ].map((scaleOpt) => (
-                                                        <button
-                                                            key={scaleOpt.val}
-                                                            type="button"
-                                                            className={`scale-pill ${scoreboardScale === scaleOpt.val ? 'active' : ''}`}
-                                                            onClick={() => setScoreboardScale(scaleOpt.val)}
-                                                        >
-                                                            {scaleOpt.label}
-                                                        </button>
-                                                    ))}
+
+                                                {/* Scale Selector */}
+                                                <div className="customizer-block">
+                                                    <div className="block-title">
+                                                        <Maximize2 size={13} />
+                                                        <span>Size / Scale</span>
+                                                    </div>
+                                                    <div className="scale-pills">
+                                                        {[
+                                                            { label: 'Compact (80%)', val: 0.8 },
+                                                            { label: 'Standard (100%)', val: 1.0 },
+                                                            { label: 'Large (120%)', val: 1.2 }
+                                                        ].map((scaleOpt) => (
+                                                            <button
+                                                                key={scaleOpt.val}
+                                                                type="button"
+                                                                className={`scale-pill ${scoreboardScale === scaleOpt.val ? 'active' : ''}`}
+                                                                onClick={() => setScoreboardScale(scaleOpt.val)}
+                                                            >
+                                                                {scaleOpt.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        )}
 
                                         {/* High-Fidelity Live Mini Preview Canvas */}
                                         <div className="scoreboard-preview-canvas">
@@ -460,7 +471,7 @@ export const RenderOptionsForm: React.FC<RenderOptionsFormProps> = ({
                                                     <div className="wtt-content-body">
                                                         <div className="wtt-row">
                                                             <div className="wtt-name-cell" style={{ backgroundColor: activeTheme.nameBg }}>
-                                                                <span className="wtt-name">{player1 || 'Jonathan Li'}</span>
+                                                                <span className="wtt-name" style={{ minWidth: nameMinWidth }}>{p1Name}</span>
                                                                 <span className="wtt-timeout">T</span>
                                                             </div>
                                                             <span className="wtt-sets" style={{ color: SETS_COLOR_PREVIEWS[scoreboardSetsColor].hex, backgroundColor: resolvedSetBg }}>2</span>
@@ -468,7 +479,7 @@ export const RenderOptionsForm: React.FC<RenderOptionsFormProps> = ({
                                                         </div>
                                                         <div className="wtt-row">
                                                             <div className="wtt-name-cell" style={{ backgroundColor: activeTheme.nameBg }}>
-                                                                <span className="wtt-name">{player2 || 'Simeon Martin'}</span>
+                                                                <span className="wtt-name" style={{ minWidth: nameMinWidth }}>{p2Name}</span>
                                                                 <span className="wtt-timeout invisible">T</span>
                                                             </div>
                                                             <span className="wtt-sets" style={{ color: SETS_COLOR_PREVIEWS[scoreboardSetsColor].hex, backgroundColor: resolvedSetBg }}>0</span>
@@ -486,15 +497,13 @@ export const RenderOptionsForm: React.FC<RenderOptionsFormProps> = ({
                                                     transform: `scale(${0.85 * scoreboardScale})`
                                                 }}>
                                                     <div className="classic-row">
-                                                        <span className="classic-dot">🟡</span>
-                                                        <span className="classic-name">{player1 || 'Jonathan Li'}</span>
+                                                        <span className="classic-name" style={{ minWidth: nameMinWidth }}>{p1Name}</span>
                                                         <span className="classic-timeout">T</span>
                                                         <span className="classic-sets" style={{ color: SETS_COLOR_PREVIEWS[scoreboardSetsColor].hex }}>2</span>
-                                                        <span className="classic-pts">11</span>
+                                                        <span className="classic-pts">8</span>
                                                     </div>
                                                     <div className="classic-row">
-                                                        <span className="classic-dot invisible">🟡</span>
-                                                        <span className="classic-name">{player2 || 'Simeon Martin'}</span>
+                                                        <span className="classic-name" style={{ minWidth: nameMinWidth }}>{p2Name}</span>
                                                         <span className="classic-timeout invisible">T</span>
                                                         <span className="classic-sets" style={{ color: SETS_COLOR_PREVIEWS[scoreboardSetsColor].hex }}>0</span>
                                                         <span className="classic-pts">9</span>

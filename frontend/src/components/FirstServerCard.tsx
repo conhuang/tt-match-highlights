@@ -26,14 +26,14 @@ export const FirstServerCard: React.FC<FirstServerCardProps> = ({
                 <div className="server-toggle-pill-compact">
                     <button
                         type="button"
-                        className={`server-compact-btn ${activeServer === 'player1' ? 'active' : ''}`}
+                        className={`chip-toggle server-compact-btn ${activeServer === 'player1' ? 'active' : ''}`}
                         onClick={() => onFirstServerChange('player1')}
                     >
                         🏓 {p1}
                     </button>
                     <button
                         type="button"
-                        className={`server-compact-btn ${activeServer === 'player2' ? 'active' : ''}`}
+                        className={`chip-toggle server-compact-btn ${activeServer === 'player2' ? 'active' : ''}`}
                         onClick={() => onFirstServerChange('player2')}
                     >
                         🏓 {p2}
