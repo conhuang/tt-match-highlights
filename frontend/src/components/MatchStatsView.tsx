@@ -1,18 +1,14 @@
 import React from 'react';
 import { Match, MatchStats } from '../types';
-import { BarChart2, Target, Clock, Flame, Zap, Play, UserCheck, Activity } from 'lucide-react';
+import { BarChart2, Target, Clock, Flame, Zap, Play, Activity } from 'lucide-react';
 
 interface MatchStatsViewProps {
     match: Match;
-    firstServer: 'player1' | 'player2';
-    onFirstServerChange: (firstServer: 'player1' | 'player2') => void;
     onJumpToTime?: (timeSec: number) => void;
 }
 
 export const MatchStatsView: React.FC<MatchStatsViewProps> = ({
     match,
-    firstServer,
-    onFirstServerChange,
     onJumpToTime
 }) => {
     const stats: MatchStats | undefined = match.stats;
@@ -56,28 +52,6 @@ export const MatchStatsView: React.FC<MatchStatsViewProps> = ({
                     <BarChart2 className="accent-icon" size={18} />
                     <h3>Match Analytics & Insights</h3>
                     <span className="stats-live-pill">Live Calculated</span>
-                </div>
-
-                <div className="first-server-control">
-                    <span className="control-label">
-                        <UserCheck size={14} /> Game 1 First Server:
-                    </span>
-                    <div className="server-toggle-pill">
-                        <button
-                            type="button"
-                            className={`server-pill-btn ${firstServer === 'player1' ? 'active' : ''}`}
-                            onClick={() => onFirstServerChange('player1')}
-                        >
-                            {p1}
-                        </button>
-                        <button
-                            type="button"
-                            className={`server-pill-btn ${firstServer === 'player2' ? 'active' : ''}`}
-                            onClick={() => onFirstServerChange('player2')}
-                        >
-                            {p2}
-                        </button>
-                    </div>
                 </div>
             </div>
 

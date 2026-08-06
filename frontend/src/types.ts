@@ -10,6 +10,7 @@ export interface MatchEvent {
 export interface RenderOptions {
     highlights_only: boolean;
     include_scoreboard: boolean;
+    scoreboard_artwork?: 'classic' | 'simple';
     scoreboard_position?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
     scoreboard_theme?: 'dark-blue' | 'classic-black' | 'vibrant-red' | 'emerald-green' | 'cyber-purple';
     scoreboard_scale?: number;

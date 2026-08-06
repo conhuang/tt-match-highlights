@@ -312,6 +312,8 @@ def execute_render_job(
                     overlay_path,
                     p1_timeout=p1_timeout_taken,
                     p2_timeout=p2_timeout_taken,
+                    first_server=getattr(match, "first_server", "player1"),
+                    artwork_style=getattr(options, "scoreboard_artwork", "classic"),
                     position=getattr(options, "scoreboard_position", "bottom-left"),
                     theme=getattr(options, "scoreboard_theme", "dark-blue"),
                     scale_factor=getattr(options, "scoreboard_scale", 1.0),

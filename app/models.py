@@ -19,6 +19,7 @@ class Event(BaseModel):
 class RenderOptions(BaseModel):
     highlights_only: bool = Field(False, description="Whether to include only tagged highlight rallies")
     include_scoreboard: bool = Field(True, description="Whether to overlay the dynamic live scoreboards")
+    scoreboard_artwork: str = Field("classic", description="Scoreboard artwork design ('classic' or 'simple')")
     scoreboard_position: str = Field("bottom-left", description="Scoreboard quadrant position ('bottom-left', 'bottom-right', 'top-left', 'top-right')")
     scoreboard_theme: str = Field("dark-blue", description="Visual theme ('dark-blue', 'classic-black', 'vibrant-red', 'emerald-green', 'cyber-purple')")
     scoreboard_scale: float = Field(1.0, description="Scale multiplier (0.8 to 1.2)")

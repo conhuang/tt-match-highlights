@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { Match, RenderOptions } from '../types';
+import { Match } from '../types';
 import { Trash2, Star, Save, Download, Edit2, Check, Clock, X } from 'lucide-react';
 import { Button } from './ui';
 import { computeScoresAndGames } from '../utils/scoring';
 import { exportEventsToCSV } from '../utils/csvExporter';
-import { RenderOptionsForm } from './RenderOptionsForm';
 
 interface SidebarLogsProps {
     currentMatch: Match;
@@ -17,8 +16,6 @@ interface SidebarLogsProps {
     onDeleteEvent: (index: number) => void;
     onSaveEvents: () => void;
     saveStatus: 'idle' | 'saving' | 'saved' | 'failed';
-    onStartRender: (type: 'full_match' | 'highlights', label: string, options: RenderOptions) => void;
-    isRendering: boolean;
     getCurrentVideoTime?: () => number;
 }
 
@@ -64,8 +61,6 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     onDeleteEvent,
     onSaveEvents,
     saveStatus,
-    onStartRender,
-    isRendering,
     getCurrentVideoTime
 }) => {
     const events = computeScoresAndGames(currentMatch.events, currentMatch.player1, currentMatch.player2);
@@ -111,7 +106,7 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     };
 
     return (
-        <div className="workspace-right">
+        <div className="sidebar-logs-card">
             <div className="sidebar-header">
                 <h2>Point Logs ({events.length})</h2>
                 <div className="game-selector">
@@ -292,15 +287,6 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                     })
                 )}
             </div>
-
-            {/* Inline Render Options & Scoreboard Customization Form */}
-            <RenderOptionsForm
-                onSubmit={onStartRender}
-                hasHighlights={events.some(e => e.isHighlight)}
-                isRendering={isRendering}
-                player1={currentMatch.player1}
-                player2={currentMatch.player2}
-            />
 
             <div className="workspace-actions">
                 <Button
