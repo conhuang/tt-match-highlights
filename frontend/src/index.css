@@ -746,6 +746,12 @@ body {
     color: var(--text-primary);
 }
 
+.modal-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
 .status-item {
     display: flex;
     align-items: center;

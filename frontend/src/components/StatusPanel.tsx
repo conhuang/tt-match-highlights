@@ -47,8 +47,8 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({ pendingStartTime }) =>
             items: [
                 { keys: ['H'], description: 'Toggle Highlight on Last Point' },
                 { keys: ['Shift', '+', '1'], description: 'P1 Timeout After Last Point' },
-                { keys: ['Shift', '+', '2'], description: 'P2 Timeout After Last Point' },
-                { keys: ['Z'], description: 'Undo Last Logged Event' }
+                { keys: ['Z'], description: 'Undo Last Logged Event' },
+                { keys: ['Shift', '+', '2'], description: 'P2 Timeout After Last Point' }
             ]
         }
     ];
