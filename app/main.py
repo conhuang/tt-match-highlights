@@ -40,15 +40,15 @@ def compile_typescript_locally():
 
 from fastapi.responses import FileResponse
 
-# Mount static frontend files
-static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "static"))
-os.makedirs(static_dir, exist_ok=True)
-app.mount("/static", StaticFiles(directory=static_dir), name="static")
-
 # Mount local storage folder if it exists (allows local video playback)
 local_storage_dir = os.getenv("LOCAL_STORAGE_DIR", "storage")
 if os.path.exists(local_storage_dir):
     app.mount("/static/videos", StaticFiles(directory=local_storage_dir), name="videos")
+
+# Mount static frontend files
+static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "static"))
+os.makedirs(static_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 from fastapi.responses import HTMLResponse, FileResponse
 
