@@ -2111,6 +2111,21 @@ kbd {
     animation: spin 1.2s linear infinite;
 }
 
+.render-metrics-group {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.render-requested-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.73rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+}
+
 .duration-pill {
     display: inline-flex;
     align-items: center;
@@ -2119,6 +2134,18 @@ kbd {
     font-weight: 600;
     padding: 0.2rem 0.55rem;
     border-radius: 9999px;
+    background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.duration-pill.video-length-pill {
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--accent-blue-light);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.duration-pill.processing-pill {
     background: rgba(245, 158, 11, 0.12);
     color: #fbbf24;
     border: 1px solid rgba(245, 158, 11, 0.3);

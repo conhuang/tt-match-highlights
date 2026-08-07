@@ -14,6 +14,7 @@ if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
 
 from app.models import Match, RenderJob
+from app.video_utils import extract_video_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,8 @@ def update_render_job_status(
     error: Optional[str] = None,
     filename: Optional[str] = None,
     completed_at: Optional[str] = None,
-    render_duration_seconds: Optional[float] = None
+    render_duration_seconds: Optional[float] = None,
+    video_duration_seconds: Optional[float] = None
 ):
     """Helper function to update a specific render job inside a match's renders array."""
     record = db_repo.get_match(match_id)
@@ -48,6 +50,8 @@ def update_render_job_status(
                 r.completed_at = completed_at
             if render_duration_seconds is not None:
                 r.render_duration_seconds = render_duration_seconds
+            if video_duration_seconds is not None:
+                r.video_duration_seconds = video_duration_seconds
         updated_renders.append(r.model_dump())
     
     match_dict = match.model_dump()
@@ -471,11 +475,15 @@ def execute_render_job(
         # 7. Finalize Status
         completed_timestamp = datetime.utcnow().isoformat() + "Z"
         elapsed_sec = round(time.time() - render_start_time, 1)
+        out_meta = extract_video_metadata(local_output_path)
+        video_dur_sec = round(float(out_meta.get("duration") or 0.0), 1) if out_meta.get("duration") else None
+
         update_render_job_status(
             match_id, render_id, db_repo,
             status="completed", progress=100, stage="Complete",
             filename=output_filename, completed_at=completed_timestamp,
-            render_duration_seconds=elapsed_sec
+            render_duration_seconds=elapsed_sec,
+            video_duration_seconds=video_dur_sec
         )
         logger.info(f"Render job {render_id} for match {match_id} completed successfully.")
 

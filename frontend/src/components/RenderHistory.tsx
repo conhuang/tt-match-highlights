@@ -1,6 +1,6 @@
 import React from 'react';
 import { RenderJob } from '../types';
-import { Play, Download, Trash2, Film, AlertCircle, XCircle, RefreshCw, Star, Clock } from 'lucide-react';
+import { Play, Download, Trash2, Film, AlertCircle, XCircle, RefreshCw, Star, Zap } from 'lucide-react';
 
 interface RenderHistoryProps {
     renders: RenderJob[];
@@ -18,6 +18,7 @@ function formatDuration(seconds: number): string {
     const secs = Math.round(seconds % 60);
     return `${mins}m ${secs}s`;
 }
+
 export const RenderHistory: React.FC<RenderHistoryProps> = ({
     renders,
     onPreviewRender,
@@ -60,10 +61,11 @@ export const RenderHistory: React.FC<RenderHistoryProps> = ({
                             : `${render.created_at}Z`
                     ) : '';
 
-                    const dateStr = formattedUtc ? new Date(formattedUtc).toLocaleTimeString(undefined, {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit'
+                    const dateStr = formattedUtc ? new Date(formattedUtc).toLocaleString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
                     }) : '';
 
                     return (
@@ -93,10 +95,15 @@ export const RenderHistory: React.FC<RenderHistoryProps> = ({
                                         </span>
                                     )}
                                     {isCompleted && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <div className="render-metrics-group">
+                                            {render.video_duration_seconds && render.video_duration_seconds > 0 && (
+                                                <span className="duration-pill video-length-pill" title="Actual Output Video Duration">
+                                                    <Film size={11} /> {formatDuration(render.video_duration_seconds)}
+                                                </span>
+                                            )}
                                             {render.render_duration_seconds && render.render_duration_seconds > 0 && (
-                                                <span className="duration-pill" title="Total render execution duration">
-                                                    <Clock size={11} /> {formatDuration(render.render_duration_seconds)}
+                                                <span className="duration-pill processing-pill" title="Render Processing Duration">
+                                                    <Zap size={11} /> {formatDuration(render.render_duration_seconds)}
                                                 </span>
                                             )}
                                             <span className="status-pill status-completed">
