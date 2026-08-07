@@ -231,10 +231,10 @@
 
 .timestamp-input {
     width: 78px;
-    background: #181820;
+    background: var(--card-bg-elevated);
     border: 1px solid var(--card-border);
     color: var(--text-primary);
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: 0.78rem;
     padding: 0.15rem 0.3rem;
     border-radius: 4px;
@@ -244,7 +244,7 @@
     display: flex;
     align-items: center;
     gap: 0.2rem;
-    background: rgba(59, 130, 246, 0.15);
+    background: var(--p1-blue-glow);
     border: 1px solid rgba(59, 130, 246, 0.3);
     color: var(--accent-blue-light);
     font-size: 0.7rem;
@@ -260,7 +260,7 @@
 }
 
 .save-timestamp-btn {
-    background: rgba(16, 185, 129, 0.2);
+    background: var(--accent-green-glow);
     border: 1px solid rgba(16, 185, 129, 0.4);
     color: var(--accent-green-light);
     padding: 0.2rem 0.4rem;
@@ -278,7 +278,7 @@
 }
 
 .cancel-timestamp-btn {
-    background: rgba(239, 68, 68, 0.15);
+    background: var(--accent-red-glow);
     border: 1px solid rgba(239, 68, 68, 0.3);
     color: var(--accent-red-light);
     padding: 0.2rem 0.4rem;
@@ -301,11 +301,11 @@
 }
 
 .event-winner.p1 {
-    color: var(--accent-blue-light);
+    color: var(--p1-blue-light);
 }
 
 .event-winner.p2 {
-    color: var(--accent-red-light);
+    color: var(--p2-pink-light);
 }
 
 .event-details {
@@ -336,8 +336,8 @@
 }
 
 .delete-event-btn:hover {
-    color: #ef4444;
-    background: rgba(239, 68, 68, 0.15);
+    color: var(--accent-red);
+    background: var(--accent-red-glow);
 }
 
 .highlight-toggle-btn {
@@ -355,7 +355,7 @@
 
 .highlight-toggle-btn:hover {
     color: var(--accent-amber);
-    background: rgba(245, 158, 11, 0.15);
+    background: var(--accent-amber-glow);
     transform: scale(1.15);
 }
 
@@ -395,7 +395,7 @@
 }
 
 .edit-winner-select option {
-    background: #181820;
+    background: var(--card-bg-elevated);
     color: var(--text-primary);
 }
 

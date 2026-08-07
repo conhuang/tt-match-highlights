@@ -18,8 +18,8 @@
 }
 
 .stats-live-pill {
-    background: rgba(59, 130, 246, 0.15);
-    color: #60a5fa;
+    background: var(--p1-blue-glow);
+    color: var(--p1-blue-light);
     border: 1px solid rgba(59, 130, 246, 0.3);
     font-size: 0.7rem;
     font-weight: 700;
@@ -55,7 +55,7 @@
 }
 
 .section-icon {
-    color: var(--accent-blue-light);
+    color: var(--p1-blue-light);
 }
 
 /* Serve Grid */
@@ -99,11 +99,11 @@
 }
 
 .p1-text {
-    color: #60a5fa;
+    color: var(--p1-blue-light);
 }
 
 .p2-text {
-    color: #f472b6;
+    color: var(--p2-pink-light);
 }
 
 .progress-track {
@@ -115,14 +115,14 @@
 
 .progress-fill.p1-bar {
     height: 100%;
-    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    background: linear-gradient(90deg, var(--p1-blue), var(--p1-blue-light));
     border-radius: 9999px;
     transition: width 0.4s ease;
 }
 
 .progress-fill.p2-bar {
     height: 100%;
-    background: linear-gradient(90deg, #ec4899, #f472b6);
+    background: linear-gradient(90deg, var(--p2-pink), var(--p2-pink-light));
     border-radius: 9999px;
     transition: width 0.4s ease;
 }
@@ -204,12 +204,12 @@
 }
 
 .split-fill.p1-bar {
-    background: #3b82f6;
+    background: var(--p1-blue);
     transition: width 0.4s ease;
 }
 
 .split-fill.p2-bar {
-    background: #ec4899;
+    background: var(--p2-pink);
     transition: width 0.4s ease;
 }
 
@@ -237,7 +237,7 @@
 }
 
 .card-top-icon {
-    color: var(--accent-blue-light);
+    color: var(--p1-blue-light);
     margin-bottom: 0.2rem;
 }
 
@@ -246,11 +246,11 @@
 }
 
 .clock-icon {
-    color: #60a5fa;
+    color: var(--p1-blue-light);
 }
 
 .activity-icon {
-    color: #f472b6;
+    color: var(--p2-pink-light);
 }
 
 .metric-label {
@@ -282,14 +282,14 @@
 }
 
 .p1-badge {
-    background: rgba(59, 130, 246, 0.15);
-    color: #60a5fa;
+    background: var(--p1-blue-glow);
+    color: var(--p1-blue-light);
     border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .p2-badge {
-    background: rgba(236, 72, 153, 0.15);
-    color: #f472b6;
+    background: var(--p2-pink-glow);
+    color: var(--p2-pink-light);
     border: 1px solid rgba(236, 72, 153, 0.3);
 }
 
@@ -305,8 +305,8 @@
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    background: rgba(59, 130, 246, 0.15);
-    color: #60a5fa;
+    background: var(--p1-blue-glow);
+    color: var(--p1-blue-light);
     border: 1px solid rgba(59, 130, 246, 0.3);
     font-size: 0.75rem;
     font-weight: 600;
@@ -319,7 +319,7 @@
 .jump-rally-btn:hover {
     background: rgba(59, 130, 246, 0.3);
     color: #ffffff;
-    border-color: #60a5fa;
+    border-color: var(--p1-blue-light);
 }
 
 .empty-stats-body {

@@ -326,7 +326,7 @@
 
 .wtt-accent-stripe {
     width: 3px;
-    background: #37a0aa;
+    background: var(--wtt-cyan);
 }
 
 .wtt-content-body {
@@ -367,7 +367,7 @@
 }
 
 .wtt-timeout {
-    background: #ffc300;
+    background: var(--badge-timeout-yellow);
     color: #111;
     font-size: 0.5rem;
     font-weight: 800;
@@ -407,7 +407,7 @@
     position: absolute;
     right: -10px;
     top: 5px;
-    color: #37a0aa;
+    color: var(--wtt-cyan);
     font-size: 0.55rem;
     line-height: 1;
 }
@@ -446,7 +446,7 @@
 }
 
 .classic-timeout {
-    color: #ffc300;
+    color: var(--badge-timeout-yellow);
     font-size: 0.6rem;
     font-weight: 800;
 }
@@ -534,7 +534,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: #ffc300;
+    background: var(--badge-timeout-yellow);
     color: #111111;
     font-size: 0.55rem;
     font-weight: 800;
