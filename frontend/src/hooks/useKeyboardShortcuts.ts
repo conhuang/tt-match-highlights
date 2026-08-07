@@ -57,7 +57,7 @@ export function useKeyboardShortcuts({
                     const time = parseFloat(video.currentTime.toFixed(2));
                     setPendingStartTime(time);
                 }
-            } else if ((key === '1' || key === 'a' || key === '2' || key === 's') && !e.shiftKey && e.key !== '!' && e.key !== '@') {
+            } else if ((key === '1' || key === 'a' || key === '2' || key === 's' || key === '3' || key === 'w') && !e.shiftKey && e.key !== '!' && e.key !== '@' && e.key !== '#') {
                 if (pendingStartTime === null) {
                     alert("Please mark the Start Time first using 'E' or 'D'.");
                     return;
@@ -71,7 +71,14 @@ export function useKeyboardShortcuts({
                     return;
                 }
 
-                const winnerName = (key === '1' || key === 'a') ? currentMatch.player1 : currentMatch.player2;
+                let winnerName: string | null = null;
+                if (key === '1' || key === 'a') {
+                    winnerName = currentMatch.player1;
+                } else if (key === '2' || key === 's') {
+                    winnerName = currentMatch.player2;
+                } else if (key === '3' || key === 'w') {
+                    winnerName = null;
+                }
 
                 const newEvent: MatchEvent = {
                     start: pendingStartTime,
