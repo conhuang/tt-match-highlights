@@ -40,6 +40,19 @@
     text-align: center;
 }
 
+.header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    text-align: left;
+}
+
+.form-fieldset {
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+
 .header h1 {
     font-size: 2.25rem;
     font-weight: 700;
@@ -412,3 +425,74 @@
     border-radius: var(--radius-md);
     font-size: 0.9rem;
 }
+
+/* Auth Modal */
+.auth-modal-card {
+    max-width: 440px;
+    padding: 2.5rem 2rem;
+    text-align: center;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--card-border);
+}
+
+.auth-modal-icon-badge {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 1.25rem;
+    background: rgba(99, 102, 241, 0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-blue-light);
+}
+
+.auth-modal-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+    color: var(--text-primary);
+}
+
+.auth-modal-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0 0 1.75rem;
+}
+
+.auth-modal-error {
+    margin: 0 0 1.5rem;
+    padding: 0.85rem 1rem;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 10px;
+    color: var(--accent-red-light);
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-align: left;
+}
+
+.auth-modal-btn-wrap {
+    display: flex;
+    justify-content: center;
+    margin: 1rem 0;
+}
+
+.auth-modal-warning {
+    padding: 1rem;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 8px;
+    color: var(--accent-amber);
+    font-size: 0.82rem;
+}
+
+.auth-modal-footer-text {
+    margin-top: 2rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+

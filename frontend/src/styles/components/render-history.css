@@ -388,6 +388,18 @@
     border: 1px solid var(--card-border);
 }
 
+.cancel-render-btn {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--accent-red-light);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+.cancel-render-btn:hover {
+    background: rgba(239, 68, 68, 0.35);
+    border-color: var(--accent-red);
+    color: #ffffff;
+}
+
 .preview-btn {
     background: rgba(255, 255, 255, 0.06);
     color: var(--text-primary);
