@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Match } from '../types';
-import { Trash2, Star, Edit3, Check, Clock, X, ArrowUpDown } from 'lucide-react';
+import { Trash2, Star, Edit3, Check, Clock, X, ArrowUpDown, Download, Save } from 'lucide-react';
+import { Button } from './ui';
 import { computeScoresAndGames } from '../utils/scoring';
+import { exportEventsToCSV } from '../utils/csvExporter';
 
 interface SidebarLogsProps {
     currentMatch: Match;
@@ -10,6 +12,8 @@ interface SidebarLogsProps {
     onUpdateTimeout: (index: number, timeoutPlayer: string | null) => void;
     onUpdateEventTimestamp?: (index: number, newStart: number, newEnd: number, newWinner?: string | null) => void;
     onDeleteEvent: (index: number) => void;
+    onSaveEvents?: () => void;
+    saveStatus?: 'idle' | 'saving' | 'saved' | 'failed';
     getCurrentVideoTime?: () => number;
 }
 
@@ -51,6 +55,8 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     onUpdateTimeout,
     onUpdateEventTimestamp,
     onDeleteEvent,
+    onSaveEvents,
+    saveStatus = 'idle',
     getCurrentVideoTime
 }) => {
     const rawEvents = computeScoresAndGames(currentMatch.events, currentMatch.player1, currentMatch.player2);
@@ -287,6 +293,29 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                         );
                     })
                 )}
+            </div>
+
+            <div className="workspace-actions">
+                <Button
+                    variant="primary"
+                    icon={<Save size={16} />}
+                    onClick={onSaveEvents}
+                    disabled={saveStatus === 'saving'}
+                    style={{ flex: 1 }}
+                >
+                    {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Events'}
+                </Button>
+                <Button
+                    variant="secondary"
+                    icon={<Download size={16} />}
+                    className="download-csv-btn"
+                    onClick={() => exportEventsToCSV(currentMatch)}
+                    disabled={rawEvents.length === 0}
+                    title="Export point logs and rally details to CSV"
+                    style={{ flex: 1 }}
+                >
+                    Export CSV
+                </Button>
             </div>
         </div>
     );
