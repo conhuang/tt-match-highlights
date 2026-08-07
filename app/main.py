@@ -151,15 +151,21 @@ def list_matches(current_user: dict = Depends(get_current_user)):
     records = db.list_matches()
     matches = [Match.model_validate(r) for r in records]
     if current_user.get("authenticated") is False:
-        return matches
-    user_email = current_user.get("email", "").strip().lower()
-    return [m for m in matches if (m.owner_username or "").strip().lower() == user_email]
+        user_matches = matches
+    else:
+        user_email = current_user.get("email", "").strip().lower()
+        user_matches = [m for m in matches if (m.owner_username or "").strip().lower() == user_email]
+    
+    return [_enrich_match_urls(m) for m in user_matches]
 
 def _enrich_match_urls(match: Match) -> dict:
     """Generates temporary pre-signed S3 playback URLs (or local paths) for a match and its renders."""
     video_url = None
     if match.video_filename:
-        video_url = storage.get_download_url(f"uploads/{match.video_filename}")
+        if os.getenv("STORAGE_TYPE") == "s3":
+            video_url = storage.get_download_url(f"uploads/{match.video_filename}")
+        else:
+            video_url = f"/api/matches/{match.id}/stream"
         
     rendered_url = None
     if match.rendered_video_filename:
@@ -559,7 +565,7 @@ def list_parts(match_id: str, upload_id: str, original_filename: str, current_us
             detail=f"Failed to query uploaded parts: {str(e)}"
         )
     
-@app.get("/api/matches/{match_id}/stream")
+@app.api_route("/api/matches/{match_id}/stream", methods=["GET", "HEAD"])
 def stream_match_video(match_id: str, request: Request):
     """Serves the uploaded video with S3 pre-signed redirects or byte-range streaming without full file downloads."""
     record = db.get_match(match_id)
@@ -591,6 +597,10 @@ def stream_match_video(match_id: str, request: Request):
         headers["Content-Length"] = str(stream_data["content_length"])
     if stream_data.get("content_range"):
         headers["Content-Range"] = stream_data["content_range"]
+
+    if request.method == "HEAD":
+        from fastapi.responses import Response
+        return Response(status_code=stream_data["status_code"], headers=headers)
 
     if "body" in stream_data:
         def s3_iter():
