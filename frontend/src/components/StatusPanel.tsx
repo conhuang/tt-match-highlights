@@ -37,7 +37,8 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({ pendingStartTime }) =>
             items: [
                 { keys: ['E'], description: 'Mark Rally Start Time' },
                 { keys: ['1'], description: 'Log Point Won by Player 1' },
-                { keys: ['2'], description: 'Log Point Won by Player 2' }
+                { keys: ['2'], description: 'Log Point Won by Player 2' },
+                { keys: ['3'], description: 'Log No Winner Clip' }
             ]
         },
         {
