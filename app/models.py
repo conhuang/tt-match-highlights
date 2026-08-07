@@ -44,6 +44,7 @@ class RenderJob(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z", description="ISO timestamp of render start")
     completed_at: Optional[str] = Field(None, description="ISO timestamp of render completion")
     render_duration_seconds: Optional[float] = Field(None, description="Total render execution duration in seconds")
+    video_duration_seconds: Optional[float] = Field(None, description="Actual duration of the output video in seconds")
     video_url: Optional[str] = Field(None, description="Playback/download URL for the rendered video")
 
 
