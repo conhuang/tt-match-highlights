@@ -55,7 +55,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         return () => clearInterval(interval);
     }, [currentMatch.id, currentMatch.renders, onMatchUpdated]);
 
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
+
     const autoSave = useCallback(async (updatedEvents: MatchEvent[]) => {
+        setSaveStatus('saving');
         try {
             const result = await saveMatchEvents(currentMatch.id, updatedEvents);
             const mergedMatch: Match = {
@@ -64,8 +67,11 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 rendered_video_url: result.rendered_video_url || currentMatch.rendered_video_url
             };
             onMatchUpdated(mergedMatch);
+            setSaveStatus('saved');
+            setTimeout(() => setSaveStatus('idle'), 2000);
         } catch (err) {
             console.error('Save failed:', err);
+            setSaveStatus('failed');
         }
     }, [currentMatch.id, currentMatch.video_url, currentMatch.rendered_video_url, onMatchUpdated]);
 
@@ -280,6 +286,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                         onUpdateTimeout={handleUpdateTimeout}
                         onUpdateEventTimestamp={handleUpdateEventTimestamp}
                         onDeleteEvent={handleDeleteEvent}
+                        onSaveEvents={() => autoSave(currentMatch.events)}
+                        saveStatus={saveStatus}
                         getCurrentVideoTime={() => videoRef.current?.currentTime || 0}
                     />
                     <RenderOptionsForm
