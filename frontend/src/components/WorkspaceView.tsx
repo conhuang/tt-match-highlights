@@ -29,7 +29,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     const [isRenderingJob, setIsRenderingJob] = useState<boolean>(false);
 
     // Initial raw video URL
-    const rawVideoUrl = currentMatch.video_url || `/static/videos/uploads/${currentMatch.video_filename}`;
+    const rawVideoUrl = currentMatch.video_url || `/api/matches/${currentMatch.id}/stream`;
     const [activeVideoSrc, setActiveVideoSrc] = useState<string>(rawVideoUrl);
     const [activePreviewUrl, setActivePreviewUrl] = useState<string | null>(null);
 

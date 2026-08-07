@@ -118,11 +118,15 @@ export function useKeyboardShortcuts({
 
                     const currentRate = video.playbackRate;
                     const wasPlaying = !video.paused;
-                    const targetTime = Math.max(0, Math.min(video.duration || Infinity, video.currentTime + delta));
-                    video.currentTime = targetTime;
-                    video.playbackRate = currentRate;
-                    if (wasPlaying) {
-                        video.play().catch(() => {});
+                    const durationLimit = (video.duration && !isNaN(video.duration)) ? video.duration : Infinity;
+                    const currentPos = (video.currentTime && !isNaN(video.currentTime)) ? video.currentTime : 0;
+                    const targetTime = Math.max(0, Math.min(durationLimit, currentPos + delta));
+                    if (!isNaN(targetTime)) {
+                        video.currentTime = targetTime;
+                        video.playbackRate = currentRate;
+                        if (wasPlaying) {
+                            video.play().catch(() => {});
+                        }
                     }
                 }
             }
