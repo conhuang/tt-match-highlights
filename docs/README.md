@@ -71,6 +71,12 @@ For detailed diagrams and component flows, read **[architecture/ARCHITECTURE.md]
 
 ## 🚀 2. Future Planned Features
 
+### 🤖 AI Dead-Time Removal & Auto-Rally Detection
+* **Pretrained ML Model Integration & Human-in-the-Loop Verification** (`Spec Ready`)
+  * Use pretrained vision models (TrackNetV3 / BlurBall) to propose rally start/end intervals automatically.
+  * Reduce manual match logging time from 30+ mins to <3 mins per match via 1-click point winner tagging UI.
+  * *Detailed Architecture Plan*: [docs/plans/future/AI_DEAD_TIME_REMOVAL_PHASED_PLAN.md](./plans/future/AI_DEAD_TIME_REMOVAL_PHASED_PLAN.md)
+
 ### ⚡ Hardware-Accelerated Cloud Video Rendering
 * **AWS Batch On-Demand GPU Rendering** (`Spec Ready`)
   * Offload heavy FFmpeg rendering jobs to `g4dn.xlarge` (NVIDIA T4 GPU) instances running `h264_nvenc`.

@@ -10,6 +10,8 @@ interface KeyboardShortcutsOptions {
     activeGame: number;
     onAddEvent: (newEvent: MatchEvent) => void;
     onUndoEvent: () => void;
+    onToggleHighlightLastEvent?: () => void;
+    onSetTimeoutLastEvent?: (player: 'player1' | 'player2') => void;
 }
 
 export function useKeyboardShortcuts({
@@ -20,7 +22,9 @@ export function useKeyboardShortcuts({
     setPendingStartTime,
     activeGame,
     onAddEvent,
-    onUndoEvent
+    onUndoEvent,
+    onToggleHighlightLastEvent,
+    onSetTimeoutLastEvent
 }: KeyboardShortcutsOptions) {
     useEffect(() => {
         if (!isActive || !currentMatch) return;
@@ -53,7 +57,7 @@ export function useKeyboardShortcuts({
                     const time = parseFloat(video.currentTime.toFixed(2));
                     setPendingStartTime(time);
                 }
-            } else if (key === '1' || key === 'a' || key === '2' || key === 's') {
+            } else if ((key === '1' || key === 'a' || key === '2' || key === 's') && !e.shiftKey && e.key !== '!' && e.key !== '@') {
                 if (pendingStartTime === null) {
                     alert("Please mark the Start Time first using 'E' or 'D'.");
                     return;
@@ -82,6 +86,15 @@ export function useKeyboardShortcuts({
                 setPendingStartTime(null);
             } else if (key === 'z') {
                 onUndoEvent();
+            } else if (key === 'h') {
+                if (onToggleHighlightLastEvent) {
+                    onToggleHighlightLastEvent();
+                }
+            } else if ((e.shiftKey && (e.key === '1' || e.key === '!')) || (e.shiftKey && (e.key === '2' || e.key === '@'))) {
+                if (onSetTimeoutLastEvent) {
+                    const player = (e.key === '1' || e.key === '!') ? 'player1' : 'player2';
+                    onSetTimeoutLastEvent(player);
+                }
             } else if (e.key === 'ArrowLeft' || key === ',' || e.key === 'ArrowRight' || key === '.' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 if (video) {
                     e.preventDefault();
@@ -118,6 +131,8 @@ export function useKeyboardShortcuts({
         setPendingStartTime,
         activeGame,
         onAddEvent,
-        onUndoEvent
+        onUndoEvent,
+        onToggleHighlightLastEvent,
+        onSetTimeoutLastEvent
     ]);
 }
