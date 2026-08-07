@@ -1,0 +1,422 @@
+/* Modal & Render Management Styles */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.modal-content {
+    width: 100%;
+    max-width: 580px;
+    margin-bottom: 0;
+    animation: modalSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-content.render-modal {
+    background: var(--bg-card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 680px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+}
+
+@keyframes modalSlide {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.modal-header h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.btn-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+}
+
+.btn-close:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+}
+
+.radio-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.radio-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    transition: var(--transition);
+}
+
+.radio-btn.active {
+    border-color: var(--accent-blue-light);
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.checkboxes-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.btn-submit-render {
+    margin-top: 0.5rem;
+    padding: 0.85rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.render-history-section h3 {
+    margin: 0 0 0.85rem 0;
+    font-size: 1.05rem;
+    color: var(--text-primary);
+}
+
+.render-job-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    gap: 1rem;
+}
+
+.job-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.job-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.status-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 10px;
+}
+
+.status-badge.completed {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--accent-green-light);
+}
+
+.status-badge.rendering {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--accent-amber);
+}
+
+.status-badge.failed {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--accent-red-light);
+}
+
+.job-meta {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+}
+
+.progress-bar-container {
+    margin-top: 0.6rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    height: 16px;
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #10b981);
+    transition: width 0.3s ease;
+}
+
+.stage-text {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+
+/* Render History Section */
+.renders-card {
+    margin-top: 1.25rem;
+    margin-bottom: 0;
+}
+
+.renders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.render-item {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    transition: var(--transition);
+}
+
+.render-item.previewing {
+    border-color: var(--accent-blue);
+    background: rgba(59, 130, 246, 0.08);
+}
+
+.render-item-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.render-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.render-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.render-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.render-time {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.render-specs {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+/* Status Pills */
+.status-pill {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.3rem 0.65rem;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.status-rendering {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--accent-amber);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.status-completed {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--accent-green-light);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-failed {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--accent-red-light);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.status-rendered {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--accent-blue-light);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.spin-icon {
+    animation: spin 1.2s linear infinite;
+}
+
+.render-metrics-group {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.render-requested-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.73rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+}
+
+.duration-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.2rem 0.55rem;
+    border-radius: 9999px;
+    background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.duration-pill.video-length-pill {
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--accent-blue-light);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.duration-pill.processing-pill {
+    background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.render-progress-section {
+    margin: 0.75rem 0;
+    position: relative;
+    z-index: 1;
+}
+
+/* Render Actions */
+.render-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+    position: relative;
+    z-index: 10;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.45rem 0.85rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-decoration: none;
+    transition: var(--transition);
+    border: 1px solid var(--card-border);
+}
+
+.preview-btn {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+}
+
+.preview-btn:hover, .preview-btn.active {
+    background: var(--accent-blue-glow);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue-light);
+}
+
+.download-btn {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--accent-green-light);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+.download-btn:hover {
+    background: rgba(16, 185, 129, 0.22);
+}
+
+.delete-render-btn {
+    background: transparent;
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
+.delete-render-btn:hover {
+    color: var(--accent-red-light);
+    background: var(--accent-red-glow);
+    border-color: rgba(239, 68, 68, 0.3);
+}

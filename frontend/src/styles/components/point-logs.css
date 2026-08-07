@@ -1,0 +1,422 @@
+/* Sidebar Logs Card & Point Event List */
+.workspace-right {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.sidebar-logs-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    height: 520px;
+    max-height: 520px;
+}
+
+.reverse-order-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--card-border);
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.reverse-order-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--accent-blue-light);
+}
+
+.reverse-order-btn.active {
+    color: #ffffff;
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--accent-blue-light);
+}
+
+.section-title-row.clickable {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.title-right-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.compact-action-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--card-border);
+    margin-bottom: 1rem;
+}
+
+.sidebar-header h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+.game-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.game-selector input {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    width: 55px;
+    text-align: center;
+}
+
+.events-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-right: 0.3rem;
+}
+
+.event-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    transition: var(--transition);
+}
+
+.event-card:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.event-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.time-link-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--card-border);
+    color: var(--accent-blue-light);
+    font-family: monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.time-link-btn:hover {
+    background: var(--accent-blue-glow);
+    border-color: var(--accent-blue);
+}
+
+.time-link-container {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.event-winner-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.edit-timestamp-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.2rem;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    transition: var(--transition);
+}
+
+.edit-timestamp-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.timestamp-edit-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 0.5rem 0.6rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--card-border);
+}
+
+.timestamp-edit-controls.stacked {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.75rem;
+}
+
+.edit-time-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.edit-right-column {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.4rem;
+}
+
+.edit-controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.edit-action-btns {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.edit-time-group {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.timestamp-input {
+    width: 78px;
+    background: #181820;
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    font-family: monospace;
+    font-size: 0.78rem;
+    padding: 0.15rem 0.3rem;
+    border-radius: 4px;
+}
+
+.capture-time-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: var(--accent-blue-light);
+    font-size: 0.7rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.capture-time-btn:hover {
+    background: rgba(59, 130, 246, 0.3);
+    border-color: var(--accent-blue);
+}
+
+.save-timestamp-btn {
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: var(--accent-green-light);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+.save-timestamp-btn:hover {
+    background: rgba(16, 185, 129, 0.35);
+    border-color: var(--accent-green);
+}
+
+.cancel-timestamp-btn {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: var(--accent-red-light);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+.cancel-timestamp-btn:hover {
+    background: rgba(239, 68, 68, 0.3);
+    border-color: var(--accent-red);
+}
+
+.event-winner {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.event-winner.p1 {
+    color: var(--accent-blue-light);
+}
+
+.event-winner.p2 {
+    color: var(--accent-red-light);
+}
+
+.event-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.event-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+
+.delete-event-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.2rem 0.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: var(--text-muted);
+    transition: var(--transition);
+}
+
+.delete-event-btn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
+}
+
+.highlight-toggle-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.2rem 0.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: var(--text-muted);
+    transition: var(--transition);
+}
+
+.highlight-toggle-btn:hover {
+    color: var(--accent-amber);
+    background: rgba(245, 158, 11, 0.15);
+    transform: scale(1.15);
+}
+
+.star-active {
+    color: var(--accent-amber);
+    fill: var(--accent-amber);
+}
+
+.timeout-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.timeout-sublabel {
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.timeout-label select,
+.edit-winner-select {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    border-radius: 3px;
+    padding: 0.15rem 0.4rem;
+    font-size: 0.75rem;
+    outline: none;
+    cursor: pointer;
+}
+
+.edit-winner-select:focus {
+    border-color: var(--accent-blue-light);
+}
+
+.edit-winner-select option {
+    background: #181820;
+    color: var(--text-primary);
+}
+
+.event-delete-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.2rem;
+    border-radius: 3px;
+    transition: var(--transition);
+}
+
+.event-delete-btn:hover {
+    color: var(--accent-red-light);
+}
+
+.workspace-actions {
+    display: flex;
+    gap: 0.85rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--card-border);
+    margin-top: 1rem;
+}

@@ -1,0 +1,265 @@
+/* Standardized UI Primitives System */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+    border: 1px solid transparent;
+    user-select: none;
+    text-decoration: none;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed !important;
+}
+
+.btn-sm {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.78rem;
+}
+
+.btn-md {
+    padding: 0.55rem 1rem;
+    font-size: 0.85rem;
+}
+
+.btn-lg {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
+}
+
+.btn-primary {
+    background: var(--text-primary);
+    color: #000;
+    border-color: var(--text-primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--card-border);
+    color: var(--text-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: var(--card-border-hover);
+}
+
+.btn-render, .render-trigger-btn {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.35)) !important;
+    border-color: rgba(96, 165, 250, 0.5) !important;
+    color: #60a5fa !important;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.signout-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.signout-btn:hover {
+    color: var(--accent-red-light);
+    background: var(--accent-red-glow);
+    border-color: rgba(239, 68, 68, 0.35);
+    box-shadow: 0 2px 10px rgba(239, 68, 68, 0.2);
+}
+
+.btn-render:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(37, 99, 235, 0.6)) !important;
+    border-color: #93c5fd !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-signout {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--card-border);
+}
+
+.btn-signout:hover:not(:disabled) {
+    color: var(--accent-red-light);
+    background: var(--accent-red-glow);
+    border-color: rgba(239, 68, 68, 0.35);
+    box-shadow: 0 2px 10px rgba(239, 68, 68, 0.2);
+}
+
+.btn-danger {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: var(--accent-red-light);
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: var(--accent-red-light);
+}
+
+.btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-muted);
+}
+
+.btn-ghost:hover:not(:disabled) {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.btn-icon-wrapper {
+    display: inline-flex;
+    align-items: center;
+}
+
+/* UI Card Primitive */
+.ui-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    padding: 1.25rem 1.5rem;
+    backdrop-filter: blur(12px);
+    transition: var(--transition);
+}
+
+.ui-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.15rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.ui-card-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.ui-card-title-row h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.ui-card-header-icon {
+    color: var(--accent-blue-light);
+    display: inline-flex;
+}
+
+/* UI Badge Primitive */
+.ui-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.6rem;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+}
+
+.ui-badge-live {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.ui-badge-ready {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--accent-green-light);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+.ui-badge-rendering {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--accent-amber);
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.ui-badge-completed {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--accent-green-light);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+.ui-badge-failed {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--accent-red-light);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.ui-badge-player1 {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.ui-badge-player2 {
+    background: rgba(236, 72, 153, 0.15);
+    color: #f472b6;
+    border-color: rgba(236, 72, 153, 0.3);
+}
+
+/* Reusable Chip Toggle & Icon Buttons */
+.icon-btn-base {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.2rem 0.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: var(--text-muted);
+    transition: var(--transition);
+}
+
+.chip-toggle {
+    padding: 0.25rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--card-border);
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: var(--transition);
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.chip-toggle:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--accent-blue-light);
+    color: var(--text-primary);
+}
+
+.chip-toggle.active {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--accent-blue-light);
+    color: #ffffff;
+}
