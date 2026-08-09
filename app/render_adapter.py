@@ -6,7 +6,7 @@ import time
 import json
 import logging
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 
 # Automatically resolve src/ directory for tt_video_editor package
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -286,6 +286,19 @@ def probe_video_stream_info(
     }
 
 
+NCLC_PRIMARIES_MAP = {'bt709': 1, 'bt470m': 4, 'bt470bg': 5, 'smpte170m': 6, 'smpte240m': 7, 'film': 8, 'bt2020': 9, 'smpte428': 10, 'smpte431': 11, 'smpte432': 12}
+NCLC_TRANSFER_MAP = {'bt709': 1, 'gamma22': 4, 'gamma28': 5, 'smpte170m': 6, 'smpte240m': 7, 'linear': 8, 'log100': 9, 'log316': 10, 'iec61966-2-4': 11, 'bt1361e': 12, 'iec61966-2-1': 13, 'bt2020-10': 14, 'bt2020-12': 15, 'smpte2084': 16, 'arib-std-b67': 18}
+NCLC_MATRIX_MAP = {'gbr': 0, 'bt709': 1, 'fcc': 4, 'bt470bg': 5, 'smpte170m': 6, 'smpte240m': 7, 'ycgco': 8, 'bt2020nc': 9, 'bt2020c': 10}
+
+
+def get_nclc_codes(color_primaries: str, color_trc: str, color_space: str) -> Tuple[int, int, int]:
+    """Maps string color metadata names to integer NCLC VUI codes."""
+    cp = NCLC_PRIMARIES_MAP.get(color_primaries.lower(), 1)
+    ct = NCLC_TRANSFER_MAP.get(color_trc.lower(), 1)
+    cs = NCLC_MATRIX_MAP.get(color_space.lower(), 1)
+    return cp, ct, cs
+
+
 def build_ffmpeg_card_cmd(
     card_path: str,
     duration: float,
@@ -300,6 +313,8 @@ def build_ffmpeg_card_cmd(
     output_path: str
 ) -> List[str]:
     """Constructs FFmpeg command list for rendering an inter-game title card segment."""
+    cp, ct, cs = get_nclc_codes(color_primaries, color_trc, color_space)
+    bsf_opt = f"h264_metadata=colour_primaries={cp}:transfer_characteristics={ct}:matrix_coefficients={cs}"
     return [
         "ffmpeg", "-y", "-loop", "1", "-i", card_path,
         "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
@@ -307,6 +322,7 @@ def build_ffmpeg_card_cmd(
         "-vf", f"scale={width}:{height}",
         "-c:v", encoder
     ] + encoder_opts + [
+        "-bsf:v", bsf_opt,
         "-color_primaries", color_primaries,
         "-color_trc", color_trc,
         "-colorspace", color_space,
@@ -342,6 +358,9 @@ def build_ffmpeg_clip_cmd(
         map_v = "[vscaled]"
         inputs = ["-i", video_input_source]
 
+    cp, ct, cs = get_nclc_codes(color_primaries, color_trc, color_space)
+    bsf_opt = f"h264_metadata=colour_primaries={cp}:transfer_characteristics={ct}:matrix_coefficients={cs}"
+
     return [
         "ffmpeg", "-y",
         "-ss", str(start_time),
@@ -352,6 +371,7 @@ def build_ffmpeg_clip_cmd(
         "-map", "0:a:0?",
         "-c:v", encoder
     ] + encoder_opts + [
+        "-bsf:v", bsf_opt,
         "-color_primaries", color_primaries,
         "-color_trc", color_trc,
         "-colorspace", color_space,
@@ -364,14 +384,23 @@ def build_ffmpeg_clip_cmd(
 
 def build_ffmpeg_concat_cmd(
     concat_list_path: str,
-    output_path: str
+    output_path: str,
+    color_primaries: str = "bt709",
+    color_trc: str = "bt709",
+    color_space: str = "bt709"
 ) -> List[str]:
-    """Constructs FFmpeg command list for concatenating rendered video segments."""
+    """Constructs FFmpeg command list for concatenating rendered video segments with container-level NCLC color metadata."""
+    cp, ct, cs = get_nclc_codes(color_primaries, color_trc, color_space)
+    bsf_opt = f"h264_metadata=colour_primaries={cp}:transfer_characteristics={ct}:matrix_coefficients={cs}"
     return [
         "ffmpeg", "-y",
         "-f", "concat", "-safe", "0",
         "-i", concat_list_path,
         "-c", "copy",
+        "-bsf:v", bsf_opt,
+        "-color_primaries", color_primaries,
+        "-color_trc", color_trc,
+        "-colorspace", color_space,
         "-movflags", "+faststart",
         output_path
     ]
@@ -687,7 +716,13 @@ def execute_render_job(
         local_output_path = os.path.join(local_base, "renders", output_filename)
         os.makedirs(os.path.dirname(local_output_path), exist_ok=True)
 
-        concat_cmd = build_ffmpeg_concat_cmd(concat_list_path, local_output_path)
+        concat_cmd = build_ffmpeg_concat_cmd(
+            concat_list_path,
+            local_output_path,
+            color_primaries=color_primaries,
+            color_trc=color_trc,
+            color_space=color_space
+        )
         run_cancellable_cmd(concat_cmd, render_id)
 
         # Upload to remote storage if S3 is active

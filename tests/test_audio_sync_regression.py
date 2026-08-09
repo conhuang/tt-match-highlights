@@ -172,11 +172,27 @@ class TestAudioSyncRegression(unittest.TestCase):
 
     def test_build_ffmpeg_concat_cmd(self):
         from app.render_adapter import build_ffmpeg_concat_cmd
-        cmd = build_ffmpeg_concat_cmd("/tmp/concat_list.txt", "/tmp/final.mp4")
+        cmd = build_ffmpeg_concat_cmd("/tmp/concat_list.txt", "/tmp/final.mp4", color_primaries="bt709", color_trc="bt709", color_space="bt709")
         self.assertEqual(cmd[0], "ffmpeg")
         self.assertIn("-f", cmd)
         self.assertEqual(cmd[cmd.index("-f") + 1], "concat")
+        self.assertIn("-bsf:v", cmd)
+        self.assertEqual(cmd[cmd.index("-bsf:v") + 1], "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1")
+        self.assertIn("-color_primaries", cmd)
+        self.assertEqual(cmd[cmd.index("-color_primaries") + 1], "bt709")
+        self.assertIn("-color_trc", cmd)
+        self.assertEqual(cmd[cmd.index("-color_trc") + 1], "bt709")
+        self.assertIn("-colorspace", cmd)
+        self.assertEqual(cmd[cmd.index("-colorspace") + 1], "bt709")
         self.assertEqual(cmd[-1], "/tmp/final.mp4")
+
+    def test_get_nclc_codes(self):
+        from app.render_adapter import get_nclc_codes
+        cp, ct, cs = get_nclc_codes("bt709", "bt709", "bt709")
+        self.assertEqual((cp, ct, cs), (1, 1, 1))
+
+        cp_hdr, ct_hdr, cs_hdr = get_nclc_codes("bt2020", "arib-std-b67", "bt2020nc")
+        self.assertEqual((cp_hdr, ct_hdr, cs_hdr), (9, 18, 9))
 
     @patch("subprocess.run")
     def test_probe_video_stream_info_zero_division_fps(self, mock_run):
