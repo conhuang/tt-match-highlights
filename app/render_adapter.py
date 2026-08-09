@@ -227,7 +227,34 @@ def execute_render_job(
         orig_width = match.width or 1920
         orig_height = match.height or 1080
         fps_val = match.fps or 30.0
-        output_fps = str(round(fps_val, 2))
+
+        # Probe exact r_frame_rate, width, height directly from video_input_source if available
+        output_fps = None
+        try:
+            cmd_fps = [
+                "ffprobe", "-v", "error", "-select_streams", "v:0",
+                "-show_entries", "stream=r_frame_rate,width,height",
+                "-of", "json", video_input_source
+            ]
+            res_fps = subprocess.run(cmd_fps, capture_output=True, text=True)
+            data_fps = json.loads(res_fps.stdout)
+            if "streams" in data_fps and data_fps["streams"]:
+                st = data_fps["streams"][0]
+                if st.get("width") and st.get("height"):
+                    orig_width, orig_height = int(st["width"]), int(st["height"])
+                if "r_frame_rate" in st and "/" in st["r_frame_rate"]:
+                    rf = st["r_frame_rate"]
+                    num, den = map(float, rf.split("/"))
+                    if den != 0:
+                        output_fps = rf if num % den != 0 else str(int(num / den))
+        except Exception as e:
+            logger.warning(f"ffprobe FPS inspection error: {e}")
+
+        if not output_fps:
+            if match.fps and match.fps > 0:
+                output_fps = str(match.fps)
+            else:
+                output_fps = "30"
 
         # 1080p Max Resolution Normalization
         MAX_WIDTH = 1920
@@ -404,7 +431,7 @@ def execute_render_job(
                         "-colorspace", color_space,
                         "-pix_fmt", "yuv420p",
                         "-r", output_fps,
-                        "-c:a", "aac", "-b:a", "192k",
+                        "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
                         "-shortest", seg_output
                     ]
                     run_cancellable_cmd(cmd, render_id)
@@ -437,7 +464,7 @@ def execute_render_job(
                         "-colorspace", color_space,
                         "-pix_fmt", "yuv420p",
                         "-r", output_fps,
-                        "-c:a", "aac", "-b:a", "192k",
+                        "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
                         seg_output
                     ]
                     run_cancellable_cmd(cmd, render_id)
