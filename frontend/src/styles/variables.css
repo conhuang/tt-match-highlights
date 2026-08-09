@@ -24,10 +24,15 @@
     --accent-blue-light: var(--p1-blue-light);
     --accent-blue-glow: var(--p1-blue-glow);
 
-    /* Player 2 (Pink/Rose Theme) */
-    --p2-pink: #ec4899;
-    --p2-pink-light: #f472b6;
-    --p2-pink-glow: rgba(236, 72, 153, 0.15);
+    /* Player 2 (Rose-Red Theme: balanced between red & pink) */
+    --p2-red: #f43f5e;
+    --p2-red-light: #fb7185;
+    --p2-red-glow: rgba(244, 63, 94, 0.16);
+    
+    /* Aliases for backwards-compatibility */
+    --p2-pink: var(--p2-red);
+    --p2-pink-light: var(--p2-red-light);
+    --p2-pink-glow: var(--p2-red-glow);
 
     /* Intent & Status Accents */
     --accent-red: #ef4444;
