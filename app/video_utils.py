@@ -33,14 +33,12 @@ def extract_video_metadata(video_path: str) -> Dict[str, Any]:
         stream = data["streams"][0]
         
         # Calculate FPS
-        fps = None
-        if "r_frame_rate" in stream:
-            num, den = map(float, stream["r_frame_rate"].split("/"))
-            fps = num / den if den != 0 else 30.0
+        num, den = map(float, stream.get("r_frame_rate", "30/1").split("/"))
+        fps = num / den if den != 0 else 0.0
 
         # Calculate Duration
         duration = float(stream.get("duration", 0))
-        if duration == 0 and "nb_frames" in stream and fps:
+        if duration == 0 and "nb_frames" in stream and fps > 0:
             duration = round(int(stream["nb_frames"]) / fps, 2)
 
         width = stream.get("width")

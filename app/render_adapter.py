@@ -241,19 +241,16 @@ def execute_render_job(
                 st = data_fps["streams"][0]
                 if st.get("width") and st.get("height"):
                     orig_width, orig_height = int(st["width"]), int(st["height"])
-                if "r_frame_rate" in st and "/" in st["r_frame_rate"]:
-                    rf = st["r_frame_rate"]
-                    num, den = map(float, rf.split("/"))
-                    if den != 0:
-                        output_fps = rf if num % den != 0 else str(int(num / den))
+                if "r_frame_rate" in st:
+                    num, den = map(float, st["r_frame_rate"].split("/"))
+                    fps = num / den if den != 0 else 0
+                    if fps > 0:
+                        output_fps = str(fps)
         except Exception as e:
             logger.warning(f"ffprobe FPS inspection error: {e}")
 
         if not output_fps:
-            if match.fps and match.fps > 0:
-                output_fps = str(match.fps)
-            else:
-                output_fps = "30"
+            output_fps = str(match.fps) if match.fps and match.fps > 0 else "30"
 
         # 1080p Max Resolution Normalization
         MAX_WIDTH = 1920
