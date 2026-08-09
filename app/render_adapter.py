@@ -226,7 +226,6 @@ def execute_render_job(
         
         orig_width = match.width or 1920
         orig_height = match.height or 1080
-        fps_val = match.fps or 30.0
 
         # Probe exact r_frame_rate, width, height directly from video_input_source if available
         output_fps = None
