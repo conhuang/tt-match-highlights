@@ -78,39 +78,39 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({ onLoginSucce
     const activeError = errorMessage || localError;
 
     return (
-        <div className="modal-overlay" style={{ background: 'rgba(10, 15, 29, 0.92)', backdropFilter: 'blur(10px)', zIndex: 9999 }}>
-            <div className="modal-content" style={{ maxWidth: '440px', padding: '2.5rem 2rem', textAlign: 'center', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
-                <div style={{ width: '56px', height: '56px', margin: '0 auto 1.25rem', background: 'rgba(99, 102, 241, 0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366f1' }}>
+        <div className="modal-backdrop">
+            <div className="modal-content auth-modal-card">
+                <div className="auth-modal-icon-badge">
                     <Lock size={28} />
                 </div>
 
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem', color: '#f8fafc' }}>
+                <h2 className="auth-modal-title">
                     Beta Tester Sign In
                 </h2>
 
-                <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5', margin: '0 0 1.75rem' }}>
+                <p className="auth-modal-subtitle">
                     Access to this Table Tennis Video Editor release is currently restricted to authorized Beta Testers.
                 </p>
 
                 {activeError && (
-                    <div style={{ margin: '0 0 1.5rem', padding: '0.85rem 1rem', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '10px', color: '#fca5a5', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.6rem', textAlign: 'left' }}>
-                        <ShieldAlert size={20} style={{ flexShrink: 0 }} />
+                    <div className="auth-modal-error">
+                        <ShieldAlert size={20} className="icon-btn-base" />
                         <span>{activeError}</span>
                     </div>
                 )}
 
                 {clientId ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', margin: '1rem 0' }}>
+                    <div className="auth-modal-btn-wrap">
                         <div id="google-signin-button-container" />
                     </div>
                 ) : (
-                    <div style={{ padding: '1rem', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', color: '#fbbf24', fontSize: '0.82rem' }}>
+                    <div className="auth-modal-warning">
                         <LogIn size={16} style={{ marginBottom: '4px' }} />
                         <div><strong>Note:</strong> Set <code>VITE_GOOGLE_CLIENT_ID</code> in environment to enable One-Click Google Login.</div>
                     </div>
                 )}
 
-                <div style={{ marginTop: '2rem', fontSize: '0.78rem', color: '#64748b' }}>
+                <div className="auth-modal-footer-text">
                     Need access? Contact the administrator to whitelist your Google email address.
                 </div>
             </div>

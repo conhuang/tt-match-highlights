@@ -144,7 +144,6 @@ export const RenderHistory: React.FC<RenderHistoryProps> = ({
                                         className="action-btn cancel-render-btn"
                                         onClick={() => onCancelRender(render.id)}
                                         title="Cancel active rendering job"
-                                        style={{ backgroundColor: '#ef4444', color: '#ffffff', borderColor: '#dc2626' }}
                                     >
                                         <XCircle size={13} />
                                         Cancel Render

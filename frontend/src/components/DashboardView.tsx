@@ -153,7 +153,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     return (
         <div className="dashboard-view">
-            <header className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <header className="header header-flex">
                 <div>
                     <h1>Matches Dashboard</h1>
                     <p className="subtitle">Upload and score table tennis match videos with automated highlight generation</p>
@@ -178,7 +178,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
 
                 <form onSubmit={handleSubmit}>
-                    <fieldset disabled={Boolean(resumeSession) || uploading} style={{ border: 'none', padding: 0 }}>
+                    <fieldset disabled={Boolean(resumeSession) || uploading} className="form-fieldset">
                         <MatchForm formData={formData} onChange={handleFormChange} />
                     </fieldset>
 

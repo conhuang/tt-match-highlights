@@ -1,0 +1,343 @@
+/* Match Analytics & Insights Styles */
+.match-stats-card {
+    margin-top: 1.25rem;
+}
+
+.stats-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.stats-header-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.stats-live-pill {
+    background: var(--p1-blue-glow);
+    color: var(--p1-blue-light);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stats-content-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.stats-section-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.section-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.section-title-row h4 {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.section-icon {
+    color: var(--p1-blue-light);
+}
+
+/* Serve Grid */
+.serve-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 640px) {
+    .serve-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.player-serve-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.player-meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.player-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.stat-pct {
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.p1-text {
+    color: var(--p1-blue-light);
+}
+
+.p2-text {
+    color: var(--p2-pink-light);
+}
+
+.progress-track {
+    height: 7px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.progress-fill.p1-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--p1-blue), var(--p1-blue-light));
+    border-radius: 9999px;
+    transition: width 0.4s ease;
+}
+
+.progress-fill.p2-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--p2-pink), var(--p2-pink-light));
+    border-radius: 9999px;
+    transition: width 0.4s ease;
+}
+
+.stat-details-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+/* Duration Buckets */
+.duration-buckets-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.duration-bucket-item {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    padding: 0.85rem 1.15rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.bucket-info-col {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 170px;
+}
+
+.bucket-label-text {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.bucket-count-badge {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.06);
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+}
+
+.duration-meter-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.pct-val {
+    font-size: 0.8rem;
+    font-weight: 700;
+    min-width: 85px;
+}
+
+.pct-val.p1-text {
+    text-align: right;
+}
+
+.pct-val.p2-text {
+    text-align: left;
+}
+
+.split-progress-bar {
+    flex: 1;
+    height: 9px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+    display: flex;
+    overflow: hidden;
+}
+
+.split-fill.p1-bar {
+    background: var(--p1-blue);
+    transition: width 0.4s ease;
+}
+
+.split-fill.p2-bar {
+    background: var(--p2-pink);
+    transition: width 0.4s ease;
+}
+
+/* Momentum Cards */
+.momentum-cards-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .momentum-cards-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.momentum-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.card-top-icon {
+    color: var(--p1-blue-light);
+    margin-bottom: 0.2rem;
+}
+
+.flame-icon {
+    color: var(--accent-amber);
+}
+
+.clock-icon {
+    color: var(--p1-blue-light);
+}
+
+.activity-icon {
+    color: var(--p2-pink-light);
+}
+
+.metric-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.metric-main-val {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.metric-values-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.2rem;
+}
+
+.streak-badge {
+    font-size: 0.78rem;
+    padding: 0.25rem 0.55rem;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+}
+
+.p1-badge {
+    background: var(--p1-blue-glow);
+    color: var(--p1-blue-light);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.p2-badge {
+    background: var(--p2-pink-glow);
+    color: var(--p2-pink-light);
+    border: 1px solid rgba(236, 72, 153, 0.3);
+}
+
+.longest-rally-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.jump-rally-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: var(--p1-blue-glow);
+    color: var(--p1-blue-light);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.3rem 0.65rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.jump-rally-btn:hover {
+    background: rgba(59, 130, 246, 0.3);
+    color: #ffffff;
+    border-color: var(--p1-blue-light);
+}
+
+.empty-stats-body {
+    padding: 2.5rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.85rem;
+}
+
+.empty-icon {
+    color: var(--text-muted);
+}
+
+.empty-state-text {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    max-width: 460px;
+    line-height: 1.5;
+}
