@@ -123,6 +123,61 @@ class TestAudioSyncRegression(unittest.TestCase):
             ar_idx = cmd.index("-ar")
             self.assertEqual(cmd[ar_idx + 1], "48000")
 
+    def test_build_ffmpeg_card_cmd(self):
+        from app.render_adapter import build_ffmpeg_card_cmd
+        cmd = build_ffmpeg_card_cmd(
+            card_path="/tmp/card.png",
+            duration=2.0,
+            width=1920,
+            height=1080,
+            encoder="libx264",
+            encoder_opts=["-preset", "superfast"],
+            color_primaries="bt709",
+            color_trc="bt709",
+            color_space="bt709",
+            output_fps="59.94005994005994",
+            output_path="/tmp/card.mp4"
+        )
+        self.assertEqual(cmd[0], "ffmpeg")
+        self.assertIn("-ar", cmd)
+        self.assertEqual(cmd[cmd.index("-ar") + 1], "48000")
+        self.assertIn("-r", cmd)
+        self.assertEqual(cmd[cmd.index("-r") + 1], "59.94005994005994")
+        self.assertEqual(cmd[-1], "/tmp/card.mp4")
+
+    def test_build_ffmpeg_clip_cmd(self):
+        from app.render_adapter import build_ffmpeg_clip_cmd
+        cmd = build_ffmpeg_clip_cmd(
+            start_time=10.0,
+            end_time=15.5,
+            video_input_source="/tmp/input.mp4",
+            overlay_path="/tmp/overlay.png",
+            width=1920,
+            height=1080,
+            encoder="libx264",
+            encoder_opts=["-preset", "superfast"],
+            color_primaries="bt709",
+            color_trc="bt709",
+            color_space="bt709",
+            output_fps="59.94005994005994",
+            output_path="/tmp/clip.mp4"
+        )
+        self.assertEqual(cmd[0], "ffmpeg")
+        self.assertIn("-ss", cmd)
+        self.assertEqual(cmd[cmd.index("-ss") + 1], "10.0")
+        self.assertIn("-to", cmd)
+        self.assertEqual(cmd[cmd.index("-to") + 1], "15.5")
+        self.assertIn("-ar", cmd)
+        self.assertEqual(cmd[cmd.index("-ar") + 1], "48000")
+
+    def test_build_ffmpeg_concat_cmd(self):
+        from app.render_adapter import build_ffmpeg_concat_cmd
+        cmd = build_ffmpeg_concat_cmd("/tmp/concat_list.txt", "/tmp/final.mp4")
+        self.assertEqual(cmd[0], "ffmpeg")
+        self.assertIn("-f", cmd)
+        self.assertEqual(cmd[cmd.index("-f") + 1], "concat")
+        self.assertEqual(cmd[-1], "/tmp/final.mp4")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -217,73 +217,299 @@ def execute_render_job(
     temp_dir = os.path.join(local_base, "temp_render_work", f"{match_id}_{render_id}")
     os.makedirs(temp_dir, exist_ok=True)
 
+def probe_video_stream_info(
+    video_source_path: str,
+    default_width: int = 1920,
+    default_height: int = 1080,
+    default_fps: Optional[float] = None
+) -> Dict[str, Any]:
+    """
+    Probes video dimensions, exact rational FPS, color space metadata, and HDR status using ffprobe.
+    Normalizes max resolution to 1080p.
+    """
+    orig_width = default_width
+    orig_height = default_height
+    output_fps = None
+    color_space, color_trc, color_primaries = "bt709", "bt709", "bt709"
+    is_hdr = False
+
     try:
-        # 1. Inspect Video Resolution & FPS
+        cmd_fps = [
+            "ffprobe", "-v", "error", "-select_streams", "v:0",
+            "-show_entries", "stream=r_frame_rate,width,height,color_space,color_transfer,color_primaries",
+            "-of", "json", video_source_path
+        ]
+        res_fps = subprocess.run(cmd_fps, capture_output=True, text=True)
+        data_fps = json.loads(res_fps.stdout)
+        if "streams" in data_fps and data_fps["streams"]:
+            st = data_fps["streams"][0]
+            if st.get("width") and st.get("height"):
+                orig_width, orig_height = int(st["width"]), int(st["height"])
+            if "r_frame_rate" in st:
+                num, den = map(float, st["r_frame_rate"].split("/"))
+                fps = num / den if den != 0 else 0
+                if fps > 0:
+                    output_fps = str(fps)
+            cs = st.get("color_space")
+            ct = st.get("color_transfer")
+            cp = st.get("color_primaries")
+            if cs and ct and cp and cs != "unknown" and ct != "unknown" and cp != "unknown":
+                color_space, color_trc, color_primaries = cs, ct, cp
+            if "arib-std-b67" in color_trc.lower() or "smpte2084" in color_trc.lower() or "bt2020" in color_space.lower():
+                is_hdr = True
+    except Exception as e:
+        logger.warning(f"ffprobe stream inspection error: {e}")
+
+    if not output_fps:
+        output_fps = str(default_fps) if default_fps and default_fps > 0 else "30"
+
+    # 1080p Max Resolution Normalization
+    MAX_WIDTH = 1920
+    MAX_HEIGHT = 1080
+    if orig_width > MAX_WIDTH or orig_height > MAX_HEIGHT:
+        scale_factor = min(MAX_WIDTH / orig_width, MAX_HEIGHT / orig_height)
+        width = int(orig_width * scale_factor)
+        height = int(orig_height * scale_factor)
+        width = width - (width % 2)
+        height = height - (height % 2)
+    else:
+        width, height = orig_width, orig_height
+
+    return {
+        "width": width,
+        "height": height,
+        "output_fps": output_fps,
+        "color_space": color_space,
+        "color_trc": color_trc,
+        "color_primaries": color_primaries,
+        "is_hdr": is_hdr
+    }
+
+
+def build_ffmpeg_card_cmd(
+    card_path: str,
+    duration: float,
+    width: int,
+    height: int,
+    encoder: str,
+    encoder_opts: List[str],
+    color_primaries: str,
+    color_trc: str,
+    color_space: str,
+    output_fps: str,
+    output_path: str
+) -> List[str]:
+    """Constructs FFmpeg command list for rendering an inter-game title card segment."""
+    return [
+        "ffmpeg", "-y", "-loop", "1", "-i", card_path,
+        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+        "-t", str(duration),
+        "-vf", f"scale={width}:{height}",
+        "-c:v", encoder
+    ] + encoder_opts + [
+        "-color_primaries", color_primaries,
+        "-color_trc", color_trc,
+        "-colorspace", color_space,
+        "-pix_fmt", "yuv420p",
+        "-r", output_fps,
+        "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+        "-shortest", output_path
+    ]
+
+
+def build_ffmpeg_clip_cmd(
+    start_time: float,
+    end_time: float,
+    video_input_source: str,
+    overlay_path: Optional[str],
+    width: int,
+    height: int,
+    encoder: str,
+    encoder_opts: List[str],
+    color_primaries: str,
+    color_trc: str,
+    color_space: str,
+    output_fps: str,
+    output_path: str
+) -> List[str]:
+    """Constructs FFmpeg command list for rendering a rally video clip segment."""
+    filter_graph = f"scale={width}:{height}[vscaled]"
+    if overlay_path and os.path.exists(overlay_path):
+        filter_graph = f"[0:v]scale={width}:{height}[vscaled];[vscaled][1:v]overlay=0:0[outv]"
+        map_v = "[outv]"
+        inputs = ["-i", video_input_source, "-i", overlay_path]
+    else:
+        map_v = "[vscaled]"
+        inputs = ["-i", video_input_source]
+
+    return [
+        "ffmpeg", "-y",
+        "-ss", str(start_time),
+        "-to", str(end_time)
+    ] + inputs + [
+        "-filter_complex", filter_graph,
+        "-map", map_v,
+        "-map", "0:a:0?",
+        "-c:v", encoder
+    ] + encoder_opts + [
+        "-color_primaries", color_primaries,
+        "-color_trc", color_trc,
+        "-colorspace", color_space,
+        "-pix_fmt", "yuv420p",
+        "-r", output_fps,
+        "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+        output_path
+    ]
+
+
+def build_ffmpeg_concat_cmd(
+    concat_list_path: str,
+    output_path: str
+) -> List[str]:
+    """Constructs FFmpeg command list for concatenating rendered video segments."""
+    return [
+        "ffmpeg", "-y",
+        "-f", "concat", "-safe", "0",
+        "-i", concat_list_path,
+        "-c", "copy",
+        "-movflags", "+faststart",
+        output_path
+    ]
+
+
+def execute_render_job(
+    match_id: str,
+    render_id: str,
+    db_repo,
+    storage_provider
+):
+    """
+    Background worker task executing video rendering for a match.
+    Enforces 1080p max resolution capping, '-preset superfast', color space preservation/HDR tone-mapping,
+    and positive render option signals (include_scoreboard, include_game_cards).
+    """
+    render_start_time = time.time()
+    record = db_repo.get_match(match_id)
+    if not record:
+        logger.error(f"Render failed: Match {match_id} not found.")
+        return
+
+    match = Match.model_validate(record)
+    
+    # Locate target render job configuration
+    target_job: Optional[RenderJob] = None
+    for r in match.renders:
+        if r.id == render_id:
+            target_job = r
+            break
+
+    if not target_job:
+        logger.error(f"Render failed: RenderJob {render_id} not found in match {match_id}.")
+        return
+
+    options = target_job.options
+    highlights_only = options.highlights_only
+    include_scoreboard = options.include_scoreboard
+    include_game_cards = options.include_game_cards
+    cpu_mode = options.cpu_mode
+
+    events = match.events
+    if not events:
+        update_render_job_status(
+            match_id, render_id, db_repo,
+            status="failed", progress=0, stage="Failed",
+            error="No events logged for this match."
+        )
+        return
+
+    if highlights_only:
+        events = [e for e in events if getattr(e, "isHighlight", False)]
+        if not events:
+            update_render_job_status(
+                match_id, render_id, db_repo,
+                status="failed", progress=0, stage="Failed",
+                error="No highlighted clips found in this match."
+            )
+            return
+
+    # Check input raw video file
+    if not match.video_filename:
+        update_render_job_status(
+            match_id, render_id, db_repo,
+            status="failed", progress=0, stage="Failed",
+            error="Match missing raw video upload."
+        )
+        return
+
+    update_render_job_status(
+        match_id, render_id, db_repo,
+        status="rendering", progress=5, stage="Downloading raw video from S3"
+    )
+
+    # Working Directory setup
+    local_base = getattr(storage_provider, "base_dir", "storage")
+    remote_video_key = f"uploads/{match.video_filename}"
+    local_input_file = os.path.join(local_base, remote_video_key)
+
+    # Determine input video source (S3 presigned URL for direct range streaming if S3 active, or local file)
+    if getattr(storage_provider, "bucket_name", None) or os.getenv("STORAGE_TYPE") == "s3":
+        video_input_source = storage_provider.get_download_url(remote_video_key, expiration=7200)
+        if not video_input_source:
+            update_render_job_status(
+                match_id, render_id, db_repo,
+                status="failed", progress=0, stage="Failed",
+                error="Failed to generate S3 streaming URL."
+            )
+            return
+        log_msg = f"INFO:     [S3 DIRECT RANGE STREAMING] URL generated for match {match_id}: {video_input_source[:80]}..."
+        print(log_msg, flush=True)
+        logger.info(log_msg)
+        update_render_job_status(
+            match_id, render_id, db_repo,
+            status="rendering", progress=5, stage="Streaming clips directly from S3 (0s download wait)"
+        )
+    elif os.path.exists(local_input_file):
+        video_input_source = local_input_file
+        update_render_job_status(
+            match_id, render_id, db_repo,
+            status="rendering", progress=5, stage="Using local raw video source"
+        )
+    else:
+        os.makedirs(os.path.dirname(local_input_file), exist_ok=True)
+        download_success = storage_provider.download_file(remote_video_key, local_input_file)
+        if not download_success or not os.path.exists(local_input_file):
+            update_render_job_status(
+                match_id, render_id, db_repo,
+                status="failed", progress=0, stage="Failed",
+                error="Failed to retrieve raw video file from storage."
+            )
+            return
+        video_input_source = local_input_file
+
+    temp_dir = os.path.join(local_base, "temp_render_work", f"{match_id}_{render_id}")
+    os.makedirs(temp_dir, exist_ok=True)
+
+    try:
+        # 1. Inspect Video Stream Information
         update_render_job_status(
             match_id, render_id, db_repo,
             status="rendering", progress=10, stage="Inspecting video metadata"
         )
-        
-        orig_width = match.width or 1920
-        orig_height = match.height or 1080
 
-        # Probe exact r_frame_rate, width, height directly from video_input_source if available
-        output_fps = None
-        try:
-            cmd_fps = [
-                "ffprobe", "-v", "error", "-select_streams", "v:0",
-                "-show_entries", "stream=r_frame_rate,width,height",
-                "-of", "json", video_input_source
-            ]
-            res_fps = subprocess.run(cmd_fps, capture_output=True, text=True)
-            data_fps = json.loads(res_fps.stdout)
-            if "streams" in data_fps and data_fps["streams"]:
-                st = data_fps["streams"][0]
-                if st.get("width") and st.get("height"):
-                    orig_width, orig_height = int(st["width"]), int(st["height"])
-                if "r_frame_rate" in st:
-                    num, den = map(float, st["r_frame_rate"].split("/"))
-                    fps = num / den if den != 0 else 0
-                    if fps > 0:
-                        output_fps = str(fps)
-        except Exception as e:
-            logger.warning(f"ffprobe FPS inspection error: {e}")
+        stream_info = probe_video_stream_info(
+            video_input_source,
+            default_width=match.width or 1920,
+            default_height=match.height or 1080,
+            default_fps=match.fps
+        )
+        width = stream_info["width"]
+        height = stream_info["height"]
+        output_fps = stream_info["output_fps"]
+        color_space = stream_info["color_space"]
+        color_trc = stream_info["color_trc"]
+        color_primaries = stream_info["color_primaries"]
 
-        if not output_fps:
-            output_fps = str(match.fps) if match.fps and match.fps > 0 else "30"
-
-        # 1080p Max Resolution Normalization
-        MAX_WIDTH = 1920
-        MAX_HEIGHT = 1080
-        if orig_width > MAX_WIDTH or orig_height > MAX_HEIGHT:
-            scale_factor = min(MAX_WIDTH / orig_width, MAX_HEIGHT / orig_height)
-            width = int(orig_width * scale_factor)
-            height = int(orig_height * scale_factor)
-            # Ensure dimensions are even numbers for H.264 compatibility
-            width = width - (width % 2)
-            height = height - (height % 2)
-        else:
-            width, height = orig_width, orig_height
-
-        # 2. Inspect Color Space & Detect HDR
-        color_space, color_trc, color_primaries = "bt709", "bt709", "bt709"
-        is_hdr = False
-        try:
-            cmd_color = [
-                "ffprobe", "-v", "error", "-select_streams", "v:0",
-                "-show_entries", "stream=color_space,color_transfer,color_primaries",
-                "-of", "csv=p=0", video_input_source
-            ]
-            res_color = subprocess.run(cmd_color, capture_output=True, text=True)
-            parts = res_color.stdout.strip().rstrip(",").split(",")
-            if len(parts) == 3 and parts[0] != "unknown":
-                color_space, color_trc, color_primaries = parts
-            if "arib-std-b67" in color_trc.lower() or "smpte2084" in color_trc.lower() or "bt2020" in color_space.lower():
-                is_hdr = True
-        except Exception as e:
-            logger.warning(f"Color metadata inspection error: {e}")
-
-        # 3. Encoder Selection (-preset superfast for CPU / Linux)
+        # 2. Encoder Selection (-preset superfast for CPU / Linux)
         is_macos = sys.platform == "darwin"
         if cpu_mode or not is_macos:
             encoder = "libx264"
@@ -293,7 +519,7 @@ def execute_render_job(
             bitrate = "30M"
             encoder_opts = ["-b:v", bitrate]
 
-        # 4. Prepare Scoreboard Generator & Segments
+        # 3. Prepare Scoreboard Generator & Segments
         update_render_job_status(
             match_id, render_id, db_repo,
             status="rendering", progress=15, stage="Generating scoreboard overlays"
@@ -394,13 +620,12 @@ def execute_render_job(
                 else:
                     p2_timeout_taken = True
 
-        # 5. Render Segments with FFmpeg
+        # 4. Render Segments with FFmpeg
         total_segs = len(processed_segments)
         concat_list_path = os.path.join(temp_dir, "concat_list.txt")
 
         with open(concat_list_path, "w") as f_concat:
             for idx, seg in enumerate(processed_segments):
-                # Calculate progress from 20% to 85%
                 prog = 20 + int((idx / max(1, total_segs)) * 65)
                 update_render_job_status(
                     match_id, render_id, db_repo,
@@ -415,57 +640,43 @@ def execute_render_job(
                     continue
 
                 if seg["type"] == "card":
-                    cmd = [
-                        "ffmpeg", "-y", "-loop", "1", "-i", seg["path"],
-                        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
-                        "-t", str(seg["duration"]),
-                        "-vf", f"scale={width}:{height}",
-                        "-c:v", encoder
-                    ] + encoder_opts + [
-                        "-color_primaries", color_primaries,
-                        "-color_trc", color_trc,
-                        "-colorspace", color_space,
-                        "-pix_fmt", "yuv420p",
-                        "-r", output_fps,
-                        "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
-                        "-shortest", seg_output
-                    ]
+                    cmd = build_ffmpeg_card_cmd(
+                        card_path=seg["path"],
+                        duration=seg["duration"],
+                        width=width,
+                        height=height,
+                        encoder=encoder,
+                        encoder_opts=encoder_opts,
+                        color_primaries=color_primaries,
+                        color_trc=color_trc,
+                        color_space=color_space,
+                        output_fps=output_fps,
+                        output_path=seg_output
+                    )
                     run_cancellable_cmd(cmd, render_id)
 
                 elif seg["type"] == "clip":
                     seg_msg = f"INFO:     [FFMPEG S3 STREAMING] Segment {idx+1}/{total_segs} input: {video_input_source[:70]}..."
                     print(seg_msg, flush=True)
                     logger.info(seg_msg)
-                    filter_graph = f"scale={width}:{height}[vscaled]"
-                    if seg.get("overlay") and os.path.exists(seg["overlay"]):
-                        filter_graph = f"[0:v]scale={width}:{height}[vscaled];[vscaled][1:v]overlay=0:0[outv]"
-                        map_v = "[outv]"
-                        inputs = ["-i", video_input_source, "-i", seg["overlay"]]
-                    else:
-                        map_v = "[vscaled]"
-                        inputs = ["-i", video_input_source]
-
-                    cmd = [
-                        "ffmpeg", "-y",
-                        "-ss", str(seg["start"]),
-                        "-to", str(seg["end"])
-                    ] + inputs + [
-                        "-filter_complex", filter_graph,
-                        "-map", map_v,
-                        "-map", "0:a:0?",
-                        "-c:v", encoder
-                    ] + encoder_opts + [
-                        "-color_primaries", color_primaries,
-                        "-color_trc", color_trc,
-                        "-colorspace", color_space,
-                        "-pix_fmt", "yuv420p",
-                        "-r", output_fps,
-                        "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
-                        seg_output
-                    ]
+                    cmd = build_ffmpeg_clip_cmd(
+                        start_time=seg["start"],
+                        end_time=seg["end"],
+                        video_input_source=video_input_source,
+                        overlay_path=seg.get("overlay"),
+                        width=width,
+                        height=height,
+                        encoder=encoder,
+                        encoder_opts=encoder_opts,
+                        color_primaries=color_primaries,
+                        color_trc=color_trc,
+                        color_space=color_space,
+                        output_fps=output_fps,
+                        output_path=seg_output
+                    )
                     run_cancellable_cmd(cmd, render_id)
 
-        # 6. Concatenate Segments into Final MP4 Output
+        # 5. Concatenate Segments into Final MP4 Output
         update_render_job_status(
             match_id, render_id, db_repo,
             status="rendering", progress=90, stage="Concatenating final output video"
@@ -476,14 +687,7 @@ def execute_render_job(
         local_output_path = os.path.join(local_base, "renders", output_filename)
         os.makedirs(os.path.dirname(local_output_path), exist_ok=True)
 
-        concat_cmd = [
-            "ffmpeg", "-y",
-            "-f", "concat", "-safe", "0",
-            "-i", concat_list_path,
-            "-c", "copy",
-            "-movflags", "+faststart",
-            local_output_path
-        ]
+        concat_cmd = build_ffmpeg_concat_cmd(concat_list_path, local_output_path)
         run_cancellable_cmd(concat_cmd, render_id)
 
         # Upload to remote storage if S3 is active
