@@ -21,11 +21,11 @@ def main():
 
     logger.info(f"🚀 Starting AWS Batch GPU render job for Match: {match_id}, Render: {render_id}")
 
-    from app.database import get_db
+    from app.database import get_db_repository
     from app.storage import get_storage_provider
     from app.render_adapter import execute_render_job
 
-    db = get_db()
+    db = get_db_repository()
     storage = get_storage_provider()
 
     try:
