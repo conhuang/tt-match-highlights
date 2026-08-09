@@ -357,6 +357,15 @@ def process_video(events, video: Video, args, highlights_only=False):
     if failed_segments > 0:
         print(f"WARNING: {failed_segments}/{len(processed_segments)} segments failed to render.")
 
+    NCLC_PRIMARIES_MAP = {'bt709': 1, 'bt470m': 4, 'bt470bg': 5, 'smpte170m': 6, 'smpte240m': 7, 'film': 8, 'bt2020': 9, 'smpte428': 10, 'smpte431': 11, 'smpte432': 12}
+    NCLC_TRANSFER_MAP = {'bt709': 1, 'gamma22': 4, 'gamma28': 5, 'smpte170m': 6, 'smpte240m': 7, 'linear': 8, 'log100': 9, 'log316': 10, 'iec61966-2-4': 11, 'bt1361e': 12, 'iec61966-2-1': 13, 'bt2020-10': 14, 'bt2020-12': 15, 'smpte2084': 16, 'arib-std-b67': 18}
+    NCLC_MATRIX_MAP = {'gbr': 0, 'bt709': 1, 'fcc': 4, 'bt470bg': 5, 'smpte170m': 6, 'smpte240m': 7, 'ycgco': 8, 'bt2020nc': 9, 'bt2020c': 10}
+
+    cp = NCLC_PRIMARIES_MAP.get(color_primaries.lower(), 1)
+    ct = NCLC_TRANSFER_MAP.get(color_trc.lower(), 1)
+    cs = NCLC_MATRIX_MAP.get(color_space.lower(), 1)
+    bsf_opt = f"h264_metadata=colour_primaries={cp}:transfer_characteristics={ct}:matrix_coefficients={cs}"
+
     print("Concatenating segments...")
     subprocess.run(
         [
@@ -370,6 +379,8 @@ def process_video(events, video: Video, args, highlights_only=False):
             concat_list_path,
             "-c",
             "copy",
+            "-bsf:v",
+            bsf_opt,
             "-color_primaries",
             color_primaries,
             "-color_trc",

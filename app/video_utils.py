@@ -95,6 +95,10 @@ def optimize_video_for_faststart(video_path: str, output_path: Optional[str] = N
             "-y",
             "-i", video_path,
             "-c", "copy",
+            "-bsf:v", "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1",
+            "-color_primaries", "bt709",
+            "-color_trc", "bt709",
+            "-colorspace", "bt709",
             "-movflags", "+faststart",
             temp_output
         ]
