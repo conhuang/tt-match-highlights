@@ -78,8 +78,13 @@ export function App() {
             } else if (path.startsWith('/matches/')) {
                 const matchId = path.split('/matches/')[1];
                 if (matchId) {
-                    const match = data.find(m => m.id === matchId);
-                    if (match) setCurrentMatch(match);
+                    try {
+                        const fullMatch = await fetchMatch(matchId);
+                        setCurrentMatch(fullMatch);
+                    } catch (e) {
+                        const match = data.find(m => m.id === matchId);
+                        if (match) setCurrentMatch(match);
+                    }
                 }
             }
         } catch (err: any) {

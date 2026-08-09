@@ -122,7 +122,7 @@
 
 .progress-fill.p2-bar {
     height: 100%;
-    background: linear-gradient(90deg, var(--p2-pink), var(--p2-pink-light));
+    background: linear-gradient(90deg, #e11d48, var(--p2-pink-light));
     border-radius: 9999px;
     transition: width 0.4s ease;
 }
@@ -209,7 +209,7 @@
 }
 
 .split-fill.p2-bar {
-    background: var(--p2-pink);
+    background: linear-gradient(90deg, #e11d48, var(--p2-pink-light));
     transition: width 0.4s ease;
 }
 

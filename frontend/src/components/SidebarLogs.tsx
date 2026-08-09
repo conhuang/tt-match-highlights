@@ -60,14 +60,14 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     getCurrentVideoTime
 }) => {
     const rawEvents = computeScoresAndGames(currentMatch.events, currentMatch.player1, currentMatch.player2);
-    const [isReversed, setIsReversed] = useState<boolean>(false);
+    const [isNewestFirst, setIsNewestFirst] = useState<boolean>(true);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [editStart, setEditStart] = useState<string>('');
     const [editEnd, setEditEnd] = useState<string>('');
     const [editWinner, setEditWinner] = useState<string | null>(null);
 
     const displayEvents = rawEvents.map((event, originalIndex) => ({ event, originalIndex }));
-    if (isReversed) {
+    if (isNewestFirst) {
         displayEvents.reverse();
     }
 
@@ -120,12 +120,12 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                 <h2>Point Logs ({rawEvents.length})</h2>
                 <button
                     type="button"
-                    className={`reverse-order-btn ${isReversed ? 'active' : ''}`}
-                    onClick={() => setIsReversed(!isReversed)}
-                    title={isReversed ? "Click to view Oldest First" : "Click to view Newest First"}
+                    className={`reverse-order-btn ${isNewestFirst ? 'active' : ''}`}
+                    onClick={() => setIsNewestFirst(!isNewestFirst)}
+                    title={isNewestFirst ? "Click to view Oldest First" : "Click to view Newest First"}
                 >
                     <ArrowUpDown size={13} />
-                    <span>{isReversed ? 'Newest First' : 'Oldest First'}</span>
+                    <span>{isNewestFirst ? 'Newest First' : 'Oldest First'}</span>
                 </button>
             </div>
 

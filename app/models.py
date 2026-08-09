@@ -98,6 +98,9 @@ class Match(MatchBase):
     height: Optional[int] = Field(None, description="Height in pixels of the source video")
     events: List[Event] = Field(default_factory=list, description="Ordered list of marked points/events")
     renders: List[RenderJob] = Field(default_factory=list, description="List of generated renders for this match")
+    video_url: Optional[str] = Field(None, description="Pre-signed or stream URL for the raw video")
+    rendered_video_url: Optional[str] = Field(None, description="Pre-signed or stream URL for the rendered highlights video")
+    stats: Optional[dict] = Field(None, description="Computed real-time match analytics and insights")
 
 
     class Config:
