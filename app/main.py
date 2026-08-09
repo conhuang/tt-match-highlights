@@ -245,8 +245,37 @@ def create_render_job(match_id: str, render_create: RenderCreate, background_tas
     match.renders.append(new_job)
     db.create_match(match.model_dump())
 
-    # Trigger background execution
-    background_tasks.add_task(execute_render_job, match_id, new_job.id, db, storage)
+    # Trigger background execution via AWS Batch GPU worker (if configured) or local background thread
+    batch_queue = os.getenv("AWS_BATCH_JOB_QUEUE")
+    batch_job_def = os.getenv("AWS_BATCH_JOB_DEF")
+    if batch_queue and batch_job_def:
+        try:
+            import boto3
+            aws_region = os.getenv("AWS_REGION", "us-east-2")
+            batch_client = boto3.client("batch", region_name=aws_region)
+            job_name = f"render-{match_id}-{new_job.id}"[:128]
+            batch_client.submit_job(
+                jobName=job_name,
+                jobQueue=batch_queue,
+                jobDefinition=batch_job_def,
+                containerOverrides={
+                    "environment": [
+                        {"name": "MATCH_ID", "value": match_id},
+                        {"name": "RENDER_ID", "value": new_job.id},
+                        {"name": "STORAGE_TYPE", "value": os.getenv("STORAGE_TYPE", "s3")},
+                        {"name": "S3_BUCKET_NAME", "value": os.getenv("S3_BUCKET_NAME", "tt-video-editor-storage")},
+                        {"name": "DB_TYPE", "value": os.getenv("DB_TYPE", "dynamodb")},
+                        {"name": "DYNAMODB_TABLE_NAME", "value": os.getenv("DYNAMODB_TABLE_NAME", "tt_video_editor_matches")},
+                        {"name": "AWS_REGION", "value": aws_region}
+                    ]
+                }
+            )
+            logger.info(f"Submitted AWS Batch render job {job_name} to queue {batch_queue}")
+        except Exception as e:
+            logger.error(f"Failed to submit AWS Batch render job: {e}", exc_info=True)
+            background_tasks.add_task(execute_render_job, match_id, new_job.id, db, storage)
+    else:
+        background_tasks.add_task(execute_render_job, match_id, new_job.id, db, storage)
 
     job_dict = new_job.model_dump()
     return job_dict

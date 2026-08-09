@@ -60,6 +60,7 @@ For detailed diagrams and component flows, read **[architecture/ARCHITECTURE.md]
 ### ⚙️ Video Rendering & Overlay Engine
 * **HD Scoreboard Overlay Rendering**: Custom Pillow (PIL) + FFmpeg 1080p score overlay generator with bundled TTF fonts.
 * **Platform-Aware Hardware Encoding**: Automatically selects `h264_videotoolbox` on macOS and `libx264` on Linux EC2 servers.
+* **AWS Batch On-Demand GPU Video Rendering**: Offload heavy FFmpeg rendering jobs to `g4dn.xlarge` (NVIDIA T4 GPU) Spot instances running `h264_nvenc` with sub-minute rendering times and **$0.00 idle cost** (Scale-to-Zero). See **[plans/completed/AWS_BATCH_GPU_RENDERING.md](./plans/completed/AWS_BATCH_GPU_RENDERING.md)**.
 * **Render History & Live Polling**: Asynchronous background rendering with 2.5s live status polling, execution time pills (e.g. `⚡ 14.2s`), and instant preview playback.
 
 ### 🔐 Security & Multi-Tenancy
@@ -77,11 +78,6 @@ For detailed diagrams and component flows, read **[architecture/ARCHITECTURE.md]
   * Reduce manual match logging time from 30+ mins to <3 mins per match via 1-click point winner tagging UI.
   * *Detailed Architecture Plan*: [docs/plans/future/AI_DEAD_TIME_REMOVAL_PHASED_PLAN.md](./plans/future/AI_DEAD_TIME_REMOVAL_PHASED_PLAN.md)
 
-### ⚡ Hardware-Accelerated Cloud Video Rendering
-* **AWS Batch On-Demand GPU Rendering** (`Spec Ready`)
-  * Offload heavy FFmpeg rendering jobs to `g4dn.xlarge` (NVIDIA T4 GPU) instances running `h264_nvenc`.
-  * **Goal**: Sub-minute video rendering with **$0.00 idle cost** (Scale-to-Zero).
-  * *Detailed Architecture Plan*: [docs/plans/future/AWS_BATCH_GPU_RENDERING.md](./plans/future/AWS_BATCH_GPU_RENDERING.md)
 
 ### 🧹 Infrastructure & Storage Resilience
 * **Orphaned S3 Multipart Upload Cleanup** (`Planned`)
