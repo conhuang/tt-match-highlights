@@ -178,6 +178,94 @@ class TestAudioSyncRegression(unittest.TestCase):
         self.assertEqual(cmd[cmd.index("-f") + 1], "concat")
         self.assertEqual(cmd[-1], "/tmp/final.mp4")
 
+    @patch("subprocess.run")
+    def test_probe_video_stream_info_zero_division_fps(self, mock_run):
+        """Verify probe_video_stream_info handles 0/0 division by zero in r_frame_rate gracefully."""
+        from app.render_adapter import probe_video_stream_info
+        mock_res = MagicMock(returncode=0)
+        mock_res.stdout = json.dumps({
+            "streams": [{
+                "r_frame_rate": "0/0",
+                "width": 1920,
+                "height": 1080
+            }]
+        })
+        mock_run.return_value = mock_res
+
+        info = probe_video_stream_info("/tmp/dummy.mp4", default_fps=29.97)
+        self.assertEqual(info["output_fps"], "29.97")
+
+    @patch("subprocess.run")
+    def test_probe_video_stream_info_odd_dimensions_rescaling(self, mock_run):
+        """Verify 4K / odd dimensions are capped at 1080p and rounded to even numbers for H.264 compatibility."""
+        from app.render_adapter import probe_video_stream_info
+        mock_res = MagicMock(returncode=0)
+        mock_res.stdout = json.dumps({
+            "streams": [{
+                "r_frame_rate": "60/1",
+                "width": 3840,
+                "height": 2160
+            }]
+        })
+        mock_run.return_value = mock_res
+
+        info = probe_video_stream_info("/tmp/dummy.mp4")
+        self.assertEqual(info["width"], 1920)
+        self.assertEqual(info["height"], 1080)
+        self.assertEqual(info["width"] % 2, 0)
+        self.assertEqual(info["height"] % 2, 0)
+
+    @patch("subprocess.run")
+    def test_probe_video_stream_info_hdr_detection(self, mock_run):
+        """Verify HDR video transfer characteristics (arib-std-b67 / HLG) set is_hdr to True."""
+        from app.render_adapter import probe_video_stream_info
+        mock_res = MagicMock(returncode=0)
+        mock_res.stdout = json.dumps({
+            "streams": [{
+                "r_frame_rate": "60/1",
+                "width": 1920,
+                "height": 1080,
+                "color_space": "bt2020nc",
+                "color_transfer": "arib-std-b67",
+                "color_primaries": "bt2020"
+            }]
+        })
+        mock_run.return_value = mock_res
+
+        info = probe_video_stream_info("/tmp/dummy.mp4")
+        self.assertTrue(info["is_hdr"])
+        self.assertEqual(info["color_space"], "bt2020nc")
+
+    @patch("subprocess.run", side_effect=RuntimeError("ffprobe failure"))
+    def test_probe_video_stream_info_ffprobe_failure(self, mock_run):
+        """Verify probe_video_stream_info falls back to default width, height, and FPS if ffprobe fails."""
+        from app.render_adapter import probe_video_stream_info
+        info = probe_video_stream_info("/tmp/dummy.mp4", default_width=1280, default_height=720, default_fps=25.0)
+        self.assertEqual(info["width"], 1280)
+        self.assertEqual(info["height"], 720)
+        self.assertEqual(info["output_fps"], "25.0")
+
+    def test_build_ffmpeg_clip_cmd_without_overlay(self):
+        """Verify build_ffmpeg_clip_cmd constructs simpler filter graph when overlay_path is None."""
+        from app.render_adapter import build_ffmpeg_clip_cmd
+        cmd = build_ffmpeg_clip_cmd(
+            start_time=5.0,
+            end_time=12.0,
+            video_input_source="/tmp/input.mp4",
+            overlay_path=None,
+            width=1920,
+            height=1080,
+            encoder="libx264",
+            encoder_opts=["-preset", "superfast"],
+            color_primaries="bt709",
+            color_trc="bt709",
+            color_space="bt709",
+            output_fps="30",
+            output_path="/tmp/clip.mp4"
+        )
+        self.assertEqual(cmd[cmd.index("-filter_complex") + 1], "scale=1920:1080[vscaled]")
+        self.assertEqual(cmd[cmd.index("-map") + 1], "[vscaled]")
+
 
 if __name__ == "__main__":
     unittest.main()
