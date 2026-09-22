@@ -7,7 +7,7 @@ import { SidebarLogs } from './SidebarLogs';
 import { RenderHistory } from './RenderHistory';
 import { MatchStatsView } from './MatchStatsView';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
-import { saveMatchEvents, updateMatch, createRenderJob, fetchMatchRenders, deleteRenderJob, cancelRenderJob } from '../services/api';
+import { saveMatchEvents, updateMatch, createRenderJob, fetchMatchRenders, deleteRenderJob, cancelRenderJob, fetchMatch, triggerAutoDetect } from '../services/api';
 import { RenderOptionsForm } from './RenderOptionsForm';
 import { FirstServerCard } from './FirstServerCard';
 
@@ -54,6 +54,45 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
         return () => clearInterval(interval);
     }, [currentMatch.id, currentMatch.renders, onMatchUpdated]);
+
+    // Polling for active AI auto-detect job
+    useEffect(() => {
+        const job = currentMatch.auto_detect_job;
+        const isActive = job && ['queued', 'transcoding', 'tracking', 'gemini_querying'].includes(job.status);
+        if (!isActive) return;
+
+        const interval = setInterval(async () => {
+            try {
+                const updatedMatch = await fetchMatch(currentMatch.id);
+                onMatchUpdated(updatedMatch);
+            } catch (err) {
+                console.error('Auto-detect polling error:', err);
+            }
+        }, 2000);
+
+        return () => clearInterval(interval);
+    }, [currentMatch.id, currentMatch.auto_detect_job, onMatchUpdated]);
+
+    const [isStartingDetect, setIsStartingDetect] = useState<boolean>(false);
+
+    const handleTriggerAutoDetect = async () => {
+        if (!currentMatch.video_filename) {
+            alert('Please upload a video before running AI rally detection.');
+            return;
+        }
+        setIsStartingDetect(true);
+        try {
+            const job = await triggerAutoDetect(currentMatch.id, { mode: 'replace' });
+            onMatchUpdated({
+                ...currentMatch,
+                auto_detect_job: job
+            });
+        } catch (err: any) {
+            alert(err.message || 'Failed to start AI detection.');
+        } finally {
+            setIsStartingDetect(false);
+        }
+    };
 
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
 
@@ -289,6 +328,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                         onSaveEvents={() => autoSave(currentMatch.events)}
                         saveStatus={saveStatus}
                         getCurrentVideoTime={() => videoRef.current?.currentTime || 0}
+                        onTriggerAutoDetect={handleTriggerAutoDetect}
+                        isDetecting={isStartingDetect}
                     />
                     <RenderOptionsForm
                         onSubmit={handleCreateRender}

@@ -23,6 +23,6 @@ COPY src/ ./src
 COPY pyproject.toml ./
 RUN python3 -m pip install --no-deps -e .
 
-COPY scripts/run_gpu_render_job.py ./scripts/
+COPY scripts/ ./scripts/
 
 ENTRYPOINT ["python3", "scripts/run_gpu_render_job.py"]

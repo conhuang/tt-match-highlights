@@ -80,7 +80,8 @@ class SQLiteRepository(DatabaseRepository):
                 ("events", "TEXT DEFAULT '[]'"),
                 ("renders", "TEXT DEFAULT '[]'"),
                 ("owner_id", "TEXT"),
-                ("first_server", "TEXT DEFAULT 'player1'")
+                ("first_server", "TEXT DEFAULT 'player1'"),
+                ("auto_detect_job", "TEXT")
             ]:
                 if col not in existing_cols:
                     conn.execute(f"ALTER TABLE matches ADD COLUMN {col} {col_type}")
@@ -89,6 +90,8 @@ class SQLiteRepository(DatabaseRepository):
     def create_match(self, match_data: dict) -> dict:
         events = match_data.get("events") or []
         renders = match_data.get("renders") or []
+        auto_detect_job = match_data.get("auto_detect_job")
+        auto_detect_json = json.dumps(auto_detect_job) if auto_detect_job else None
         
         with self._get_connection() as conn:
             conn.execute(
@@ -96,9 +99,9 @@ class SQLiteRepository(DatabaseRepository):
                 INSERT OR REPLACE INTO matches (
                     id, owner_username, owner_id, name, player1, player2, first_server, created_at,
                     video_filename, original_filename, events, renders,
-                    fps, duration, width, height, rendered_video_filename
+                    fps, duration, width, height, rendered_video_filename, auto_detect_job
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     match_data["id"],
@@ -117,7 +120,8 @@ class SQLiteRepository(DatabaseRepository):
                     match_data.get("duration"),
                     match_data.get("width"),
                     match_data.get("height"),
-                    match_data.get("rendered_video_filename")
+                    match_data.get("rendered_video_filename"),
+                    auto_detect_json
                 )
             )
             conn.commit()
@@ -130,6 +134,11 @@ class SQLiteRepository(DatabaseRepository):
                 res = dict(row)
                 res["events"] = json.loads(res.get("events") or "[]")
                 res["renders"] = json.loads(res.get("renders") or "[]")
+                if res.get("auto_detect_job"):
+                    try:
+                        res["auto_detect_job"] = json.loads(res["auto_detect_job"])
+                    except Exception:
+                        pass
                 return res
         return None
 
@@ -141,6 +150,11 @@ class SQLiteRepository(DatabaseRepository):
                 m = dict(row)
                 m["events"] = json.loads(m.get("events") or "[]")
                 m["renders"] = json.loads(m.get("renders") or "[]")
+                if m.get("auto_detect_job"):
+                    try:
+                        m["auto_detect_job"] = json.loads(m["auto_detect_job"])
+                    except Exception:
+                        pass
                 matches.append(m)
             return matches
 
@@ -219,6 +233,9 @@ class DynamoDBRepository(DatabaseRepository):
         for attr in ("fps", "duration", "width", "height", "rendered_video_filename"):
             if attr in match_data and match_data[attr] is not None:
                 item[attr] = match_data[attr]
+
+        if "auto_detect_job" in match_data and match_data["auto_detect_job"] is not None:
+            item["auto_detect_job"] = match_data["auto_detect_job"]
 
         dynamo_item = _to_dynamo_item(item)
         self.table.put_item(Item=dynamo_item)

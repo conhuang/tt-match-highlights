@@ -61,6 +61,24 @@ class MatchBase(BaseModel):
     first_server: Optional[str] = Field("player1", description="Player who served first in Game 1 ('player1' or 'player2')")
 
 
+class AutoDetectJob(BaseModel):
+    id: str = Field(default_factory=lambda: shortuuid.uuid(), description="Unique identifier for this auto-detect job")
+    status: str = Field("queued", description="Status: 'queued', 'transcoding', 'tracking', 'gemini_querying', 'completed', 'failed', 'cancelled'")
+    progress: int = Field(0, description="Completion percentage (0 to 100)")
+    stage: str = Field("Queued", description="Human-readable stage description")
+    error: Optional[str] = Field(None, description="Error message if detection failed")
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z", description="ISO timestamp of detection start")
+    completed_at: Optional[str] = Field(None, description="ISO timestamp of detection completion")
+    rallies_detected: int = Field(0, description="Number of detected rallies")
+    proxy_720p_filename: Optional[str] = Field(None, description="Filename of the generated 720p proxy video")
+    ball_csv_filename: Optional[str] = Field(None, description="Filename of the generated ball coordinate CSV")
+
+
+class AutoDetectRequest(BaseModel):
+    mode: str = Field("replace", description="Rally placement mode: 'replace' or 'append'")
+    model: str = Field("gemini-2.5-flash", description="Gemini model identifier")
+
+
 class MatchCreate(MatchBase):
     pass
 
@@ -72,6 +90,7 @@ class MatchUpdate(BaseModel):
     first_server: Optional[str] = None
     events: Optional[List[Event]] = None
     renders: Optional[List[RenderJob]] = None
+    auto_detect_job: Optional[AutoDetectJob] = None
     video_filename: Optional[str] = None
     original_filename: Optional[str] = None
     rendered_video_filename: Optional[str] = None
@@ -98,6 +117,7 @@ class Match(MatchBase):
     height: Optional[int] = Field(None, description="Height in pixels of the source video")
     events: List[Event] = Field(default_factory=list, description="Ordered list of marked points/events")
     renders: List[RenderJob] = Field(default_factory=list, description="List of generated renders for this match")
+    auto_detect_job: Optional[AutoDetectJob] = Field(None, description="Current or latest AI rally detection job")
 
 
     class Config:

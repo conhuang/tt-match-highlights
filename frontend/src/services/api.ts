@@ -1,4 +1,4 @@
-import { Match, MatchEvent, CreateMatchInput, InitializeResponse, UploadPart, ResumeSession, RenderJob, RenderOptions } from '../types';
+import { Match, MatchEvent, CreateMatchInput, InitializeResponse, UploadPart, ResumeSession, RenderJob, RenderOptions, AutoDetectJob } from '../types';
 
 const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB
 const CONCURRENCY_LIMIT = 3;
@@ -412,3 +412,37 @@ export async function cancelRenderJob(matchId: string, renderId: string): Promis
         throw new Error('Failed to cancel render job.');
     }
 }
+
+export async function triggerAutoDetect(matchId: string, options?: { mode?: 'replace' | 'append'; model?: string }): Promise<AutoDetectJob> {
+    const response = await fetch(`/api/matches/${matchId}/auto-detect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(options || {})
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to trigger AI auto-detect.');
+    }
+    return response.json();
+}
+
+export async function fetchAutoDetectStatus(matchId: string): Promise<AutoDetectJob> {
+    const response = await fetch(`/api/matches/${matchId}/auto-detect/status`, {
+        headers: { ...getAuthHeaders() }
+    });
+    if (!response.ok) {
+        throw new Error('Failed to fetch auto-detect status.');
+    }
+    return response.json();
+}
+
+export async function cancelAutoDetect(matchId: string): Promise<void> {
+    const response = await fetch(`/api/matches/${matchId}/auto-detect/cancel`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders() }
+    });
+    if (!response.ok) {
+        throw new Error('Failed to cancel auto-detect.');
+    }
+}
+

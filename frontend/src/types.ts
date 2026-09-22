@@ -71,6 +71,19 @@ export interface MatchStats {
     };
 }
 
+export interface AutoDetectJob {
+    id: string;
+    status: 'queued' | 'transcoding' | 'tracking' | 'gemini_querying' | 'completed' | 'failed' | 'cancelled';
+    progress: number;
+    stage: string;
+    error?: string | null;
+    created_at: string;
+    completed_at?: string | null;
+    rallies_detected: number;
+    proxy_720p_filename?: string | null;
+    ball_csv_filename?: string | null;
+}
+
 export interface Match {
     id: string;
     owner_username?: string;
@@ -86,6 +99,7 @@ export interface Match {
     rendered_video_url?: string | null;
     events: MatchEvent[];
     renders?: RenderJob[];
+    auto_detect_job?: AutoDetectJob | null;
     stats?: MatchStats;
     fps?: number | null;
     duration?: number | null;

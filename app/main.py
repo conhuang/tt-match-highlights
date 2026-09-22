@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
 
-from app.models import Match, MatchCreate, MatchUpdate, RenderCreate, RenderJob, RenderOptions
+from app.models import Match, MatchCreate, MatchUpdate, RenderCreate, RenderJob, RenderOptions, AutoDetectJob, AutoDetectRequest
 from app.database import get_db_repository
 from app.storage import get_storage_provider
 
@@ -359,6 +359,112 @@ def cancel_render_job_endpoint(match_id: str, render_id: str, current_user: dict
     from app.render_adapter import cancel_render_job
     cancel_render_job(match_id, render_id, db)
     return {"status": "cancelling", "message": f"RenderJob {render_id} cancelled."}
+
+
+# --- AI Rally Auto-Detection Endpoints ---
+
+@app.post("/api/matches/{match_id}/auto-detect")
+def trigger_auto_detect(
+    match_id: str,
+    detect_req: Optional[AutoDetectRequest] = None,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    current_user: dict = Depends(get_current_user)
+):
+    """Triggers automated AI rally detection for a match."""
+    record = db.get_match(match_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Match with ID {match_id} not found.")
+
+    match = Match.model_validate(record)
+    _verify_match_owner(match, current_user)
+
+    if not match.video_filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot run auto-detect without an uploaded video.")
+
+    req = detect_req or AutoDetectRequest()
+    new_job = AutoDetectJob(
+        status="queued",
+        progress=0,
+        stage="Queued in background",
+        created_at=datetime.utcnow().isoformat() + "Z"
+    )
+
+    match.auto_detect_job = new_job
+    db.create_match(match.model_dump())
+
+    # Dispatch to AWS Batch GPU worker if configured, otherwise local background task
+    batch_queue = os.getenv("AWS_BATCH_JOB_QUEUE")
+    batch_job_def = os.getenv("AWS_BATCH_JOB_DEF_DETECT") or os.getenv("AWS_BATCH_JOB_DEF")
+    if batch_queue and batch_job_def:
+        try:
+            import boto3
+            aws_region = os.getenv("AWS_REGION", "us-east-2")
+            batch_client = boto3.client("batch", region_name=aws_region)
+            job_name = f"detect-{match_id}-{new_job.id}"[:128]
+            batch_client.submit_job(
+                jobName=job_name,
+                jobQueue=batch_queue,
+                jobDefinition=batch_job_def,
+                containerOverrides={
+                    "command": ["python3", "scripts/run_gpu_detect_job.py"],
+                    "environment": [
+                        {"name": "MATCH_ID", "value": match_id},
+                        {"name": "JOB_ID", "value": new_job.id},
+                        {"name": "DETECT_MODE", "value": req.mode},
+                        {"name": "GEMINI_MODEL", "value": req.model},
+                        {"name": "STORAGE_TYPE", "value": os.getenv("STORAGE_TYPE", "s3")},
+                        {"name": "S3_BUCKET_NAME", "value": os.getenv("S3_BUCKET_NAME", "tt-video-editor-storage")},
+                        {"name": "DB_TYPE", "value": os.getenv("DB_TYPE", "dynamodb")},
+                        {"name": "DYNAMODB_TABLE_NAME", "value": os.getenv("DYNAMODB_TABLE_NAME", "tt_video_editor_matches")},
+                        {"name": "AWS_REGION", "value": aws_region}
+                    ]
+                }
+            )
+            logger.info(f"Submitted AWS Batch auto-detect job {job_name} to queue {batch_queue}")
+        except Exception as e:
+            logger.error(f"Failed to submit AWS Batch detect job: {e}", exc_info=True)
+            from app.detect_adapter import execute_auto_detect_job
+            background_tasks.add_task(execute_auto_detect_job, match_id, new_job.id, db, storage, req.mode, req.model)
+    else:
+        from app.detect_adapter import execute_auto_detect_job
+        background_tasks.add_task(execute_auto_detect_job, match_id, new_job.id, db, storage, req.mode, req.model)
+
+    return new_job.model_dump()
+
+
+@app.get("/api/matches/{match_id}/auto-detect/status")
+def get_auto_detect_status(match_id: str, current_user: dict = Depends(get_current_user)):
+    """Polls the status of the current or latest AI auto-detection job."""
+    record = db.get_match(match_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Match with ID {match_id} not found.")
+
+    match = Match.model_validate(record)
+    _verify_match_owner(match, current_user)
+
+    if not match.auto_detect_job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No auto-detect job found for this match.")
+
+    return match.auto_detect_job.model_dump()
+
+
+@app.post("/api/matches/{match_id}/auto-detect/cancel")
+def cancel_auto_detect_endpoint(match_id: str, current_user: dict = Depends(get_current_user)):
+    """Cancels an active auto-detection job."""
+    record = db.get_match(match_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Match with ID {match_id} not found.")
+
+    match = Match.model_validate(record)
+    _verify_match_owner(match, current_user)
+
+    if not match.auto_detect_job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active auto-detect job to cancel.")
+
+    from app.detect_adapter import cancel_detect_job
+    cancel_detect_job(match_id, match.auto_detect_job.id, db)
+    return {"status": "cancelling", "message": "Auto-detect job cancelled."}
+
 
 @app.put("/api/matches/{match_id}")
 def update_match(match_id: str, match_update: MatchUpdate, current_user: dict = Depends(get_current_user)):

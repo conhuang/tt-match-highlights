@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Match } from '../types';
-import { Trash2, Star, Edit3, Check, Clock, X, ArrowUpDown, Download, Save } from 'lucide-react';
-import { Button } from './ui';
+import { Trash2, Star, Edit3, Check, Clock, X, ArrowUpDown, Download, Save, Sparkles } from 'lucide-react';
+import { Button, Badge } from './ui';
 import { computeScoresAndGames } from '../utils/scoring';
 import { exportEventsToCSV } from '../utils/csvExporter';
 
@@ -15,6 +15,8 @@ interface SidebarLogsProps {
     onSaveEvents?: () => void;
     saveStatus?: 'idle' | 'saving' | 'saved' | 'failed';
     getCurrentVideoTime?: () => number;
+    onTriggerAutoDetect?: () => void;
+    isDetecting?: boolean;
 }
 
 function formatTime(seconds: number): string {
@@ -57,7 +59,9 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     onDeleteEvent,
     onSaveEvents,
     saveStatus = 'idle',
-    getCurrentVideoTime
+    getCurrentVideoTime,
+    onTriggerAutoDetect,
+    isDetecting = false
 }) => {
     const rawEvents = computeScoresAndGames(currentMatch.events, currentMatch.player1, currentMatch.player2);
     const [isReversed, setIsReversed] = useState<boolean>(false);
@@ -117,7 +121,27 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
     return (
         <div className="sidebar-logs-card">
             <div className="sidebar-header">
-                <h2>Point Logs ({rawEvents.length})</h2>
+                <div className="sidebar-header-left">
+                    <h2>Point Logs ({rawEvents.length})</h2>
+                    {currentMatch.auto_detect_job && ['queued', 'transcoding', 'tracking', 'gemini_querying'].includes(currentMatch.auto_detect_job.status) ? (
+                        <Badge variant="rendering" icon={<Sparkles size={12} className="spin-slow" />}>
+                            {currentMatch.auto_detect_job.stage} ({currentMatch.auto_detect_job.progress}%)
+                        </Badge>
+                    ) : (
+                        onTriggerAutoDetect && currentMatch.video_filename && (
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                icon={<Sparkles size={13} />}
+                                onClick={onTriggerAutoDetect}
+                                isLoading={isDetecting}
+                                title="Run AI Rally Detection and auto-remove dead time"
+                            >
+                                Auto-Detect (AI)
+                            </Button>
+                        )
+                    )}
+                </div>
                 <button
                     type="button"
                     className={`reverse-order-btn ${isReversed ? 'active' : ''}`}
