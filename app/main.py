@@ -39,6 +39,30 @@ def compile_typescript_locally():
         except Exception:
             pass
 
+@app.on_event("startup")
+def cleanup_interrupted_renders_on_startup():
+    """
+    On server startup, scans for any render jobs that were left in 'rendering' or 'pending'
+    status when the previous container/process died or restarted, and marks them as interrupted.
+    """
+    try:
+        matches = db.list_matches()
+        for m_dict in matches:
+            renders = m_dict.get("renders") or []
+            updated = False
+            for r in renders:
+                if isinstance(r, dict) and r.get("status") in ("rendering", "pending"):
+                    r["status"] = "failed"
+                    r["stage"] = "Cancelled"
+                    r["progress"] = 0
+                    r["error"] = "Render interrupted by server restart. Please retry."
+                    updated = True
+            if updated:
+                db.create_match(m_dict)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Startup render cleanup encountered an error: {e}")
+
 from fastapi.responses import FileResponse
 
 # Mount local storage folder if it exists (allows local video playback)
@@ -241,10 +265,6 @@ def get_match(match_id: str, background_tasks: BackgroundTasks, current_user: di
     
     match = Match.model_validate(record)
     _verify_match_owner(match, current_user)
-
-    # Auto-generate scaled-down previews in background if missing
-    if match.video_filename and (not match.preview_video_filename or not match.preview_video_480p_filename):
-        background_tasks.add_task(ensure_match_previews, match.id)
 
     return _enrich_match_urls(match)
 
@@ -504,6 +524,7 @@ logger = logging.getLogger(__name__)
 
 _preview_generation_in_progress = set()
 _preview_lock = threading.Lock()
+_preview_semaphore = threading.Semaphore(1)
 
 def ensure_match_previews(match_id: str, local_file_hint: Optional[str] = None):
     """Ensures 720p and 480p preview videos exist for a match, generating them on-demand if missing."""
@@ -512,7 +533,20 @@ def ensure_match_previews(match_id: str, local_file_hint: Optional[str] = None):
             return
         _preview_generation_in_progress.add(match_id)
 
+    # Acquire global preview semaphore (non-blocking: if another preview is already encoding, skip to avoid CPU overload)
+    acquired = _preview_semaphore.acquire(blocking=False)
+    if not acquired:
+        with _preview_lock:
+            _preview_generation_in_progress.discard(match_id)
+        logger.info(f"Skipping preview generation for {match_id}: another preview generation is already active.")
+        return
+
     try:
+        from app.render_adapter import RUNNING_PROCESSES
+        if RUNNING_PROCESSES:
+            logger.info(f"Skipping preview generation for {match_id}: active render job is in progress.")
+            return
+
         record = db.get_match(match_id)
         if not record:
             return
@@ -559,20 +593,26 @@ def ensure_match_previews(match_id: str, local_file_hint: Optional[str] = None):
         preview_480_local = os.path.join(tempfile.gettempdir(), f"{match_id}_480p.mp4")
 
         # Generate 720p if missing and source is > 720
+        new_720_filename = None
         if not has_720 and src_height > 720:
+            if RUNNING_PROCESSES:
+                logger.info(f"Aborting preview generation for {match_id}: render job started.")
+                return
             if generate_preview(video_input, preview_720_local, 720):
-                preview_filename = f"{user_prefix}/{match_id}_720p.mp4"
-                storage.upload_file(preview_720_local, f"previews/{preview_filename}")
-                match.preview_video_filename = preview_filename
+                new_720_filename = f"{user_prefix}/{match_id}_720p.mp4"
+                storage.upload_file(preview_720_local, f"previews/{new_720_filename}")
                 has_720 = True
 
         # Generate 480p if missing
+        new_480_filename = None
         if not has_480:
+            if RUNNING_PROCESSES:
+                logger.info(f"Aborting preview generation for {match_id}: render job started.")
+                return
             input_for_480 = preview_720_local if (has_720 and os.path.exists(preview_720_local)) else video_input
             if generate_preview(input_for_480, preview_480_local, 480):
-                preview_480_filename = f"{user_prefix}/{match_id}_480p.mp4"
-                storage.upload_file(preview_480_local, f"previews/{preview_480_filename}")
-                match.preview_video_480p_filename = preview_480_filename
+                new_480_filename = f"{user_prefix}/{match_id}_480p.mp4"
+                storage.upload_file(preview_480_local, f"previews/{new_480_filename}")
                 has_480 = True
 
         # Clean up local temporary preview files
@@ -583,11 +623,17 @@ def ensure_match_previews(match_id: str, local_file_hint: Optional[str] = None):
             except OSError:
                 pass
 
-        db.create_match(match.model_dump())
-        logger.info(f"Generated previews for match {match_id}: 720p={match.preview_video_filename}, 480p={match.preview_video_480p_filename}")
+        if new_720_filename or new_480_filename:
+            db.update_match_previews(
+                match_id,
+                preview_720=new_720_filename,
+                preview_480=new_480_filename
+            )
+            logger.info(f"Generated previews for match {match_id}: 720p={new_720_filename}, 480p={new_480_filename}")
     except Exception as e:
         logger.error(f"ensure_match_previews failed for match {match_id}: {e}")
     finally:
+        _preview_semaphore.release()
         with _preview_lock:
             _preview_generation_in_progress.discard(match_id)
 

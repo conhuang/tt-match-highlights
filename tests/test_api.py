@@ -438,6 +438,85 @@ class TestFastAPIBackend(unittest.TestCase):
         finally:
             db.delete_match(match_id)
 
+    def test_update_match_previews_preserves_events_and_renders(self):
+        """
+        Verify that update_match_previews only modifies preview fields
+        and preserves existing events and renders.
+        """
+        match_id = "test_preview_preserve_match"
+        initial_events = [{"start": 1.0, "end": 4.0, "winner": "Alice"}]
+        initial_renders = [{
+            "id": "render_123",
+            "type": "highlights",
+            "label": "Highlights",
+            "status": "completed",
+            "progress": 100,
+            "stage": "Complete",
+            "options": {}
+        }]
+        match_data = {
+            "id": match_id,
+            "name": "Preserve Test",
+            "player1": "Alice",
+            "player2": "Bob",
+            "events": initial_events,
+            "renders": initial_renders,
+            "video_filename": "source.mp4"
+        }
+        db.create_match(match_data)
+        try:
+            db.update_match_previews(
+                match_id,
+                preview_720="previews/p720.mp4",
+                preview_480="previews/p480.mp4"
+            )
+            updated = db.get_match(match_id)
+            self.assertEqual(updated["preview_video_filename"], "previews/p720.mp4")
+            self.assertEqual(updated["preview_video_480p_filename"], "previews/p480.mp4")
+            self.assertEqual(len(updated["events"]), 1)
+            self.assertEqual(updated["events"][0]["winner"], "Alice")
+            self.assertEqual(len(updated["renders"]), 1)
+            self.assertEqual(updated["renders"][0]["id"], "render_123")
+            self.assertEqual(updated["renders"][0]["status"], "completed")
+        finally:
+            db.delete_match(match_id)
+
+    def test_startup_cleanup_marks_interrupted_renders_failed(self):
+        """
+        Verify that cleanup_interrupted_renders_on_startup transitions any stuck
+        renders to failed/Cancelled so ghost jobs never block the UI.
+        """
+        from app.main import cleanup_interrupted_renders_on_startup
+        match_id = "test_stuck_render_cleanup"
+        stuck_render = {
+            "id": "stuck_job_999",
+            "type": "full_match",
+            "label": "Full Match",
+            "status": "rendering",
+            "progress": 53,
+            "stage": "FFmpeg Encoding (Segment 52/100)",
+            "options": {}
+        }
+        match_data = {
+            "id": match_id,
+            "name": "Stuck Render Match",
+            "player1": "P1",
+            "player2": "P2",
+            "events": [],
+            "renders": [stuck_render]
+        }
+        db.create_match(match_data)
+        try:
+            cleanup_interrupted_renders_on_startup()
+            cleaned = db.get_match(match_id)
+            cleaned_render = cleaned["renders"][0]
+            self.assertEqual(cleaned_render["status"], "failed")
+            self.assertEqual(cleaned_render["stage"], "Cancelled")
+            self.assertEqual(cleaned_render["progress"], 0)
+            self.assertIn("interrupted", cleaned_render.get("error", "").lower())
+        finally:
+            db.delete_match(match_id)
+
 if __name__ == "__main__":
     unittest.main()
 
