@@ -94,15 +94,12 @@ For detailed diagrams and component flows, read **[architecture/ARCHITECTURE.md]
 * **Active Server Indicator Carat on Scoreboard**: Add a visual serve indicator (e.g. `🏓`) next to the active server's name on the live video overlay.
 
 ### Other small feature requests or bug fixes
-1. Points Log score for a given point should show the score after that point was completed. E.g. after point 1, the score is 1-0. Currently it shows the score before the point
-2. if i click a point in the point log, it jumps to the start time of the rally, but it should also stop at the end of the rally, allowing a preview of the full clip.
-3. showing the preview video should show the scaled down version (720p) instead of the original, but it can indicate the original resolution, from which the final render is cut from
-4. the preview video needs to show the start and end markers of each recorded point, and make them draggable to edit the start and end time of the clip.
-5. two clicks to edit the player name is too much. clicking it should show the options.
-6. keystrokes menu shouldnt say "player 1/2" it should have the actual names of the players.
-7. timeout player doesnt make a lot of sense attached to a point. it should be an event between points. 
-8. rendering should be done by a separate service with a GPU, and the frontend should poll the status of the render. 
-9. pending start time needs to be in minutes:seconds format (mm:ss)
-10. extended sign in time (stay signed in for 30 days)
+1. if i click a point in the point log, it jumps to the start time of the rally, but it should also stop at the end of the rally, allowing a preview of the full clip.
+2. the preview video needs to show the start and end markers of each recorded point, and make them draggable to edit the start and end time of the clip.
+3. keystrokes menu shouldnt say "player 1/2" it should have the actual names of the players.
+4. timeout player doesnt make a lot of sense attached to a point. it should be an event between points. 
+5. rendering should be done by a separate service with a GPU, and the frontend should poll the status of the render. 
+6. extended auth sign in time (stay signed in for 30 days)
+7. in Match Analysis section: 0-6 seconds = short rally, 6-10 = medium, 10+ = long rally -> show serve and win ratio of the rallies and self serve win rate for each length of rally
 
 

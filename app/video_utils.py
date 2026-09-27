@@ -125,3 +125,36 @@ def optimize_video_for_faststart(video_path: str, output_path: Optional[str] = N
                 pass
         return False
 
+
+def generate_720p_preview(video_path: str, output_path: str) -> bool:
+    """
+    Downscales a video to 720p (-vf scale=-2:min(720\,ih)) using fast encoding for smooth HTML5 web playback.
+    """
+    if not os.path.exists(video_path):
+        return False
+
+    try:
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i", video_path,
+            "-vf", "scale=-2:min(720\\,ih)",
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-crf", "22",
+            "-c:a", "copy",
+            "-movflags", "+faststart",
+            output_path
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            logger.info(f"720p preview generation succeeded: {output_path}")
+            return True
+        else:
+            logger.warning(f"720p preview generation failed: {result.stderr}")
+            return False
+    except Exception as e:
+        logger.error(f"FFmpeg 720p preview error: {e}")
+        return False
+

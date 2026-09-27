@@ -166,6 +166,15 @@ def _enrich_match_urls(match: Match) -> dict:
             video_url = storage.get_download_url(f"uploads/{match.video_filename}")
         else:
             video_url = f"/api/matches/{match.id}/stream"
+
+    preview_video_url = None
+    if match.preview_video_filename:
+        if os.getenv("STORAGE_TYPE") == "s3":
+            preview_video_url = storage.get_download_url(f"previews/{match.preview_video_filename}")
+        else:
+            preview_video_url = f"/api/matches/{match.id}/preview"
+    elif match.video_filename:
+        preview_video_url = f"/api/matches/{match.id}/preview"
         
     rendered_url = None
     if match.rendered_video_filename:
@@ -180,6 +189,7 @@ def _enrich_match_urls(match: Match) -> dict:
 
     response_data = match.model_dump()
     response_data["video_url"] = video_url
+    response_data["preview_video_url"] = preview_video_url
     response_data["rendered_video_url"] = rendered_url
     response_data["renders"] = enriched_renders
     
@@ -483,6 +493,22 @@ def process_post_upload_tasks(match_id: str, remote_path: str, local_file_path: 
                 match.duration = meta.get("duration")
                 match.width = meta.get("width")
                 match.height = meta.get("height")
+
+                # Generate 720p scaled down preview video if source height > 720
+                src_height = meta.get("height") or 0
+                if src_height > 720:
+                    from app.video_utils import generate_720p_preview
+                    preview_local = f"{local_file_path}.720p.mp4"
+                    if generate_720p_preview(local_file_path, preview_local):
+                        user_prefix = _get_user_storage_prefix(match)
+                        preview_filename = f"{user_prefix}/{match_id}_720p.mp4"
+                        storage.upload_file(preview_local, f"previews/{preview_filename}")
+                        match.preview_video_filename = preview_filename
+                        try:
+                            os.remove(preview_local)
+                        except OSError:
+                            pass
+
                 db.create_match(match.model_dump())
     except Exception as e:
         logger.error(f"Background post-processing failed for match {match_id}: {e}")
@@ -612,6 +638,48 @@ def stream_match_video(match_id: str, request: Request):
         return StreamingResponse(stream_data["iter"], status_code=stream_data["status_code"], headers=headers)
     else:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to stream video content.")
+
+@app.api_route("/api/matches/{match_id}/preview", methods=["GET", "HEAD"])
+def stream_match_preview(match_id: str, request: Request):
+    """Serves the 720p scaled-down preview video or falls back to the original video stream."""
+    record = db.get_match(match_id)
+    if not record or not record.get("video_filename"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match video not found.")
+
+    from app.storage import S3StorageProvider
+    # 1. If 720p preview exists, serve/redirect to it
+    if record.get("preview_video_filename"):
+        preview_remote = f"previews/{record['preview_video_filename']}"
+        if isinstance(storage, S3StorageProvider) or os.getenv("STORAGE_TYPE") == "s3":
+            presigned_url = storage.get_download_url(preview_remote)
+            if presigned_url:
+                from fastapi.responses import RedirectResponse
+                return RedirectResponse(url=presigned_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+        
+        range_header = request.headers.get("range")
+        stream_data = storage.get_object_stream(preview_remote, range_header=range_header)
+        if stream_data:
+            headers = {
+                "Accept-Ranges": "bytes",
+                "Content-Type": stream_data.get("content_type", "video/mp4"),
+            }
+            if stream_data.get("content_length") is not None:
+                headers["Content-Length"] = str(stream_data["content_length"])
+            if stream_data.get("content_range"):
+                headers["Content-Range"] = stream_data["content_range"]
+            if request.method == "HEAD":
+                from fastapi.responses import Response
+                return Response(status_code=stream_data["status_code"], headers=headers)
+            if "body" in stream_data:
+                def s3_iter():
+                    for chunk in stream_data["body"].iter_chunks(chunk_size=512 * 1024):
+                        yield chunk
+                return StreamingResponse(s3_iter(), status_code=stream_data["status_code"], headers=headers)
+            elif "iter" in stream_data:
+                return StreamingResponse(stream_data["iter"], status_code=stream_data["status_code"], headers=headers)
+
+    # 2. Fall back to standard match video stream
+    return stream_match_video(match_id, request)
 
 @app.get("/api/matches/{match_id}/thumbnail")
 def get_match_thumbnail(match_id: str, time: float = 0.0):
