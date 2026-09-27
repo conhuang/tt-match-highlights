@@ -44,6 +44,7 @@ For detailed diagrams and component flows, read **[architecture/ARCHITECTURE.md]
 * **Direct S3 Multipart Chunked Uploads**: 8MB chunked uploading directly from browser to S3 with upload progress indicators.
 * **Direct S3 Progressive Streaming**: 307 pre-signed S3 redirects with explicit `video/mp4` MIME headers for progressive browser playback and GPU decoding.
 * **Video Keyboard Seek Controls**: Dedicated hotkeys (`Space` for play/pause, `◄`/`►` and `,`/`.` for `±2.0s` seek, `Shift + ◄/►` for fine `±0.1s` seek, `▲`/`▼` for `±1m` jump).
+* **Multi-Resolution Video Preview Selection**: 1-click switching between `480p` (low-bandwidth / poor Wi-Fi), `720p` (HD balanced), and `Original` full source quality with instant playback position preservation, while final highlight renders are always cut from the full-resolution source.
 
 ### 🏓 Point Logging, Scoreboard & Event Editing
 * **Interactive Point Logging**: One-click (`1`/`A` or `2`/`S`) point logging with automatic score incrementation and game transitions.

@@ -1,7 +1,7 @@
 import os
 from io import BytesIO
 from datetime import datetime
-from fastapi import FastAPI, UploadFile, File, HTTPException, status, Request, BackgroundTasks, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, status, Request, BackgroundTasks, Depends, Query
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
@@ -187,9 +187,35 @@ def _enrich_match_urls(match: Match) -> dict:
             r_dict["video_url"] = storage.get_download_url(f"renders/{r.filename}")
         enriched_renders.append(r_dict)
 
+    preview_resolutions = {}
+    is_s3 = (os.getenv("STORAGE_TYPE") == "s3")
+
+    # 480p preview URL
+    if getattr(match, "preview_video_480p_filename", None):
+        if is_s3:
+            preview_resolutions["480p"] = storage.get_download_url(f"previews/{match.preview_video_480p_filename}")
+        else:
+            preview_resolutions["480p"] = f"/api/matches/{match.id}/preview?res=480p"
+    elif match.preview_video_filename or match.video_filename:
+        preview_resolutions["480p"] = f"/api/matches/{match.id}/preview?res=480p"
+
+    # 720p preview URL
+    if match.preview_video_filename:
+        if is_s3:
+            preview_resolutions["720p"] = storage.get_download_url(f"previews/{match.preview_video_filename}")
+        else:
+            preview_resolutions["720p"] = f"/api/matches/{match.id}/preview?res=720p"
+    elif match.video_filename and (match.height or 0) > 720:
+        preview_resolutions["720p"] = f"/api/matches/{match.id}/preview?res=720p"
+
+    # Original Source URL
+    if video_url:
+        preview_resolutions["original"] = video_url
+
     response_data = match.model_dump()
     response_data["video_url"] = video_url
     response_data["preview_video_url"] = preview_video_url
+    response_data["preview_resolutions"] = preview_resolutions
     response_data["rendered_video_url"] = rendered_url
     response_data["renders"] = enriched_renders
     
@@ -494,18 +520,40 @@ def process_post_upload_tasks(match_id: str, remote_path: str, local_file_path: 
                 match.width = meta.get("width")
                 match.height = meta.get("height")
 
-                # Generate 720p scaled down preview video if source height > 720
+                # Generate scaled down preview videos (720p and 480p)
                 src_height = meta.get("height") or 0
+                user_prefix = _get_user_storage_prefix(match)
+                from app.video_utils import generate_preview
+
                 if src_height > 720:
-                    from app.video_utils import generate_720p_preview
-                    preview_local = f"{local_file_path}.720p.mp4"
-                    if generate_720p_preview(local_file_path, preview_local):
-                        user_prefix = _get_user_storage_prefix(match)
+                    preview_720_local = f"{local_file_path}.720p.mp4"
+                    if generate_preview(local_file_path, preview_720_local, 720):
                         preview_filename = f"{user_prefix}/{match_id}_720p.mp4"
-                        storage.upload_file(preview_local, f"previews/{preview_filename}")
+                        storage.upload_file(preview_720_local, f"previews/{preview_filename}")
                         match.preview_video_filename = preview_filename
+                        
+                        # Generate 480p preview from 720p local file
+                        preview_480_local = f"{local_file_path}.480p.mp4"
+                        if generate_preview(preview_720_local, preview_480_local, 480):
+                            preview_480_filename = f"{user_prefix}/{match_id}_480p.mp4"
+                            storage.upload_file(preview_480_local, f"previews/{preview_480_filename}")
+                            match.preview_video_480p_filename = preview_480_filename
+                            try:
+                                os.remove(preview_480_local)
+                            except OSError:
+                                pass
                         try:
-                            os.remove(preview_local)
+                            os.remove(preview_720_local)
+                        except OSError:
+                            pass
+                elif src_height > 480:
+                    preview_480_local = f"{local_file_path}.480p.mp4"
+                    if generate_preview(local_file_path, preview_480_local, 480):
+                        preview_480_filename = f"{user_prefix}/{match_id}_480p.mp4"
+                        storage.upload_file(preview_480_local, f"previews/{preview_480_filename}")
+                        match.preview_video_480p_filename = preview_480_filename
+                        try:
+                            os.remove(preview_480_local)
                         except OSError:
                             pass
 
@@ -640,16 +688,25 @@ def stream_match_video(match_id: str, request: Request):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to stream video content.")
 
 @app.api_route("/api/matches/{match_id}/preview", methods=["GET", "HEAD"])
-def stream_match_preview(match_id: str, request: Request):
-    """Serves the 720p scaled-down preview video or falls back to the original video stream."""
+def stream_match_preview(match_id: str, request: Request, res: Optional[str] = Query(None)):
+    """Serves the 480p or 720p scaled-down preview video or falls back to the original video stream."""
     record = db.get_match(match_id)
     if not record or not record.get("video_filename"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match video not found.")
 
+    if res == "original":
+        return stream_match_video(match_id, request)
+
     from app.storage import S3StorageProvider
-    # 1. If 720p preview exists, serve/redirect to it
-    if record.get("preview_video_filename"):
-        preview_remote = f"previews/{record['preview_video_filename']}"
+    target_filename = None
+
+    if res == "480p":
+        target_filename = record.get("preview_video_480p_filename") or record.get("preview_video_filename")
+    else:  # 720p or default
+        target_filename = record.get("preview_video_filename") or record.get("preview_video_480p_filename")
+
+    if target_filename:
+        preview_remote = f"previews/{target_filename}"
         if isinstance(storage, S3StorageProvider) or os.getenv("STORAGE_TYPE") == "s3":
             presigned_url = storage.get_download_url(preview_remote)
             if presigned_url:
@@ -678,7 +735,7 @@ def stream_match_preview(match_id: str, request: Request):
             elif "iter" in stream_data:
                 return StreamingResponse(stream_data["iter"], status_code=stream_data["status_code"], headers=headers)
 
-    # 2. Fall back to standard match video stream
+    # Fall back to standard match video stream
     return stream_match_video(match_id, request)
 
 @app.get("/api/matches/{match_id}/thumbnail")

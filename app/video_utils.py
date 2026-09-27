@@ -126,9 +126,10 @@ def optimize_video_for_faststart(video_path: str, output_path: Optional[str] = N
         return False
 
 
-def generate_720p_preview(video_path: str, output_path: str) -> bool:
+def generate_preview(video_path: str, output_path: str, target_height: int = 720) -> bool:
     """
-    Downscales a video to 720p (-vf scale=-2:min(720\,ih)) using fast encoding for smooth HTML5 web playback.
+    Downscales a video to target_height (-vf scale=-2:min(target_height\,ih)) using fast encoding
+    with +faststart for smooth HTML5 web playback.
     """
     if not os.path.exists(video_path):
         return False
@@ -139,7 +140,7 @@ def generate_720p_preview(video_path: str, output_path: str) -> bool:
             "ffmpeg",
             "-y",
             "-i", video_path,
-            "-vf", "scale=-2:min(720\\,ih)",
+            "-vf", f"scale=-2:min({target_height}\\,ih)",
             "-c:v", "libx264",
             "-preset", "fast",
             "-crf", "22",
@@ -149,12 +150,22 @@ def generate_720p_preview(video_path: str, output_path: str) -> bool:
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-            logger.info(f"720p preview generation succeeded: {output_path}")
+            logger.info(f"{target_height}p preview generation succeeded: {output_path}")
             return True
         else:
-            logger.warning(f"720p preview generation failed: {result.stderr}")
+            logger.warning(f"{target_height}p preview generation failed: {result.stderr}")
             return False
     except Exception as e:
-        logger.error(f"FFmpeg 720p preview error: {e}")
+        logger.error(f"FFmpeg {target_height}p preview error: {e}")
         return False
+
+
+def generate_720p_preview(video_path: str, output_path: str) -> bool:
+    """Convenience helper to downscale a video to 720p."""
+    return generate_preview(video_path, output_path, target_height=720)
+
+
+def generate_480p_preview(video_path: str, output_path: str) -> bool:
+    """Convenience helper to downscale a video to 480p for low-bandwidth editing."""
+    return generate_preview(video_path, output_path, target_height=480)
 

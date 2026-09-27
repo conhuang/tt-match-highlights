@@ -91,8 +91,12 @@ export interface Match {
     original_filename?: string | null;
     rendered_video_filename?: string | null;
     preview_video_filename?: string | null;
+    preview_video_480p_filename?: string | null;
     video_url?: string | null;
     preview_video_url?: string | null;
+    preview_resolutions?: {
+        [resolution: string]: string;
+    } | null;
     rendered_video_url?: string | null;
     events: MatchEvent[];
     renders?: RenderJob[];
