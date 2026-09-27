@@ -3,6 +3,7 @@ import json
 import sqlite3
 from abc import ABC, abstractmethod
 from datetime import datetime
+from typing import Optional
 
 class DatabaseRepository(ABC):
     """
@@ -23,6 +24,10 @@ class DatabaseRepository(ABC):
 
     @abstractmethod
     def update_match_events(self, match_id: str, events: list) -> dict:
+        pass
+
+    @abstractmethod
+    def update_match_previews(self, match_id: str, preview_720: Optional[str] = None, preview_480: Optional[str] = None) -> dict:
         pass
 
     @abstractmethod
@@ -159,6 +164,26 @@ class SQLiteRepository(DatabaseRepository):
             conn.commit()
         return self.get_match(match_id)
 
+    def update_match_previews(self, match_id: str, preview_720: Optional[str] = None, preview_480: Optional[str] = None) -> dict:
+        with self._get_connection() as conn:
+            if preview_720 and preview_480:
+                conn.execute(
+                    "UPDATE matches SET preview_video_filename = ?, preview_video_480p_filename = ? WHERE id = ?",
+                    (preview_720, preview_480, match_id)
+                )
+            elif preview_720:
+                conn.execute(
+                    "UPDATE matches SET preview_video_filename = ? WHERE id = ?",
+                    (preview_720, match_id)
+                )
+            elif preview_480:
+                conn.execute(
+                    "UPDATE matches SET preview_video_480p_filename = ? WHERE id = ?",
+                    (preview_480, match_id)
+                )
+            conn.commit()
+        return self.get_match(match_id)
+
     def delete_match(self, match_id: str) -> bool:
         with self._get_connection() as conn:
             cursor = conn.execute("DELETE FROM matches WHERE id = ?", (match_id,))
@@ -254,6 +279,26 @@ class DynamoDBRepository(DatabaseRepository):
             Key={"id": match_id},
             UpdateExpression="set events = :e",
             ExpressionAttributeValues={":e": dynamo_events},
+            ReturnValues="ALL_NEW"
+        )
+        return _from_dynamo_item(response.get("Attributes"))
+
+    def update_match_previews(self, match_id: str, preview_720: Optional[str] = None, preview_480: Optional[str] = None) -> dict:
+        set_parts = []
+        expr_values = {}
+        if preview_720:
+            set_parts.append("preview_video_filename = :p720")
+            expr_values[":p720"] = preview_720
+        if preview_480:
+            set_parts.append("preview_video_480p_filename = :p480")
+            expr_values[":p480"] = preview_480
+        if not set_parts:
+            return self.get_match(match_id)
+
+        response = self.table.update_item(
+            Key={"id": match_id},
+            UpdateExpression="set " + ", ".join(set_parts),
+            ExpressionAttributeValues=expr_values,
             ReturnValues="ALL_NEW"
         )
         return _from_dynamo_item(response.get("Attributes"))
