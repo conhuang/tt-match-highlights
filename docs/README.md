@@ -54,7 +54,7 @@ For detailed diagrams and component flows, read **[architecture/ARCHITECTURE.md]
 * **Player Timeout Logging**: Log ITTF 60-second timeouts taken by specific players per point log.
 
 ### 📊 Match Analytics & Reporting
-* **Zero-Input Table Tennis Match Analytics**: Serve/Return Win %, Tactical Rally Duration Buckets (`<4s`, `4-8s`, `>8s`), Max Point Streaks, and 1-click jump to longest rally.
+* **Zero-Input Table Tennis Match Analytics**: Serve/Return Win %, Tactical Rally Duration Buckets (`0-6s` short, `6-10s` medium, `10s+` long) with serve share, rally win ratio, and self-serve win rate metrics, Max Point Streaks, and 1-click jump to longest rally.
 * **CSV Event Export**: Export full match point logs and metadata to structured CSV files.
 
 ### ⚙️ Video Rendering & Overlay Engine
@@ -96,10 +96,7 @@ For detailed diagrams and component flows, read **[architecture/ARCHITECTURE.md]
 ### Other small feature requests or bug fixes
 1. if i click a point in the point log, it jumps to the start time of the rally, but it should also stop at the end of the rally, allowing a preview of the full clip.
 2. the preview video needs to show the start and end markers of each recorded point, and make them draggable to edit the start and end time of the clip.
-3. keystrokes menu shouldnt say "player 1/2" it should have the actual names of the players.
 4. timeout player doesnt make a lot of sense attached to a point. it should be an event between points. 
 5. rendering should be done by a separate service with a GPU, and the frontend should poll the status of the render. 
 6. extended auth sign in time (stay signed in for 30 days)
-7. in Match Analysis section: 0-6 seconds = short rally, 6-10 = medium, 10+ = long rally -> show serve and win ratio of the rallies and self serve win rate for each length of rally
-
 

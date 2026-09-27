@@ -278,7 +278,11 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                         match={currentMatch}
                         activePreviewUrl={activePreviewUrl}
                     />
-                    <StatusPanel pendingStartTime={pendingStartTime} />
+                    <StatusPanel
+                        pendingStartTime={pendingStartTime}
+                        player1={currentMatch.player1}
+                        player2={currentMatch.player2}
+                    />
                     <RenderHistory
                         renders={currentMatch.renders || []}
                         onPreviewRender={handlePreviewRender}
