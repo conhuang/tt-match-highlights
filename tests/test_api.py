@@ -405,6 +405,39 @@ class TestFastAPIBackend(unittest.TestCase):
             self.assertEqual(loaded.get("width"), 1920)
             self.assertEqual(loaded.get("height"), 1080)
 
+    def test_preview_resolutions_enrichment_and_queries(self):
+        """
+        Verify that _enrich_match_urls populates preview_resolutions for 480p, 720p, and original,
+        and that the preview endpoint handles res query parameter.
+        """
+        match_id = "test_multi_res_match"
+        match = Match(
+            id=match_id,
+            name="Multi Res Match",
+            player1="A",
+            player2="B",
+            video_filename="full_4k.mp4",
+            preview_video_filename="preview_720p.mp4",
+            preview_video_480p_filename="preview_480p.mp4",
+            width=3840,
+            height=2160
+        )
+        db.create_match(match.model_dump())
+        try:
+            resp = self.client.get(f"/api/matches/{match_id}")
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            resolutions = data.get("preview_resolutions", {})
+            self.assertIn("480p", resolutions)
+            self.assertIn("720p", resolutions)
+            self.assertIn("original", resolutions)
+
+            # Test preview endpoint with res query
+            p_resp = self.client.get(f"/api/matches/{match_id}/preview?res=480p")
+            self.assertIn(p_resp.status_code, [404, 307, 200])
+        finally:
+            db.delete_match(match_id)
+
 if __name__ == "__main__":
     unittest.main()
 

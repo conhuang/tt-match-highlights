@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 import shortuuid
 
@@ -80,6 +80,7 @@ class MatchUpdate(BaseModel):
     width: Optional[int] = None
     height: Optional[int] = None
     preview_video_filename: Optional[str] = None
+    preview_video_480p_filename: Optional[str] = None
 
 
 class Match(MatchBase):
@@ -94,6 +95,7 @@ class Match(MatchBase):
     original_filename: Optional[str] = Field(None, description="Original human-readable filename uploaded by the user")
     rendered_video_filename: Optional[str] = Field(None, description="Filename of the compiled highlights video output")
     preview_video_filename: Optional[str] = Field(None, description="Filename of the 720p scaled-down preview video")
+    preview_video_480p_filename: Optional[str] = Field(None, description="Filename of the 480p low-bandwidth preview video")
     fps: Optional[float] = Field(None, description="Frames per second of the source video")
     duration: Optional[float] = Field(None, description="Duration in seconds of the source video")
     width: Optional[int] = Field(None, description="Width in pixels of the source video")
@@ -103,6 +105,7 @@ class Match(MatchBase):
     video_url: Optional[str] = Field(None, description="Pre-signed or stream URL for the raw video")
     rendered_video_url: Optional[str] = Field(None, description="Pre-signed or stream URL for the rendered highlights video")
     preview_video_url: Optional[str] = Field(None, description="Pre-signed or stream URL for the 720p scaled-down preview video")
+    preview_resolutions: Optional[Dict[str, str]] = Field(None, description="Map of resolution labels to preview URLs (e.g. 480p, 720p, original)")
     stats: Optional[dict] = Field(None, description="Computed real-time match analytics and insights")
 
 

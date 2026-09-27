@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Match, MatchEvent, RenderOptions } from '../types';
 import { WorkspaceHeader } from './WorkspaceHeader';
 import { VideoSection } from './VideoSection';
@@ -28,17 +28,63 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     const [pendingStartTime, setPendingStartTime] = useState<number | null>(null);
     const [isRenderingJob, setIsRenderingJob] = useState<boolean>(false);
 
-    // Initial video URL (prefer 720p scaled-down preview video)
-    const defaultPreviewUrl = currentMatch.preview_video_url || currentMatch.video_url || `/api/matches/${currentMatch.id}/preview`;
+    // Available resolution options
+    const availableResolutions = useMemo(() => {
+        const list: { id: string; label: string; url: string }[] = [];
+        const resMap = currentMatch.preview_resolutions || {};
+
+        // 480p low-bandwidth preview
+        const url480 = resMap['480p'] || `/api/matches/${currentMatch.id}/preview?res=480p`;
+        list.push({ id: '480p', label: '480p', url: url480 });
+
+        // 720p HD balanced preview
+        const url720 = resMap['720p'] || currentMatch.preview_video_url || `/api/matches/${currentMatch.id}/preview?res=720p`;
+        list.push({ id: '720p', label: '720p', url: url720 });
+
+        // Original raw source
+        const urlOrig = resMap['original'] || currentMatch.video_url || `/api/matches/${currentMatch.id}/stream`;
+        list.push({ id: 'original', label: 'Original', url: urlOrig });
+
+        return list;
+    }, [currentMatch.id, currentMatch.preview_resolutions, currentMatch.preview_video_url, currentMatch.video_url]);
+
+    const [selectedResolution, setSelectedResolution] = useState<string>(() => {
+        return localStorage.getItem('tt_preferred_resolution') || '720p';
+    });
+    const [pendingSeekTime, setPendingSeekTime] = useState<number | null>(null);
+    const [wasPlaying, setWasPlaying] = useState<boolean>(false);
+
+    // Default video URL (match selected resolution)
+    const defaultPreviewUrl = useMemo(() => {
+        const target = availableResolutions.find(r => r.id === selectedResolution);
+        return target ? target.url : (currentMatch.preview_video_url || currentMatch.video_url || `/api/matches/${currentMatch.id}/preview`);
+    }, [availableResolutions, selectedResolution, currentMatch.preview_video_url, currentMatch.video_url, currentMatch.id]);
+
     const [activeVideoSrc, setActiveVideoSrc] = useState<string>(defaultPreviewUrl);
     const [activePreviewUrl, setActivePreviewUrl] = useState<string | null>(null);
 
     useEffect(() => {
         if (!activePreviewUrl) {
-            const nextPreviewUrl = currentMatch.preview_video_url || currentMatch.video_url || `/api/matches/${currentMatch.id}/preview`;
-            setActiveVideoSrc(nextPreviewUrl);
+            const target = availableResolutions.find(r => r.id === selectedResolution);
+            const nextSrc = target ? target.url : (currentMatch.preview_video_url || currentMatch.video_url || `/api/matches/${currentMatch.id}/preview`);
+            setActiveVideoSrc(nextSrc);
         }
-    }, [currentMatch.preview_video_url, currentMatch.video_url, currentMatch.id, activePreviewUrl]);
+    }, [currentMatch.id, currentMatch.preview_resolutions, currentMatch.preview_video_url, currentMatch.video_url, selectedResolution, availableResolutions, activePreviewUrl]);
+
+    const handleSelectResolution = (resId: string) => {
+        if (resId === selectedResolution) return;
+        if (videoRef.current) {
+            setPendingSeekTime(videoRef.current.currentTime);
+            setWasPlaying(!videoRef.current.paused);
+        }
+        setSelectedResolution(resId);
+        localStorage.setItem('tt_preferred_resolution', resId);
+
+        const target = availableResolutions.find(r => r.id === resId);
+        if (target) {
+            setActiveVideoSrc(target.url);
+        }
+    };
 
     // Polling for active render jobs progress
     useEffect(() => {
@@ -277,6 +323,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                         src={activeVideoSrc}
                         match={currentMatch}
                         activePreviewUrl={activePreviewUrl}
+                        selectedResolution={selectedResolution}
+                        onSelectResolution={handleSelectResolution}
+                        availableResolutions={availableResolutions}
+                        pendingSeekTime={pendingSeekTime}
+                        wasPlaying={wasPlaying}
+                        onSeekRestored={() => setPendingSeekTime(null)}
                     />
                     <StatusPanel
                         pendingStartTime={pendingStartTime}

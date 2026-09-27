@@ -1,7 +1,8 @@
 import os
+import threading
 from io import BytesIO
 from datetime import datetime
-from fastapi import FastAPI, UploadFile, File, HTTPException, status, Request, BackgroundTasks, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, status, Request, BackgroundTasks, Depends, Query
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
@@ -187,9 +188,35 @@ def _enrich_match_urls(match: Match) -> dict:
             r_dict["video_url"] = storage.get_download_url(f"renders/{r.filename}")
         enriched_renders.append(r_dict)
 
+    preview_resolutions = {}
+    is_s3 = (os.getenv("STORAGE_TYPE") == "s3")
+
+    # 480p preview URL
+    if getattr(match, "preview_video_480p_filename", None):
+        if is_s3:
+            preview_resolutions["480p"] = storage.get_download_url(f"previews/{match.preview_video_480p_filename}")
+        else:
+            preview_resolutions["480p"] = f"/api/matches/{match.id}/preview?res=480p"
+    elif match.preview_video_filename or match.video_filename:
+        preview_resolutions["480p"] = f"/api/matches/{match.id}/preview?res=480p"
+
+    # 720p preview URL
+    if match.preview_video_filename:
+        if is_s3:
+            preview_resolutions["720p"] = storage.get_download_url(f"previews/{match.preview_video_filename}")
+        else:
+            preview_resolutions["720p"] = f"/api/matches/{match.id}/preview?res=720p"
+    elif match.video_filename and (match.height or 0) > 720:
+        preview_resolutions["720p"] = f"/api/matches/{match.id}/preview?res=720p"
+
+    # Original Source URL
+    if video_url:
+        preview_resolutions["original"] = video_url
+
     response_data = match.model_dump()
     response_data["video_url"] = video_url
     response_data["preview_video_url"] = preview_video_url
+    response_data["preview_resolutions"] = preview_resolutions
     response_data["rendered_video_url"] = rendered_url
     response_data["renders"] = enriched_renders
     
@@ -203,7 +230,7 @@ def _enrich_match_urls(match: Match) -> dict:
     return response_data
 
 @app.get("/api/matches/{match_id}")
-def get_match(match_id: str, current_user: dict = Depends(get_current_user)):
+def get_match(match_id: str, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     """Retrieves a single match details along with temporary pre-signed playback URLs."""
     record = db.get_match(match_id)
     if not record:
@@ -214,6 +241,11 @@ def get_match(match_id: str, current_user: dict = Depends(get_current_user)):
     
     match = Match.model_validate(record)
     _verify_match_owner(match, current_user)
+
+    # Auto-generate scaled-down previews in background if missing
+    if match.video_filename and (not match.preview_video_filename or not match.preview_video_480p_filename):
+        background_tasks.add_task(ensure_match_previews, match.id)
+
     return _enrich_match_urls(match)
 
 from app.render_adapter import execute_render_job
@@ -470,6 +502,95 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+_preview_generation_in_progress = set()
+_preview_lock = threading.Lock()
+
+def ensure_match_previews(match_id: str, local_file_hint: Optional[str] = None):
+    """Ensures 720p and 480p preview videos exist for a match, generating them on-demand if missing."""
+    with _preview_lock:
+        if match_id in _preview_generation_in_progress:
+            return
+        _preview_generation_in_progress.add(match_id)
+
+    try:
+        record = db.get_match(match_id)
+        if not record:
+            return
+        match = Match.model_validate(record)
+        if not match.video_filename:
+            return
+
+        has_720 = bool(match.preview_video_filename)
+        has_480 = bool(match.preview_video_480p_filename)
+        if has_720 and has_480:
+            return
+
+        from app.video_utils import extract_video_metadata, generate_preview
+        from app.storage import S3StorageProvider
+        import tempfile
+
+        user_prefix = _get_user_storage_prefix(match)
+        remote_video = f"uploads/{match.video_filename}"
+        
+        # Determine source input
+        video_input = None
+        if local_file_hint and os.path.exists(local_file_hint):
+            video_input = local_file_hint
+        elif isinstance(storage, S3StorageProvider) or os.getenv("STORAGE_TYPE") == "s3":
+            video_input = storage.get_download_url(remote_video)
+        else:
+            video_input = storage.get_local_path(remote_video)
+
+        if not video_input:
+            logger.error(f"Cannot resolve source video for match {match_id}")
+            return
+
+        # Extract metadata if needed
+        src_height = match.height or 0
+        if not src_height or src_height == 0:
+            meta = extract_video_metadata(video_input)
+            src_height = meta.get("height") or 1080
+            match.height = src_height
+            match.width = meta.get("width")
+            match.duration = meta.get("duration")
+            match.fps = meta.get("fps")
+
+        preview_720_local = os.path.join(tempfile.gettempdir(), f"{match_id}_720p.mp4")
+        preview_480_local = os.path.join(tempfile.gettempdir(), f"{match_id}_480p.mp4")
+
+        # Generate 720p if missing and source is > 720
+        if not has_720 and src_height > 720:
+            if generate_preview(video_input, preview_720_local, 720):
+                preview_filename = f"{user_prefix}/{match_id}_720p.mp4"
+                storage.upload_file(preview_720_local, f"previews/{preview_filename}")
+                match.preview_video_filename = preview_filename
+                has_720 = True
+
+        # Generate 480p if missing
+        if not has_480:
+            input_for_480 = preview_720_local if (has_720 and os.path.exists(preview_720_local)) else video_input
+            if generate_preview(input_for_480, preview_480_local, 480):
+                preview_480_filename = f"{user_prefix}/{match_id}_480p.mp4"
+                storage.upload_file(preview_480_local, f"previews/{preview_480_filename}")
+                match.preview_video_480p_filename = preview_480_filename
+                has_480 = True
+
+        # Clean up local temporary preview files
+        for f in (preview_720_local, preview_480_local):
+            try:
+                if os.path.exists(f) and f.startswith(tempfile.gettempdir()):
+                    os.remove(f)
+            except OSError:
+                pass
+
+        db.create_match(match.model_dump())
+        logger.info(f"Generated previews for match {match_id}: 720p={match.preview_video_filename}, 480p={match.preview_video_480p_filename}")
+    except Exception as e:
+        logger.error(f"ensure_match_previews failed for match {match_id}: {e}")
+    finally:
+        with _preview_lock:
+            _preview_generation_in_progress.discard(match_id)
+
 def process_post_upload_tasks(match_id: str, remote_path: str, local_file_path: str):
     """Background task to run FastStart optimization and extract video metadata asynchronously."""
     from app.storage import S3StorageProvider
@@ -493,23 +614,10 @@ def process_post_upload_tasks(match_id: str, remote_path: str, local_file_path: 
                 match.duration = meta.get("duration")
                 match.width = meta.get("width")
                 match.height = meta.get("height")
-
-                # Generate 720p scaled down preview video if source height > 720
-                src_height = meta.get("height") or 0
-                if src_height > 720:
-                    from app.video_utils import generate_720p_preview
-                    preview_local = f"{local_file_path}.720p.mp4"
-                    if generate_720p_preview(local_file_path, preview_local):
-                        user_prefix = _get_user_storage_prefix(match)
-                        preview_filename = f"{user_prefix}/{match_id}_720p.mp4"
-                        storage.upload_file(preview_local, f"previews/{preview_filename}")
-                        match.preview_video_filename = preview_filename
-                        try:
-                            os.remove(preview_local)
-                        except OSError:
-                            pass
-
                 db.create_match(match.model_dump())
+
+        # Ensure 720p and 480p previews are generated
+        ensure_match_previews(match_id, local_file_hint=local_file_path)
     except Exception as e:
         logger.error(f"Background post-processing failed for match {match_id}: {e}")
 
@@ -640,16 +748,25 @@ def stream_match_video(match_id: str, request: Request):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to stream video content.")
 
 @app.api_route("/api/matches/{match_id}/preview", methods=["GET", "HEAD"])
-def stream_match_preview(match_id: str, request: Request):
-    """Serves the 720p scaled-down preview video or falls back to the original video stream."""
+def stream_match_preview(match_id: str, request: Request, background_tasks: BackgroundTasks, res: Optional[str] = Query(None)):
+    """Serves the 480p or 720p scaled-down preview video or falls back to the original video stream."""
     record = db.get_match(match_id)
     if not record or not record.get("video_filename"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match video not found.")
 
+    if res == "original":
+        return stream_match_video(match_id, request)
+
     from app.storage import S3StorageProvider
-    # 1. If 720p preview exists, serve/redirect to it
-    if record.get("preview_video_filename"):
-        preview_remote = f"previews/{record['preview_video_filename']}"
+    target_filename = None
+
+    if res == "480p":
+        target_filename = record.get("preview_video_480p_filename") or record.get("preview_video_filename")
+    else:  # 720p or default
+        target_filename = record.get("preview_video_filename") or record.get("preview_video_480p_filename")
+
+    if target_filename:
+        preview_remote = f"previews/{target_filename}"
         if isinstance(storage, S3StorageProvider) or os.getenv("STORAGE_TYPE") == "s3":
             presigned_url = storage.get_download_url(preview_remote)
             if presigned_url:
@@ -678,7 +795,8 @@ def stream_match_preview(match_id: str, request: Request):
             elif "iter" in stream_data:
                 return StreamingResponse(stream_data["iter"], status_code=stream_data["status_code"], headers=headers)
 
-    # 2. Fall back to standard match video stream
+    # Fall back to standard match video stream and auto-trigger preview generation in background
+    background_tasks.add_task(ensure_match_previews, match_id)
     return stream_match_video(match_id, request)
 
 @app.get("/api/matches/{match_id}/thumbnail")
