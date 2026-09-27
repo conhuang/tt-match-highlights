@@ -81,9 +81,54 @@ def compute_match_analytics(events: List[Event], player1: str, player2: str, fir
     }
 
     duration_buckets = {
-        "short": {"total": 0, "p1_won": 0, "p2_won": 0, "p1_win_pct": 0.0, "p2_win_pct": 0.0, "label": "< 4 sec (Serve & 3rd Ball)"},
-        "medium": {"total": 0, "p1_won": 0, "p2_won": 0, "p1_win_pct": 0.0, "p2_win_pct": 0.0, "label": "4 - 8 sec (Standard Exchange)"},
-        "long": {"total": 0, "p1_won": 0, "p2_won": 0, "p1_win_pct": 0.0, "p2_win_pct": 0.0, "label": "> 8 sec (Endurance & Deep Rally)"}
+        "short": {
+            "total": 0,
+            "p1_won": 0,
+            "p2_won": 0,
+            "p1_win_pct": 0.0,
+            "p2_win_pct": 0.0,
+            "p1_served": 0,
+            "p2_served": 0,
+            "p1_serve_pct": 0.0,
+            "p2_serve_pct": 0.0,
+            "p1_self_serve_won": 0,
+            "p1_self_serve_win_pct": 0.0,
+            "p2_self_serve_won": 0,
+            "p2_self_serve_win_pct": 0.0,
+            "label": "0 - 6s (Short Rally)"
+        },
+        "medium": {
+            "total": 0,
+            "p1_won": 0,
+            "p2_won": 0,
+            "p1_win_pct": 0.0,
+            "p2_win_pct": 0.0,
+            "p1_served": 0,
+            "p2_served": 0,
+            "p1_serve_pct": 0.0,
+            "p2_serve_pct": 0.0,
+            "p1_self_serve_won": 0,
+            "p1_self_serve_win_pct": 0.0,
+            "p2_self_serve_won": 0,
+            "p2_self_serve_win_pct": 0.0,
+            "label": "6 - 10s (Medium Rally)"
+        },
+        "long": {
+            "total": 0,
+            "p1_won": 0,
+            "p2_won": 0,
+            "p1_win_pct": 0.0,
+            "p2_win_pct": 0.0,
+            "p1_served": 0,
+            "p2_served": 0,
+            "p1_serve_pct": 0.0,
+            "p2_serve_pct": 0.0,
+            "p1_self_serve_won": 0,
+            "p1_self_serve_win_pct": 0.0,
+            "p2_self_serve_won": 0,
+            "p2_self_serve_win_pct": 0.0,
+            "label": "10s+ (Long Rally)"
+        }
     }
 
     p1_current_streak = 0
@@ -122,9 +167,9 @@ def compute_match_analytics(events: List[Event], player1: str, player2: str, fir
             longest_rally_sec = dur
             longest_rally_start = event.start
 
-        if dur < 4.0:
+        if dur <= 6.0:
             b_key = "short"
-        elif dur <= 8.0:
+        elif dur <= 10.0:
             b_key = "medium"
         else:
             b_key = "long"
@@ -136,6 +181,15 @@ def compute_match_analytics(events: List[Event], player1: str, player2: str, fir
         elif event.winner == player2:
             duration_buckets[b_key]["p2_won"] += 1
             p2_score += 1
+
+        if server_name == player1:
+            duration_buckets[b_key]["p1_served"] += 1
+            if event.winner == player1:
+                duration_buckets[b_key]["p1_self_serve_won"] += 1
+        elif server_name == player2:
+            duration_buckets[b_key]["p2_served"] += 1
+            if event.winner == player2:
+                duration_buckets[b_key]["p2_self_serve_won"] += 1
 
         if (p1_score >= 11 or p2_score >= 11) and abs(p1_score - p2_score) >= 2:
             p1_score = 0
@@ -160,12 +214,22 @@ def compute_match_analytics(events: List[Event], player1: str, player2: str, fir
         won = serve_stats[p]["served_won"]
         serve_stats[p]["serve_win_pct"] = round((won / tot) * 100.0, 1) if tot > 0 else 0.0
 
-    # Calculate Duration Win %
+    # Calculate Duration Win %, Serve Ratio %, and Self-Serve Win %
     for b in ["short", "medium", "long"]:
         tot = duration_buckets[b]["total"]
         if tot > 0:
             duration_buckets[b]["p1_win_pct"] = round((duration_buckets[b]["p1_won"] / tot) * 100.0, 1)
             duration_buckets[b]["p2_win_pct"] = round((duration_buckets[b]["p2_won"] / tot) * 100.0, 1)
+            duration_buckets[b]["p1_serve_pct"] = round((duration_buckets[b]["p1_served"] / tot) * 100.0, 1)
+            duration_buckets[b]["p2_serve_pct"] = round((duration_buckets[b]["p2_served"] / tot) * 100.0, 1)
+
+        p1_s = duration_buckets[b]["p1_served"]
+        if p1_s > 0:
+            duration_buckets[b]["p1_self_serve_win_pct"] = round((duration_buckets[b]["p1_self_serve_won"] / p1_s) * 100.0, 1)
+
+        p2_s = duration_buckets[b]["p2_served"]
+        if p2_s > 0:
+            duration_buckets[b]["p2_self_serve_win_pct"] = round((duration_buckets[b]["p2_self_serve_won"] / p2_s) * 100.0, 1)
 
     avg_duration = round(sum(durations) / len(durations), 1) if durations else 0.0
 

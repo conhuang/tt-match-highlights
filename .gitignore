@@ -26,6 +26,7 @@ preview_scoreboard/
 *.tar.gz
 
 # Local Environments & Secrets
+.venv
 .venv/
 venv/
 env/

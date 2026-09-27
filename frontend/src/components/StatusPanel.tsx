@@ -4,6 +4,8 @@ import { Button } from './ui';
 
 interface StatusPanelProps {
     pendingStartTime: number | null;
+    player1?: string;
+    player2?: string;
 }
 
 interface ShortcutItem {
@@ -25,8 +27,14 @@ function formatMmSs(seconds: number): string {
     return `${pad(m)}:${pad(s)}`;
 }
 
-export const StatusPanel: React.FC<StatusPanelProps> = ({ pendingStartTime }) => {
+export const StatusPanel: React.FC<StatusPanelProps> = ({ 
+    pendingStartTime,
+    player1 = 'Player 1',
+    player2 = 'Player 2'
+}) => {
     const [isKeystrokesOpen, setIsKeystrokesOpen] = useState<boolean>(false);
+    const p1 = player1?.trim() || 'Player 1';
+    const p2 = player2?.trim() || 'Player 2';
 
     const categories: ShortcutCategory[] = [
         {
@@ -43,8 +51,8 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({ pendingStartTime }) =>
             icon: <Target size={14} />,
             items: [
                 { keys: ['E'], description: 'Mark Rally Start Time' },
-                { keys: ['1'], description: 'Log Point Won by Player 1' },
-                { keys: ['2'], description: 'Log Point Won by Player 2' },
+                { keys: ['1'], description: `Log Point Won by ${p1}` },
+                { keys: ['2'], description: `Log Point Won by ${p2}` },
                 { keys: ['3'], description: 'Log No Winner Clip' }
             ]
         },
@@ -54,9 +62,9 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({ pendingStartTime }) =>
             isFullWidth: true,
             items: [
                 { keys: ['H'], description: 'Toggle Highlight on Last Point' },
-                { keys: ['Shift', '+', '1'], description: 'P1 Timeout After Last Point' },
+                { keys: ['Shift', '+', '1'], description: `${p1} Timeout After Last Point` },
                 { keys: ['Z'], description: 'Undo Last Logged Event' },
-                { keys: ['Shift', '+', '2'], description: 'P2 Timeout After Last Point' }
+                { keys: ['Shift', '+', '2'], description: `${p2} Timeout After Last Point` }
             ]
         }
     ];

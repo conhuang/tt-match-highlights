@@ -52,6 +52,14 @@ export interface DurationBucketStat {
     p2_won: number;
     p1_win_pct: number;
     p2_win_pct: number;
+    p1_served: number;
+    p2_served: number;
+    p1_serve_pct: number;
+    p2_serve_pct: number;
+    p1_self_serve_won: number;
+    p1_self_serve_win_pct: number;
+    p2_self_serve_won: number;
+    p2_self_serve_win_pct: number;
     label: string;
 }
 

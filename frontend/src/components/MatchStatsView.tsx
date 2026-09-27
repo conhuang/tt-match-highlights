@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Match, MatchStats } from '../types';
 import { BarChart2, Target, Clock, Flame, Zap, Play, Activity } from 'lucide-react';
+import { computeMatchAnalytics } from '../utils/scoring';
 
 interface MatchStatsViewProps {
     match: Match;
@@ -11,11 +12,22 @@ export const MatchStatsView: React.FC<MatchStatsViewProps> = ({
     match,
     onJumpToTime
 }) => {
-    const stats: MatchStats | undefined = match.stats;
     const p1 = match.player1 || 'Player 1';
     const p2 = match.player2 || 'Player 2';
 
-    if (!stats || !match.events || match.events.length === 0) {
+    // Compute live stats from current match events and first_server setting
+    const stats: MatchStats = useMemo(() => {
+        return computeMatchAnalytics(
+            match.events || [],
+            p1,
+            p2,
+            match.first_server || 'player1'
+        );
+    }, [match.events, p1, p2, match.first_server]);
+
+    const hasScoredEvents = match.events && match.events.some(e => !!e.winner);
+
+    if (!hasScoredEvents) {
         return (
             <div className="match-stats-card card">
                 <div className="card-header">
@@ -106,7 +118,7 @@ export const MatchStatsView: React.FC<MatchStatsViewProps> = ({
                 <div className="stats-section-block">
                     <div className="section-title-row">
                         <Clock className="section-icon" size={16} />
-                        <h4>Win Rate by Rally Duration</h4>
+                        <h4>Rally Duration Breakdown & Serve Performance</h4>
                     </div>
 
                     <div className="duration-buckets-container">
@@ -117,25 +129,56 @@ export const MatchStatsView: React.FC<MatchStatsViewProps> = ({
                             const p2Pct = bucket.p2_win_pct;
 
                             return (
-                                <div key={bKey} className="duration-bucket-item">
-                                    <div className="bucket-info-col">
-                                        <span className="bucket-label-text">{bucket.label}</span>
-                                        <span className="bucket-count-badge">{total} rallies</span>
+                                <div key={bKey} className="duration-bucket-card">
+                                    <div className="bucket-header-row">
+                                        <div className="bucket-title-group">
+                                            <span className="bucket-label-text">{bucket.label}</span>
+                                            <span className="bucket-count-badge">
+                                                {total} {total === 1 ? 'rally' : 'rallies'}
+                                            </span>
+                                        </div>
+                                        <div className="bucket-serve-summary">
+                                            <span className="serve-ratio-label">Serve Ratio:</span>
+                                            <span className="p1-text font-semibold">{p1}: {bucket.p1_served} ({bucket.p1_serve_pct}%)</span>
+                                            <span className="ratio-divider">•</span>
+                                            <span className="p2-text font-semibold">{p2}: {bucket.p2_served} ({bucket.p2_serve_pct}%)</span>
+                                        </div>
                                     </div>
 
+                                    {/* Overall Rally Win Ratio Meter */}
                                     <div className="duration-meter-wrapper">
-                                        <span className="pct-val p1-text">{p1Pct}% ({bucket.p1_won})</span>
+                                        <span className="pct-val p1-text">{p1Pct}% ({bucket.p1_won} won)</span>
                                         <div className="split-progress-bar">
                                             <div
                                                 className="split-fill p1-bar"
                                                 style={{ width: `${total > 0 ? p1Pct : 50}%` }}
+                                                title={`${p1}: ${p1Pct}% (${bucket.p1_won}/${total})`}
                                             />
                                             <div
                                                 className="split-fill p2-bar"
                                                 style={{ width: `${total > 0 ? p2Pct : 50}%` }}
+                                                title={`${p2}: ${p2Pct}% (${bucket.p2_won}/${total})`}
                                             />
                                         </div>
-                                        <span className="pct-val p2-text">{p2Pct}% ({bucket.p2_won})</span>
+                                        <span className="pct-val p2-text">{p2Pct}% ({bucket.p2_won} won)</span>
+                                    </div>
+
+                                    {/* Self-Serve Win Rate Details */}
+                                    <div className="bucket-substats-row">
+                                        <div className="substat-pill p1-substat">
+                                            <span className="substat-label">{p1} Self-Serve Win Rate:</span>
+                                            <span className="substat-value p1-text">
+                                                {bucket.p1_served > 0 ? `${bucket.p1_self_serve_win_pct}%` : 'N/A'}
+                                                <span className="substat-counts"> ({bucket.p1_self_serve_won}/{bucket.p1_served} served)</span>
+                                            </span>
+                                        </div>
+                                        <div className="substat-pill p2-substat">
+                                            <span className="substat-label">{p2} Self-Serve Win Rate:</span>
+                                            <span className="substat-value p2-text">
+                                                {bucket.p2_served > 0 ? `${bucket.p2_self_serve_win_pct}%` : 'N/A'}
+                                                <span className="substat-counts"> ({bucket.p2_self_serve_won}/{bucket.p2_served} served)</span>
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             );

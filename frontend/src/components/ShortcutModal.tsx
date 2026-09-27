@@ -5,6 +5,8 @@ import { Button } from './ui';
 interface ShortcutModalProps {
     isOpen: boolean;
     onClose: () => void;
+    player1?: string;
+    player2?: string;
 }
 
 interface ShortcutItem {
@@ -18,7 +20,12 @@ interface ShortcutCategory {
     items: ShortcutItem[];
 }
 
-export const ShortcutModal: React.FC<ShortcutModalProps> = ({ isOpen, onClose }) => {
+export const ShortcutModal: React.FC<ShortcutModalProps> = ({ 
+    isOpen, 
+    onClose,
+    player1 = 'Player 1',
+    player2 = 'Player 2'
+}) => {
     // Close modal on Escape key press
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -31,6 +38,9 @@ export const ShortcutModal: React.FC<ShortcutModalProps> = ({ isOpen, onClose })
     }, [isOpen, onClose]);
 
     if (!isOpen) return null;
+
+    const p1 = player1?.trim() || 'Player 1';
+    const p2 = player2?.trim() || 'Player 2';
 
     const categories: ShortcutCategory[] = [
         {
@@ -50,8 +60,8 @@ export const ShortcutModal: React.FC<ShortcutModalProps> = ({ isOpen, onClose })
             items: [
                 { keys: ['E'], description: 'Mark Rally Start Time' },
                 { keys: ['D'], description: 'Mark Rally End Time' },
-                { keys: ['1', 'or', 'A'], description: 'Log Point Won by Player 1' },
-                { keys: ['2', 'or', 'S'], description: 'Log Point Won by Player 2' },
+                { keys: ['1', 'or', 'A'], description: `Log Point Won by ${p1}` },
+                { keys: ['2', 'or', 'S'], description: `Log Point Won by ${p2}` },
                 { keys: ['Z'], description: 'Undo Last Logged Event' }
             ]
         }
