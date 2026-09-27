@@ -11,7 +11,8 @@ def extract_video_metadata(video_path: str) -> Dict[str, Any]:
     Uses ffprobe to extract video properties (fps, duration, width, height).
     Returns a dictionary containing the extracted attributes.
     """
-    if not os.path.exists(video_path):
+    is_url = video_path.startswith("http://") or video_path.startswith("https://")
+    if not is_url and not os.path.exists(video_path):
         logger.error(f"Video file not found: {video_path}")
         return {"fps": None, "duration": None, "width": None, "height": None}
 
@@ -131,7 +132,8 @@ def generate_preview(video_path: str, output_path: str, target_height: int = 720
     Downscales a video to target_height (-vf scale=-2:min(target_height\,ih)) using fast encoding
     with +faststart for smooth HTML5 web playback.
     """
-    if not os.path.exists(video_path):
+    is_url = video_path.startswith("http://") or video_path.startswith("https://")
+    if not is_url and not os.path.exists(video_path):
         return False
 
     try:
@@ -142,7 +144,7 @@ def generate_preview(video_path: str, output_path: str, target_height: int = 720
             "-i", video_path,
             "-vf", f"scale=-2:min({target_height}\\,ih)",
             "-c:v", "libx264",
-            "-preset", "fast",
+            "-preset", "veryfast",
             "-crf", "22",
             "-c:a", "copy",
             "-movflags", "+faststart",

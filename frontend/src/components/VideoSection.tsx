@@ -93,40 +93,47 @@ export const VideoSection = forwardRef<HTMLVideoElement, VideoSectionProps>(({
                             Render Preview
                         </Badge>
                     ) : (
-                        <div className="resolution-selector-container" ref={dropdownRef}>
-                            <button
-                                type="button"
-                                className="resolution-selector-btn"
-                                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                title="Change preview playback resolution"
-                                aria-label="Change preview playback resolution"
-                            >
-                                <Sliders size={12} className="res-icon" />
-                                <span>Preview: {displayResLabel}</span>
-                                <ChevronDown size={11} className={`res-chevron ${isMenuOpen ? 'open' : ''}`} />
-                            </button>
-                            {isMenuOpen && (
-                                <div className="resolution-dropdown-menu">
-                                    <div className="resolution-dropdown-header">Resolution</div>
-                                    {availableResolutions.map((opt) => (
-                                        <button
-                                            key={opt.id}
-                                            type="button"
-                                            className={`resolution-dropdown-item ${selectedResolution === opt.id ? 'active' : ''}`}
-                                            onClick={() => {
-                                                onSelectResolution?.(opt.id);
-                                                setIsMenuOpen(false);
-                                            }}
-                                        >
-                                            <span>{opt.label}</span>
-                                            {selectedResolution === opt.id && (
-                                                <Check size={12} className="res-check-icon" />
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
+                        <>
+                            <div className="resolution-selector-container" ref={dropdownRef}>
+                                <button
+                                    type="button"
+                                    className="resolution-selector-btn"
+                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                    title="Change preview playback resolution"
+                                    aria-label="Change preview playback resolution"
+                                >
+                                    <Sliders size={12} className="res-icon" />
+                                    <span>Preview: {displayResLabel}</span>
+                                    <ChevronDown size={11} className={`res-chevron ${isMenuOpen ? 'open' : ''}`} />
+                                </button>
+                                {isMenuOpen && (
+                                    <div className="resolution-dropdown-menu">
+                                        <div className="resolution-dropdown-header">Resolution</div>
+                                        {availableResolutions.map((opt) => (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                className={`resolution-dropdown-item ${selectedResolution === opt.id ? 'active' : ''}`}
+                                                onClick={() => {
+                                                    onSelectResolution?.(opt.id);
+                                                    setIsMenuOpen(false);
+                                                }}
+                                            >
+                                                <span>{opt.label}</span>
+                                                {selectedResolution === opt.id && (
+                                                    <Check size={12} className="res-check-icon" />
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            {detectedWidth && detectedHeight && (
+                                <span className="stream-res-tag" title={`Active stream playback dimensions: ${detectedWidth}×${detectedHeight}`}>
+                                    {detectedWidth}×{detectedHeight}
+                                </span>
                             )}
-                        </div>
+                        </>
                     )}
                 </div>
                 <div className="video-res-right" title="Final renders will be cut directly from your full original resolution source video">
