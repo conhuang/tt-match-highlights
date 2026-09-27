@@ -19,11 +19,11 @@ COMMAND_ID=$(aws ssm send-command \
   --document-name "AWS-RunShellScript" \
   --parameters "commands=[
     \"aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY\",
-    \"docker image prune -a -f\",
     \"docker pull $ECR_REGISTRY/$ECR_REPOSITORY:latest\",
     \"docker stop tt_app || true\",
     \"docker rm tt_app || true\",
-    \"docker run -d --name tt_app --restart always -p 8000:80 -e STORAGE_TYPE=s3 -e S3_BUCKET_NAME=$S3_BUCKET_NAME -e DB_TYPE=dynamodb -e DATABASE_TYPE=dynamodb -e DYNAMODB_TABLE_NAME=$DYNAMODB_TABLE_NAME -e ALLOWED_BETA_EMAILS=\\\"$ALLOWED_BETA_EMAILS\\\" -e GOOGLE_CLIENT_ID=\\\"$GOOGLE_CLIENT_ID\\\" -e AWS_REGION=$AWS_REGION -e GIT_COMMIT_SHA=$GIT_SHA $ECR_REGISTRY/$ECR_REPOSITORY:latest\"
+    \"docker run -d --name tt_app --restart always -p 8000:80 -e STORAGE_TYPE=s3 -e S3_BUCKET_NAME=$S3_BUCKET_NAME -e DB_TYPE=dynamodb -e DATABASE_TYPE=dynamodb -e DYNAMODB_TABLE_NAME=$DYNAMODB_TABLE_NAME -e ALLOWED_BETA_EMAILS=\\\"$ALLOWED_BETA_EMAILS\\\" -e GOOGLE_CLIENT_ID=\\\"$GOOGLE_CLIENT_ID\\\" -e AWS_REGION=$AWS_REGION -e GIT_COMMIT_SHA=$GIT_SHA $ECR_REGISTRY/$ECR_REPOSITORY:latest\",
+    \"docker image prune -f\"
   ]" \
   --region "$AWS_REGION" \
   --query "Command.CommandId" --output text)
@@ -31,16 +31,22 @@ COMMAND_ID=$(aws ssm send-command \
 echo "📌 Submitted SSM Command ID: $COMMAND_ID"
 echo "⏳ Waiting for remote execution on EC2..."
 
-aws ssm wait command-executed \
-  --command-id "$COMMAND_ID" \
-  --instance-id "$EC2_INSTANCE_ID" \
-  --region "$AWS_REGION" || true
+STATUS="Pending"
+for i in {1..60}; do
+  STATUS=$(aws ssm get-command-invocation \
+    --command-id "$COMMAND_ID" \
+    --instance-id "$EC2_INSTANCE_ID" \
+    --region "$AWS_REGION" \
+    --query "Status" --output text 2>/dev/null || echo "Pending")
 
-STATUS=$(aws ssm get-command-invocation \
-  --command-id "$COMMAND_ID" \
-  --instance-id "$EC2_INSTANCE_ID" \
-  --region "$AWS_REGION" \
-  --query "Status" --output text)
+  if [ "$STATUS" = "Success" ]; then
+    break
+  elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then
+    break
+  fi
+  echo "Current status: $STATUS (waiting 10s... attempt $i/60)"
+  sleep 10
+done
 
 if [ "$STATUS" != "Success" ]; then
   echo "❌ Deployment command failed on EC2 with status: $STATUS"
