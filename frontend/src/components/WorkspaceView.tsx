@@ -65,6 +65,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
 
     const autoSave = useCallback(async (updatedEvents: MatchEvent[]) => {
+        onMatchUpdated({
+            ...currentMatch,
+            events: updatedEvents
+        });
         setSaveStatus('saving');
         try {
             const result = await saveMatchEvents(currentMatch.id, updatedEvents);
@@ -80,7 +84,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             console.error('Save failed:', err);
             setSaveStatus('failed');
         }
-    }, [currentMatch.id, currentMatch.video_url, currentMatch.rendered_video_url, onMatchUpdated]);
+    }, [currentMatch, onMatchUpdated]);
 
     const handleAddEvent = useCallback((newEvent: MatchEvent) => {
         const newEvents = [...currentMatch.events, newEvent];
@@ -151,16 +155,25 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         }
     };
 
-    const handleUpdateEventTimestamp = (index: number, newStart: number, newEnd: number, newWinner?: string | null) => {
+    const handleUpdateWinner = (index: number, newWinner: string | null) => {
+        const sorted = [...currentMatch.events].sort((a, b) => a.start - b.start || a.end - b.end);
+        if (sorted[index]) {
+            sorted[index] = { ...sorted[index], winner: newWinner };
+            onMatchUpdated({ ...currentMatch, events: sorted });
+            autoSave(sorted);
+        }
+    };
+
+    const handleUpdateEventTimestamp = (index: number, newStart: number, newEnd: number) => {
         const sorted = [...currentMatch.events].sort((a, b) => a.start - b.start || a.end - b.end);
         if (sorted[index]) {
             sorted[index] = {
                 ...sorted[index],
                 start: newStart,
-                end: newEnd,
-                winner: newWinner !== undefined ? newWinner : sorted[index].winner
+                end: newEnd
             };
             sorted.sort((a, b) => a.start - b.start || a.end - b.end);
+            onMatchUpdated({ ...currentMatch, events: sorted });
             autoSave(sorted);
         }
     };
@@ -297,6 +310,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                         onToggleHighlight={handleToggleHighlight}
                         onUpdateTimeout={handleUpdateTimeout}
                         onUpdateEventTimestamp={handleUpdateEventTimestamp}
+                        onUpdateWinner={handleUpdateWinner}
                         onDeleteEvent={handleDeleteEvent}
                         onSaveEvents={() => autoSave(currentMatch.events)}
                         saveStatus={saveStatus}

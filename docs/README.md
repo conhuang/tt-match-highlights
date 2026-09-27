@@ -104,6 +104,6 @@ For detailed diagrams and component flows, read **[architecture/ARCHITECTURE.md]
 8. rendering should be done by a separate service with a GPU, and the frontend should poll the status of the render. 
 9. pending start time needs to be in minutes:seconds format (mm:ss)
 10. extended auth sign in time (stay signed in for 30 days)
-11. 0-6 seconds = short rally, 6-10 = medium, 10+ = long rally
+11. in Match Analysis section: 0-6 seconds = short rally, 6-10 = medium, 10+ = long rally -> show serve and win ratio of the rallies and self serve win rate for each length of rally
 
 
