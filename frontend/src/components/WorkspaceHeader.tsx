@@ -75,7 +75,7 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ currentMatch, 
             <div className="title-wrapper">
                 {!isEditing ? (
                     <div className="title-with-edit">
-                        <div className="header-text-block">
+                        <div className="header-text-block clickable" onClick={() => setIsEditing(true)} title="Click to edit player names and match title">
                             <h1 className="workspace-title">{currentMatch.name} Workspace</h1>
                             <span className="workspace-subtitle">
                                 {currentMatch.player1} <span className="vs">vs</span> {currentMatch.player2}

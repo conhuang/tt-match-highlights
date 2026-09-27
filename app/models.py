@@ -79,6 +79,7 @@ class MatchUpdate(BaseModel):
     duration: Optional[float] = None
     width: Optional[int] = None
     height: Optional[int] = None
+    preview_video_filename: Optional[str] = None
 
 
 class Match(MatchBase):
@@ -92,6 +93,7 @@ class Match(MatchBase):
     video_filename: Optional[str] = Field(None, description="Filename of the uploaded raw video")
     original_filename: Optional[str] = Field(None, description="Original human-readable filename uploaded by the user")
     rendered_video_filename: Optional[str] = Field(None, description="Filename of the compiled highlights video output")
+    preview_video_filename: Optional[str] = Field(None, description="Filename of the 720p scaled-down preview video")
     fps: Optional[float] = Field(None, description="Frames per second of the source video")
     duration: Optional[float] = Field(None, description="Duration in seconds of the source video")
     width: Optional[int] = Field(None, description="Width in pixels of the source video")
@@ -100,6 +102,7 @@ class Match(MatchBase):
     renders: List[RenderJob] = Field(default_factory=list, description="List of generated renders for this match")
     video_url: Optional[str] = Field(None, description="Pre-signed or stream URL for the raw video")
     rendered_video_url: Optional[str] = Field(None, description="Pre-signed or stream URL for the rendered highlights video")
+    preview_video_url: Optional[str] = Field(None, description="Pre-signed or stream URL for the 720p scaled-down preview video")
     stats: Optional[dict] = Field(None, description="Computed real-time match analytics and insights")
 
 

@@ -28,10 +28,17 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     const [pendingStartTime, setPendingStartTime] = useState<number | null>(null);
     const [isRenderingJob, setIsRenderingJob] = useState<boolean>(false);
 
-    // Initial raw video URL
-    const rawVideoUrl = currentMatch.video_url || `/api/matches/${currentMatch.id}/stream`;
-    const [activeVideoSrc, setActiveVideoSrc] = useState<string>(rawVideoUrl);
+    // Initial video URL (prefer 720p scaled-down preview video)
+    const defaultPreviewUrl = currentMatch.preview_video_url || currentMatch.video_url || `/api/matches/${currentMatch.id}/preview`;
+    const [activeVideoSrc, setActiveVideoSrc] = useState<string>(defaultPreviewUrl);
     const [activePreviewUrl, setActivePreviewUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!activePreviewUrl) {
+            const nextPreviewUrl = currentMatch.preview_video_url || currentMatch.video_url || `/api/matches/${currentMatch.id}/preview`;
+            setActiveVideoSrc(nextPreviewUrl);
+        }
+    }, [currentMatch.preview_video_url, currentMatch.video_url, currentMatch.id, activePreviewUrl]);
 
     // Polling for active render jobs progress
     useEffect(() => {
@@ -196,7 +203,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             if (activePreviewUrl) {
                 const deleted = currentMatch.renders?.find(r => r.id === renderId);
                 if (deleted && deleted.video_url === activePreviewUrl) {
-                    setActiveVideoSrc(rawVideoUrl);
+                    setActiveVideoSrc(defaultPreviewUrl);
                     setActivePreviewUrl(null);
                 }
             }
@@ -224,7 +231,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     };
 
     const handleResetToOriginalVideo = () => {
-        setActiveVideoSrc(rawVideoUrl);
+        setActiveVideoSrc(defaultPreviewUrl);
         setActivePreviewUrl(null);
     };
 
@@ -252,7 +259,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
             <div className="workspace-grid">
                 <div className="workspace-left">
-                    <VideoSection ref={videoRef} src={activeVideoSrc} />
+                    <VideoSection
+                        ref={videoRef}
+                        src={activeVideoSrc}
+                        match={currentMatch}
+                        activePreviewUrl={activePreviewUrl}
+                    />
                     <StatusPanel pendingStartTime={pendingStartTime} />
                     <RenderHistory
                         renders={currentMatch.renders || []}

@@ -46,6 +46,7 @@ export function exportEventsToCSV(match: Match): void {
         'Server',
         'Winner',
         'Score Before',
+        'Score After',
         'Highlight',
         'Timeout'
     ];
@@ -72,6 +73,7 @@ export function exportEventsToCSV(match: Match): void {
             serverName,
             event.winner || 'None',
             event.score_before || '0-0',
+            event.score_after || event.score_before || '0-0',
             event.isHighlight ? 'Yes' : 'No',
             event.timeout_player || 'None'
         ]);

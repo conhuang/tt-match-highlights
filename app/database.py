@@ -67,7 +67,8 @@ class SQLiteRepository(DatabaseRepository):
                     duration REAL,
                     width INTEGER,
                     height INTEGER,
-                    rendered_video_filename TEXT
+                    rendered_video_filename TEXT,
+                    preview_video_filename TEXT
                 )
             """)
             existing_cols = [row[1] for row in conn.execute("PRAGMA table_info(matches)").fetchall()]
@@ -77,6 +78,7 @@ class SQLiteRepository(DatabaseRepository):
                 ("width", "INTEGER"),
                 ("height", "INTEGER"),
                 ("rendered_video_filename", "TEXT"),
+                ("preview_video_filename", "TEXT"),
                 ("events", "TEXT DEFAULT '[]'"),
                 ("renders", "TEXT DEFAULT '[]'"),
                 ("owner_id", "TEXT"),
@@ -96,9 +98,9 @@ class SQLiteRepository(DatabaseRepository):
                 INSERT OR REPLACE INTO matches (
                     id, owner_username, owner_id, name, player1, player2, first_server, created_at,
                     video_filename, original_filename, events, renders,
-                    fps, duration, width, height, rendered_video_filename
+                    fps, duration, width, height, rendered_video_filename, preview_video_filename
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     match_data["id"],
@@ -117,7 +119,8 @@ class SQLiteRepository(DatabaseRepository):
                     match_data.get("duration"),
                     match_data.get("width"),
                     match_data.get("height"),
-                    match_data.get("rendered_video_filename")
+                    match_data.get("rendered_video_filename"),
+                    match_data.get("preview_video_filename")
                 )
             )
             conn.commit()
@@ -216,7 +219,7 @@ class DynamoDBRepository(DatabaseRepository):
             "events": match_data.get("events") or [],
             "renders": match_data.get("renders") or []
         }
-        for attr in ("fps", "duration", "width", "height", "rendered_video_filename"):
+        for attr in ("fps", "duration", "width", "height", "rendered_video_filename", "preview_video_filename"):
             if attr in match_data and match_data[attr] is not None:
                 item[attr] = match_data[attr]
 

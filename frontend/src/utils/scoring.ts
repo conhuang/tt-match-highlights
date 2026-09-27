@@ -3,11 +3,12 @@ import { MatchEvent } from '../types';
 export interface ScoredMatchEvent extends MatchEvent {
     game: number;
     score_before: string;
+    score_after: string;
 }
 
 /**
  * Sorts events chronologically by start timestamp and dynamically computes 
- * running game scores (score_before) and game numbers for each event based on 
+ * running game scores (score_before and score_after) and game numbers for each event based on 
  * ITTF Table Tennis rules (11-point games, win by 2, reset to 0-0).
  */
 export function computeScoresAndGames(
@@ -31,6 +32,8 @@ export function computeScoresAndGames(
             p2Score += 1;
         }
 
+        const score_after = `${p1Score}-${p2Score}`;
+
         if ((p1Score >= 11 || p2Score >= 11) && Math.abs(p1Score - p2Score) >= 2) {
             p1Score = 0;
             p2Score = 0;
@@ -40,7 +43,8 @@ export function computeScoresAndGames(
         return {
             ...event,
             game,
-            score_before
+            score_before,
+            score_after
         };
     });
 }

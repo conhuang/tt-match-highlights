@@ -308,6 +308,64 @@
     color: var(--p2-pink-light);
 }
 
+.event-winner-select-badge {
+    appearance: none;
+    -webkit-appearance: none;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    padding: 0.2rem 1.4rem 0.2rem 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    transition: var(--transition);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.4rem center;
+}
+
+.event-winner-select-badge:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.event-winner-select-badge:focus {
+    border-color: var(--accent-blue-light);
+    box-shadow: 0 0 0 1px var(--accent-blue-light);
+}
+
+.event-winner-select-badge.p1 {
+    color: var(--p1-blue-light);
+    border-color: rgba(59, 130, 246, 0.35);
+    background-color: var(--p1-blue-glow);
+}
+
+.event-winner-select-badge.p1:hover {
+    border-color: var(--p1-blue);
+    background-color: rgba(59, 130, 246, 0.25);
+}
+
+.event-winner-select-badge.p2 {
+    color: var(--p2-pink-light);
+    border-color: rgba(244, 63, 94, 0.35);
+    background-color: var(--p2-pink-glow);
+}
+
+.event-winner-select-badge.p2:hover {
+    border-color: var(--p2-red);
+    background-color: rgba(244, 63, 94, 0.25);
+}
+
+.event-winner-select-badge.none {
+    color: var(--text-secondary);
+}
+
+.event-winner-select-badge option {
+    background: var(--card-bg-elevated);
+    color: var(--text-primary);
+}
+
 .event-details {
     display: flex;
     justify-content: space-between;

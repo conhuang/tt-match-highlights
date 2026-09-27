@@ -103,6 +103,7 @@ For detailed diagrams and component flows, read **[architecture/ARCHITECTURE.md]
 7. timeout player doesnt make a lot of sense attached to a point. it should be an event between points. 
 8. rendering should be done by a separate service with a GPU, and the frontend should poll the status of the render. 
 9. pending start time needs to be in minutes:seconds format (mm:ss)
-10. extended sign in time (stay signed in for 30 days)
+10. extended auth sign in time (stay signed in for 30 days)
+11. 0-6 seconds = short rally, 6-10 = medium, 10+ = long rally
 
 

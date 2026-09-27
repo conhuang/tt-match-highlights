@@ -82,7 +82,9 @@ export interface Match {
     video_filename?: string | null;
     original_filename?: string | null;
     rendered_video_filename?: string | null;
+    preview_video_filename?: string | null;
     video_url?: string | null;
+    preview_video_url?: string | null;
     rendered_video_url?: string | null;
     events: MatchEvent[];
     renders?: RenderJob[];

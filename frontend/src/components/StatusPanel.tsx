@@ -18,6 +18,13 @@ interface ShortcutCategory {
     isFullWidth?: boolean;
 }
 
+function formatMmSs(seconds: number): string {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    const pad = (num: number) => num.toString().padStart(2, '0');
+    return `${pad(m)}:${pad(s)}`;
+}
+
 export const StatusPanel: React.FC<StatusPanelProps> = ({ pendingStartTime }) => {
     const [isKeystrokesOpen, setIsKeystrokesOpen] = useState<boolean>(false);
 
@@ -61,7 +68,7 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({ pendingStartTime }) =>
                     <Clock size={16} className="status-icon" />
                     <span className="status-label">Pending Start Time:</span>
                     <span className={`status-value ${pendingStartTime !== null ? 'active' : ''}`}>
-                        {pendingStartTime !== null ? `${pendingStartTime.toFixed(1)}s` : 'None'}
+                        {pendingStartTime !== null ? formatMmSs(pendingStartTime) : 'None'}
                     </span>
                 </div>
                 <Button

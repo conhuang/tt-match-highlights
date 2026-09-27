@@ -155,14 +155,26 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
                                                 </button>
                                             </div>
                                             <div className="event-winner-wrapper">
-                                                <span className={`event-winner ${isP1 ? 'p1' : isP2 ? 'p2' : 'none'}`}>
-                                                    {event.winner ? `${event.winner} Wins Point` : 'No Winner'}
-                                                </span>
+                                                <select
+                                                    className={`event-winner-select-badge ${isP1 ? 'p1' : isP2 ? 'p2' : 'none'}`}
+                                                    value={event.winner || ''}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value || null;
+                                                        if (onUpdateEventTimestamp) {
+                                                            onUpdateEventTimestamp(originalIndex, event.start, event.end, val);
+                                                        }
+                                                    }}
+                                                    title="Click to select point winner"
+                                                >
+                                                    <option value={currentMatch.player1}>{currentMatch.player1} Wins Point</option>
+                                                    <option value={currentMatch.player2}>{currentMatch.player2} Wins Point</option>
+                                                    <option value="">No Winner</option>
+                                                </select>
                                                 <button
                                                     type="button"
                                                     className="icon-btn-base edit-timestamp-btn"
                                                     onClick={() => startEditing(originalIndex, event.start, event.end, event.winner)}
-                                                    title="Edit Event Details"
+                                                    title="Edit Timestamps"
                                                 >
                                                     <Edit3 size={12} />
                                                 </button>
@@ -255,7 +267,7 @@ export const SidebarLogs: React.FC<SidebarLogsProps> = ({
 
                                 <div className="event-details">
                                     <span className="event-score-info">
-                                        Game {event.game} • Score: {event.score_before}
+                                        Game {event.game} • Score: {event.score_after}
                                     </span>
                                     <button
                                         type="button"
