@@ -92,3 +92,17 @@ For detailed diagrams and component flows, read **[architecture/ARCHITECTURE.md]
 ### 🎨 UI Onboarding & Scoreboard Enhancements
 * **First-Time User UI Onboarding & Guide**: Add an inline interactive guide explaining how to log full matches, edit events, and render highlights.
 * **Active Server Indicator Carat on Scoreboard**: Add a visual serve indicator (e.g. `🏓`) next to the active server's name on the live video overlay.
+
+### Other small feature requests or bug fixes
+1. Points Log score for a given point should show the score after that point was completed. E.g. after point 1, the score is 1-0. Currently it shows the score before the point
+2. if i click a point in the point log, it jumps to the start time of the rally, but it should also stop at the end of the rally, allowing a preview of the full clip.
+3. showing the preview video should show the scaled down version (720p) instead of the original, but it can indicate the original resolution, from which the final render is cut from
+4. the preview video needs to show the start and end markers of each recorded point, and make them draggable to edit the start and end time of the clip.
+5. two clicks to edit the player name is too much. clicking it should show the options.
+6. keystrokes menu shouldnt say "player 1/2" it should have the actual names of the players.
+7. timeout player doesnt make a lot of sense attached to a point. it should be an event between points. 
+8. rendering should be done by a separate service with a GPU, and the frontend should poll the status of the render. 
+9. pending start time needs to be in minutes:seconds format (mm:ss)
+10. extended sign in time (stay signed in for 30 days)
+
+
