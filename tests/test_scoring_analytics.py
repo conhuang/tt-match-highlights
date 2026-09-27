@@ -1,6 +1,6 @@
 import unittest
 from app.models import Event
-from app.scoring import compute_match_analytics, determine_server
+from app.scoring import compute_match_analytics, determine_server, compute_scores_and_games
 
 class TestScoringAnalytics(unittest.TestCase):
     """Test suite for Table Tennis Match Analytics calculations."""
@@ -78,6 +78,24 @@ class TestScoringAnalytics(unittest.TestCase):
         self.assertEqual(stats["momentum"]["max_streak"][p2], 1)
         self.assertEqual(stats["momentum"]["avg_duration_sec"], 5.0)
         self.assertEqual(stats["momentum"]["longest_rally_sec"], 10.0)
+
+    def test_scoring_logic_score_after(self):
+        """
+        Verify that compute_scores_and_games properly derives score after points,
+        and advances game counts when reaching 11 points (win by 2).
+        """
+        p1 = "Jonsen"
+        p2 = "Ryan"
+        events = [
+            Event(start=1.0, end=3.0, winner="Jonsen"),
+            Event(start=4.0, end=6.0, winner="Ryan"),
+            Event(start=7.0, end=9.0, winner="Jonsen"),
+        ]
+        scored = compute_scores_and_games(events, p1, p2)
+        self.assertEqual(len(scored), 3)
+        self.assertEqual(scored[0].game, 1)
+        self.assertEqual(scored[1].game, 1)
+        self.assertEqual(scored[2].game, 1)
 
 if __name__ == "__main__":
     unittest.main()
